@@ -1,0 +1,152 @@
+name: Validate Assets
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fsfe/reuse-action@v4
+
+  asset-naming:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check asset naming conventions
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAIL=0
+
+          # No spaces in filenames
+          if find aircraft terrain missions audio ai -name "* *" 2>/dev/null | grep -q .; then
+            echo "ERROR: filenames with spaces:"
+            find aircraft terrain missions audio ai -name "* *"
+            FAIL=1
+          fi
+
+          # All filenames must be lowercase
+          if find aircraft terrain missions audio ai -name "*[A-Z]*" 2>/dev/null | grep -q .; then
+            echo "ERROR: uppercase filenames (Linux ext4 is case-sensitive):"
+            find aircraft terrain missions audio ai -name "*[A-Z]*"
+            FAIL=1
+          fi
+
+          # No Windows reserved name stems (cause hangs/errors on Windows)
+          while IFS= read -r f; do
+            stem=$(basename "$f" | sed 's/\.[^.]*$//')
+            if echo "$stem" | grep -iqE '^(con|nul|prn|aux|com[1-9]|lpt[1-9])$'; then
+              echo "ERROR: Windows reserved filename: $f"
+              FAIL=1
+            fi
+          done < <(find aircraft terrain missions audio ai -type f 2>/dev/null)
+
+          # OGG files only under audio/
+          if find . -name "*.ogg" -not -path "./audio/*" 2>/dev/null | grep -q .; then
+            echo "ERROR: .ogg files outside audio/:"
+            find . -name "*.ogg" -not -path "./audio/*"
+            FAIL=1
+          fi
+
+          # Lua files only under ai/
+          if find . -name "*.lua" -not -path "./ai/*" 2>/dev/null | grep -q .; then
+            echo "ERROR: .lua files outside ai/:"
+            find . -name "*.lua" -not -path "./ai/*"
+            FAIL=1
+          fi
+
+          # Backslash path separators in TOML (Windows paths appear as \\ in source)
+          if find aircraft terrain missions -name "*.toml" 2>/dev/null | \
+              xargs grep -lP '\\\\[A-Za-z0-9_-]' 2>/dev/null | grep -q .; then
+            echo "ERROR: backslash path separators in TOML (use forward slashes):"
+            find aircraft terrain missions -name "*.toml" | \
+              xargs grep -nP '\\\\[A-Za-z0-9_-]'
+            FAIL=1
+          fi
+
+          # Backslash path separators in YAML
+          if find missions -name "*.yaml" 2>/dev/null | \
+              xargs grep -lP '\\[A-Za-z0-9_-]' 2>/dev/null | grep -q .; then
+            echo "ERROR: backslash path separators in YAML (use forward slashes):"
+            find missions -name "*.yaml" | \
+              xargs grep -nP '\\[A-Za-z0-9_-]'
+            FAIL=1
+          fi
+
+          # Aircraft directory layout: <name>.glb must pair with <name>.toml
+          for dir in aircraft/*/; do
+            [ -d "$dir" ] || continue
+            name=$(basename "$dir")
+            if [ -f "${dir}${name}.glb" ] && [ ! -f "${dir}${name}.toml" ]; then
+              echo "ERROR: ${dir}${name}.glb has no matching .toml"
+              FAIL=1
+            fi
+          done
+
+          [ $FAIL -eq 0 ] && echo "All naming checks passed."
+          exit $FAIL
+
+  flight-model-validate:
+    # Requires fighters-legacy#109.
+    # When fighters-legacy#109 ships: set continue-on-error to false and add this job
+    # to branch protection required checks.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find changed TOML flight models
+        id: changed
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            -- 'aircraft/**/*.toml' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+      - name: Download validate-flight-model from fighters-legacy release
+        if: steps.changed.outputs.files != ''
+        run: |
+          gh release download --repo jomkz/fighters-legacy \
+            --pattern "validate-flight-model-linux" \
+            --output validate-flight-model 2>/dev/null || {
+            echo "validate-flight-model not yet in fighters-legacy releases (blocked on #109); skipping."
+            exit 0
+          }
+          chmod +x validate-flight-model
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run flight model validator
+        if: steps.changed.outputs.files != '' && hashFiles('validate-flight-model') != ''
+        run: ./validate-flight-model ${{ steps.changed.outputs.files }}
+
+  mission-validate:
+    # Requires fighters-legacy#109 — same pattern as flight-model-validate.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find changed mission YAML files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            -- 'missions/**/*.yaml' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+      - name: Download validate-mission from fighters-legacy release
+        if: steps.changed.outputs.files != ''
+        run: |
+          gh release download --repo jomkz/fighters-legacy \
+            --pattern "validate-mission-linux" \
+            --output validate-mission 2>/dev/null || {
+            echo "validate-mission not yet in fighters-legacy releases (blocked on #109); skipping."
+            exit 0
+          }
+          chmod +x validate-mission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run mission validator
+        if: steps.changed.outputs.files != '' && hashFiles('validate-mission') != ''
+        run: ./validate-mission ${{ steps.changed.outputs.files }}

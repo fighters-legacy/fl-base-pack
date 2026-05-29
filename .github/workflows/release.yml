@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build mod archives
+        run: |
+          VERSION="${{ github.ref_name }}"
+          mkdir -p fl-base-pack
+          # Copy content directories into fl-base-pack/ so users can extract directly
+          # into mods/ and get mods/fl-base-pack/. Exclude .gitkeep (Git scaffolding,
+          # not engine assets).
+          rsync -a --exclude='.gitkeep' \
+            aircraft/ fl-base-pack/aircraft/
+          rsync -a --exclude='.gitkeep' \
+            terrain/ fl-base-pack/terrain/
+          rsync -a --exclude='.gitkeep' \
+            missions/ fl-base-pack/missions/
+          rsync -a --exclude='.gitkeep' \
+            audio/ fl-base-pack/audio/
+          rsync -a --exclude='.gitkeep' \
+            ai/ fl-base-pack/ai/
+          cp manifest.toml fl-base-pack/
+          tar -czf "fl-base-pack-${VERSION}.tar.gz" fl-base-pack/
+          zip -r "fl-base-pack-${VERSION}.zip" fl-base-pack/
+
+      - name: Publish GitHub Release
+        run: |
+          VERSION="${{ github.ref_name }}"
+          gh release create "$VERSION" \
+            "fl-base-pack-${VERSION}.tar.gz" \
+            "fl-base-pack-${VERSION}.zip" \
+            --title "fl-base-pack ${VERSION}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

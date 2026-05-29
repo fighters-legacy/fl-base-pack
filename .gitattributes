@@ -1,0 +1,16 @@
+# Text — always LF
+*.toml    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.lua     text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.sh      text eol=lf
+
+# Binary — never touch
+*.glb     binary
+*.png     binary
+*.ogg     binary
+*.mid     binary
+*.ktx2    binary
+*.dds     binary

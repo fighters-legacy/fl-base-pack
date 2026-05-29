@@ -1,0 +1,7 @@
+[mod]
+name        = "fl-base-pack"
+id          = "fl-base-pack"
+version     = "0.1.0"
+engine-api  = "1.0"
+priority    = 50
+depends     = []
