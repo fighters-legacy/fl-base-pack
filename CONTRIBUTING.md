@@ -68,14 +68,30 @@ aircraft/
 exactly. The TOML flight model validator (CI job `flight-model-validate`) will check all fields
 and ranges once fighters-legacy#109 ships.
 
-### `terrain/<name>/`
+### `terrain/<id>/`
+
+Terrain uses a streaming chunk format with three LOD levels. Each chunk is a 513×513 16-bit greyscale PNG covering 15,360 m. Chunks are organized by terrain ID, LOD level, and grid coordinates:
 
 ```
 terrain/
-  nevada/
-    nevada.png       ← heightmap (greyscale PNG, power-of-two resolution)
-    nevada.json      ← surface class definitions (streaming chunk format)
+  world/
+    lod0/
+      chunk_0000_0000.png   ← LOD 0 (513×513, full resolution, ~46 km ring)
+      chunk_0001_0000.png
+      ...
+    lod1/
+      chunk_0000_0000.png   ← LOD 1 (257×257, ~77 km ring)
+      ...
+    lod2/
+      chunk_0000_0000.png   ← LOD 2 (129×129, ~107 km ring)
+      ...
 ```
+
+- **Chunk naming**: `chunk_<x>_<y>.png` with 4-digit zero-padded coordinates
+- **Terrain ID**: `"world"` is the canonical global terrain; theater packs override individual chunks at higher mod priority via `IContentPack::resolveTerrainChunk()`
+- **Surface class map**: companion JSON at `terrain/<id>/surface.json` — maps pixel brightness ranges to surface class IDs (grass, water, urban, etc.) with associated `*.ktx2` textures
+
+See [terrain format documentation](https://github.com/jomkz/fighters-legacy/blob/main/docs/modding/formats.md#terrain) for full chunk format spec and the `tools/gen_terrain_chunks.py` tool for converting GeoTIFF/DEM sources.
 
 ### `missions/<name>.yaml`
 
