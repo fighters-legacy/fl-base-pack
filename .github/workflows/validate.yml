@@ -96,63 +96,68 @@ jobs:
           exit $FAIL
 
   flight-model-validate:
-    # Requires fighters-legacy#109.
-    # When fighters-legacy#109 ships: set continue-on-error to false and add this job
-    # to branch protection required checks.
     runs-on: ubuntu-latest
+    # SOFT, ON PURPOSE, AND NOT FOR LONG. The validator in the latest engine release (v0.3.1)
+    # predates fighters-legacy#823, which taught it that `aero.drag_polar.k = 0.0` is not merely
+    # legal but REQUIRED of an aircraft that authors a `cd_table`: the table is TOTAL clean drag,
+    # so a non-zero k would double-count the induced term. The F-5E is exactly such an aircraft,
+    # and v0.3.1's validator therefore rejects our only aeroplane for being correct. Engine main
+    # already has the fix.
+    #
+    # When an engine release ships a post-#823 validate-flight-model: delete this line and add
+    # `flight-model-validate` to the branch protection required checks. That is all that is left
+    # of #7 for this job.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Find changed TOML flight models
+      - name: Find changed flight models
         id: changed
+        shell: bash
         run: |
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
-            -- 'aircraft/**/*.toml' | tr '\n' ' ')
+          set -euo pipefail
+          # A `*.expect.toml` sits beside the flight model it describes and states the performance
+          # that model must reproduce. It is a test fixture, not a flight model: it has no
+          # [flight_model] table and the validator rejects it on sight. The obvious
+          # `aircraft/**/*.toml` glob sweeps it in and would fail every aircraft PR on a file that
+          # is doing its job.
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
+            | { grep -E '\.toml$' || true; } \
+            | { grep -v -E '\.expect\.toml$' || true; } \
+            | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
-      - name: Download validate-flight-model from fighters-legacy release
+          echo "Flight models to validate: ${FILES:-(none)}"
+      - name: Fetch validators
         if: steps.changed.outputs.files != ''
-        run: |
-          gh release download --repo jomkz/fighters-legacy \
-            --pattern "validate-flight-model-linux" \
-            --output validate-flight-model 2>/dev/null || {
-            echo "validate-flight-model not yet in fighters-legacy releases (blocked on #109); skipping."
-            exit 0
-          }
-          chmod +x validate-flight-model
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-flight-model
       - name: Run flight model validator
-        if: steps.changed.outputs.files != '' && hashFiles('validate-flight-model') != ''
-        run: ./validate-flight-model ${{ steps.changed.outputs.files }}
+        if: steps.changed.outputs.files != ''
+        run: validate-flight-model ${{ steps.changed.outputs.files }}
 
   mission-validate:
-    # Requires fighters-legacy#109 — same pattern as flight-model-validate.
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Find changed mission YAML files
+      - name: Find changed missions
         id: changed
+        shell: bash
         run: |
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
-            -- 'missions/**/*.yaml' | tr '\n' ' ')
+          set -euo pipefail
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- missions \
+            | { grep -E '\.ya?ml$' || true; } \
+            | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
-      - name: Download validate-mission from fighters-legacy release
+          echo "Missions to validate: ${FILES:-(none)}"
+      - name: Fetch validators
         if: steps.changed.outputs.files != ''
-        run: |
-          gh release download --repo jomkz/fighters-legacy \
-            --pattern "validate-mission-linux" \
-            --output validate-mission 2>/dev/null || {
-            echo "validate-mission not yet in fighters-legacy releases (blocked on #109); skipping."
-            exit 0
-          }
-          chmod +x validate-mission
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-mission
       - name: Run mission validator
-        if: steps.changed.outputs.files != '' && hashFiles('validate-mission') != ''
-        run: ./validate-mission ${{ steps.changed.outputs.files }}
+        if: steps.changed.outputs.files != ''
+        run: validate-mission ${{ steps.changed.outputs.files }}

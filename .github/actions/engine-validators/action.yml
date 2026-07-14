@@ -1,0 +1,70 @@
+name: Engine validators
+description: >
+  Fetch the asset validators from the latest fighters-legacy release and put them on PATH.
+
+inputs:
+  require:
+    description: >
+      Space-separated validator names that must be present. The action fails if any is missing,
+      because a validator that cannot be found is a gate that is not running.
+    required: true
+  repo:
+    description: Engine repository to take the release from.
+    required: false
+    default: jomkz/fighters-legacy
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch validators from the latest engine release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ inputs.repo }}
+        REQUIRE: ${{ inputs.require }}
+      run: |
+        set -euo pipefail
+
+        # The validators are NOT standalone release assets. `cmake --install` packages them inside
+        # the platform archive (fighters-legacy#814), so they arrive at the root of
+        # fighters-legacy-linux.zip. The first version of this workflow asked for an asset named
+        # `validate-flight-model-linux`, which has never existed at any tag, and then swallowed the
+        # 404 with `|| { echo skipping; exit 0; }`. Both gates reported success on every PR without
+        # once running -- including the three PRs that landed the F-5E.
+        #
+        # So: no fallback, no `|| true`, no soft landing. If the validator cannot be obtained, that
+        # is a failure. A gate that cannot prove it ran has not run.
+        dir="$RUNNER_TEMP/engine-validators"
+        mkdir -p "$dir"
+
+        # Resolve the tag first and download it by name, rather than letting two `gh release`
+        # calls in one run disagree about what "latest" means.
+        #
+        # The tag is also the ONLY useful provenance we get: the validators all report
+        # `--version 0.0.1`, which is a constant and cannot distinguish a build that knows about a
+        # given rule from one that predates it. When a gate fails, "which build said so" is the
+        # first question, and only the release tag answers it.
+        tag=$(gh release view --repo "$REPO" --json tagName -q .tagName)
+        echo "Engine release: $REPO @ $tag"
+
+        gh release download "$tag" --repo "$REPO" \
+          --pattern 'fighters-legacy-linux.zip' --output "$dir/engine.zip"
+        unzip -oq "$dir/engine.zip" -d "$dir" 'validate-*'
+
+        missing=0
+        for v in $REQUIRE; do
+          if [ ! -f "$dir/$v" ]; then
+            echo "::error::$v is not in $REPO @ $tag."
+            missing=1
+            continue
+          fi
+          chmod +x "$dir/$v"
+          echo "  $v ($tag)"
+        done
+
+        if [ "$missing" -ne 0 ]; then
+          echo "::error::Required validators are missing from the release. Not skipping -- failing."
+          exit 1
+        fi
+
+        echo "$dir" >> "$GITHUB_PATH"
