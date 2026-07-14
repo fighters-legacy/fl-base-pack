@@ -137,6 +137,49 @@ jobs:
         if: steps.changed.outputs.files != ''
         run: validate-flight-model ${{ steps.changed.outputs.files }}
 
+  mesh-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find changed meshes
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `<id>_cockpit.glb` is EXCLUDED, and that is not a convenience -- it is a real conflict
+          # between three sources of truth, recorded here so nobody "fixes" it by deleting this
+          # filter:
+          #
+          #   - docs/modding/3d-models.md says a cockpit file carries `camera_anchor` AND the
+          #     instrument panel geometry;
+          #   - the engine renders no cockpit interior at all today, so ours is a camera-anchor
+          #     empty and nothing else;
+          #   - validate-mesh rejects any file with no meshes ("no meshes found"), so it rejects
+          #     the very file the engine's own convention asks us to ship.
+          #
+          # Filed as fighters-legacy#844. When the validator learns the camera-anchor convention,
+          # drop this filter.
+          #
+          # LOD siblings are not listed either: validate-mesh discovers and validates them itself
+          # from the base mesh, so naming them would only validate them twice.
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
+            | { grep -E '\.glb$' || true; } \
+            | { grep -v -E '_cockpit\.glb$' || true; } \
+            | { grep -v -E '_lod[0-9]+\.glb$' || true; } \
+            | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "Meshes to validate: ${FILES:-(none)}"
+      - name: Fetch validators
+        if: steps.changed.outputs.files != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-mesh
+      - name: Run mesh validator
+        if: steps.changed.outputs.files != ''
+        run: validate-mesh ${{ steps.changed.outputs.files }}
+
   mission-validate:
     runs-on: ubuntu-latest
     steps:
