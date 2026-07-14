@@ -49,8 +49,11 @@ import math
 import sys
 from pathlib import Path
 
-import bmesh
+# bpy must be imported before bmesh/mathutils: under the pip `bpy` wheel (used by the determinism
+# CI job) importing bmesh first raises ModuleNotFoundError, because bpy's init registers the sibling
+# modules. The Blender binary does not care about order; the wheel does.
 import bpy
+import bmesh
 from mathutils import Vector
 
 # Shared procedural-mesh helpers. The library lives in the repo, not on Blender's Python path, so
