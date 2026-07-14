@@ -263,14 +263,58 @@ qualitative claim. Note also that NASA's loading 4 (wing stores) has **Ixx 4.7×
 which is the real reason a loaded F-5E feels so different in roll, and which the engine cannot
 currently express.
 
-### Why the drag model is a table, not a polar
+## Drag — a table, not a polar, and why
 
 The engine's original drag model was a strictly parabolic polar (`cd0 + k·CL²`). The F-5E's published
 Ps ladder **cannot be fitted by any value of `k`**: the implied induced-drag coefficient rises by a
 factor of **3.5×** from 1 G to max lift, because a real wing's drag grows far faster than CL² as it
 approaches stall. Fitting `k` to cruise gives an aircraft that sustains 3.9 G where the manual says
-3.3; fitting it to the turn overstates cruise drag and wrecks range.
+3.3; fitting it to the turn overstates cruise drag and wrecks range. That is what motivated
+`[aero.cd_table]` (engine #820) — and it is also the form NASA publishes real aero data in.
 
-This is what motivated `[aero.cd_table]` (engine issue #820) — a `CD(α, Mach)` table, which is also
-the form NASA publishes real aerodynamic data in. The F-5E's table is fitted to the TO points in
-`f5e.expect.toml`.
+### The fit is a measurement, not a tuning
+
+`Ps = V·(T − D)/W`, and at **n = 3.3 the manual states Ps = 0**, which means **D = T exactly** there.
+So the ladder pins the *shape* of CD(CL) **with no thrust assumption whatsoever** — only its absolute
+level rides on T, and that is one scalar, not a curve.
+
+Least squares over the five points, with `cd0` anchored at SP-468's published 0.0200:
+
+    CD = 0.0200 + 0.0792·CL² + 0.1223·CL⁴          (within 2.9% at all five points)
+
+| n | CL | CD fitted | CD published | err | best-fit parabola |
+|---|---|---|---|---|---|
+| 1.0 | 0.241 | 0.02503 | 0.02577 | 2.9% | 0.02892 |
+| 2.0 | 0.483 | 0.04511 | 0.04480 | 0.7% | 0.05567 |
+| 3.3 | 0.797 | 0.11955 | 0.11710 | 2.1% | 0.11711 |
+| 4.0 | 0.966 | 0.20024 | 0.20273 | 1.2% | 0.16268 |
+| 5.2 | 1.255 | 0.44866 | 0.44819 | 0.1% | 0.26113 |
+
+**At max lift the real jet's drag is ~70% above what the best parabola predicts.** That gap is the
+whole reason `[aero.cd_table]` exists.
+
+### An independent cross-check that could have failed and did not
+
+The fitted thrust level implies **T_ab(15,000 ft, M 0.60) = 29.19 kN**. The thrust deck — built from
+*published sea-level static thrust and a standard turbojet lapse*, a different document and a
+different method entirely — gives **29.25 kN**. **0.2% apart.** The drag model and the thrust model
+were derived independently and they agree.
+
+### Two corrections beyond the raw fit, both physical
+
+**Separation drag is keyed to the lift fraction, not to CL.** The CL⁴ term is not classical induced
+drag — it is the drag rise as the wing nears *its own* stall. CL_max falls with Mach (1.255 at M 0.6,
+~1.10 at M 0.9), so at high Mach the wing is much closer to stalling at the same CL. The quartic term
+is therefore written in `λ = CL / CL_max(M)`, which reduces exactly to the fitted form at M 0.60.
+
+**Past the stall, drag keeps rising while lift collapses.** A naive `CD = f(CL)` would have drag
+*follow lift back down* — claiming a fully stalled wing is cleaner than one at its lift peak, which
+would let a departed aircraft accelerate. The post-stall region is **E** (no published F-5E post-stall
+drag exists), but monotonic-rising is the only defensible shape and monotonic-falling is simply wrong.
+
+### Validation against the published top speed
+
+Scanning the full envelope at 36,000 ft, clean, afterburner: the model reaches **M 1.619** against the
+T.O.'s published **1.63** — **0.7%**. (`fm-trim` currently reports this as "cannot hold level flight"
+because of engine bug #825, which stops its speed search at the back side of the power curve. The
+model is right; the tool is not, and the fix is filed.)

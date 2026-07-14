@@ -1,281 +1,89 @@
-# F-5E Tiger II — published performance targets.
+# F-5E Tiger II — published performance gate.
 #
-# Consumed by `fm-trim --expect aircraft/f5e/f5e.expect.toml` (engine issue #817), which trims
-# f5e.toml at each point below and fails CI if the model does not reproduce the published number
-# within tolerance.
+# Consumed by `fm-trim --expect aircraft/f5e/f5e.expect.toml`. This is the mechanised form of
+# fighters-legacy#54's Phase-4 acceptance criterion: "flight model stall speed + fuel burn match
+# design spec for each aircraft type."
 #
-# This file is the mechanised form of fighters-legacy#54's Phase 4 acceptance gate:
-#   "flight model stall speed + fuel burn match design spec for each aircraft type."
+# EVERY value is read from a primary source (T.O. 1F-5E-1). Nothing is fitted to make the gate pass
+# and nothing comes from a flight simulator. Provenance: SOURCES.md.
 #
-# EVERY value here is read from a primary source. Nothing is fitted, and nothing is copied from a
-# flight simulator. Provenance for each row is in SOURCES.md. If a number is not published, it is
-# not in this file -- an empty gate is honest; an invented one is not.
-
-[meta]
-aircraft = "f5e"
-source   = "T.O. 1F-5E-1, USAF Series F-5E/F Flight Manual, 1 Aug 1978"
-
-# ---------------------------------------------------------------------------------------------
-# Reference masses. The engine's effective mass is mass_kg + fuel + stores, so these are the total
-# flying weights fm-trim should trim at.
-# ---------------------------------------------------------------------------------------------
-[mass]
-# The configuration ALL of the TO's turn and Ps charts are flown at:
-#   "2x AIM-9, full 20mm ammunition, one-half internal fuel, maximum thrust"
-#     operating empty                    10,650 lb   (SOURCES.md)
-#   + half internal fuel                  2,200 lb   (TO: 4,400 lb full usable)
-#   + 560 rounds 20mm                       300 lb
-#   + 2x AIM-9                              380 lb
-#                                       -----------
-#                                        13,530 lb  = 6137 kg
+# ── WHAT THIS GATE CANNOT YET CHECK, AND WHY THAT MATTERS ────────────────────────────────────────
+# fm-trim's TrimPoint is {altitude_m, mass_kg}. It has no Mach and no load factor, and its
+# `sustained_turn_deg_s` is the turn MAXIMISED OVER SPEED. But every published F-5E turn number is
+# at a SPECIFIC Mach (9.9 deg/s at M0.75; 9.1 deg/s at M0.60), and neither is the maximum. There is
+# also no Ps metric.
 #
-# This weight is not published directly -- it is derived. But it is strongly corroborated: it is the
-# ONLY free parameter in the turn kinematics below, and it reproduces seven independent published
-# numbers (turn rate and radius, at two Mach numbers, at four load factors) to within 1.8%. See the
-# `kinematic_crosscheck` table at the bottom of this file.
-combat_kg = 6137
+# So the four-point Ps ladder -- the single richest drag constraint this aircraft has, the data that
+# proved the parabolic polar could not work (engine #820), and the data that [aero.cd_table] is
+# FITTED TO -- cannot be expressed as a gate at all. It is checked offline by derive.py instead.
+# That is a real hole: the model's most load-bearing calibration is not the one CI protects.
+# Filed as an fm-trim follow-up. The full record is kept at the bottom of this file so that when
+# fm-trim grows `mach` and `load_factor`, the rows are ready to lift straight in.
 
-# Max-speed charts are flown clean: "launcher rails only, no pylons", one-half internal fuel.
-#   10,650 lb + 2,200 lb = 12,850 lb = 5829 kg
-clean_half_fuel_kg = 5829
+[[expect]]
+metric     = "stall_speed_1g_mps"
+altitude_m = 0.0
+mass_kg    = 6123           # 13,500 lb, clean (0/0 flaps, gear up), 15% MAC
+expected   = 67.39          # 131 KIAS
+tolerance  = 2.1            # m/s -- the nomogram trace is +/-3 KIAS
+# T.O. 1F-5E-1 Fig. 6-1 (stall-speed nomogram; basis: flight test, idle thrust), traced.
+# Cross-validated three ways: back-solved CL_max is constant at 1.253/1.248/1.255 across three
+# gross weights (Vs ~ sqrt(W) falls OUT of the trace, it was not imposed); it agrees with the
+# CL_max = 1.255 derived independently from the max-lift TURN point, a different chart at a
+# different condition, to 0.4%; and the manual's separate landing chart gives approach ~= 1.28 Vs.
 
-# ---------------------------------------------------------------------------------------------
-# Turn performance -- the strongest constraints in the whole data set, and the numbers that most
-# define how this aircraft feels in a fight.
+[[expect]]
+metric     = "stall_speed_1g_mps"
+altitude_m = 0.0
+mass_kg    = 4990           # 11,000 lb, clean, 15% MAC
+expected   = 60.70          # 118 KIAS
+tolerance  = 2.1
+# Two weights deliberately, not one: together they test that the model gets Vs ~ sqrt(W) right,
+# rather than hitting a single number by luck.
+
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 10973.0       # 36,000 ft
+mass_kg     = 5829          # clean, "launcher rails only, no pylons", 1/2 internal fuel
+afterburner = true
+expected    = 1.63
+tolerance   = 0.05
+# T.O. 1F-5E-1, "Effect of Pylons on Combat Performance". The ONLY supersonic data point in the
+# entire published record -- which is why cd_wave's shape above M ~0.9 is an estimate and should
+# not be trusted beyond this one anchor.
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# HELD BACK, awaiting an fm-trim that can express them. NOT deleted: these are the strongest
+# numbers we have, and losing them from the record would be worse than losing them from the gate.
 #
-# TO 1F-5E-1, worked sample problems, 15,000 ft (4572 m), maximum thrust, combat_kg.
-# ---------------------------------------------------------------------------------------------
-[[point]]
-name       = "sustained turn, 15k ft, M0.75"
-metric     = "sustained_turn_g"     # load factor at which Ps = 0
-altitude_m = 4572
-mach       = 0.75
-mass       = "combat"
-thrust     = "max"                  # afterburner
-expect     = 4.3
-tolerance  = 0.15                   # G
-source     = "TO 1F-5E-1 sample: 4.3 G, 9.9 deg/s, radius 4,700 ft"
-
-[[point]]
-name       = "sustained turn rate, 15k ft, M0.75"
-metric     = "sustained_turn_deg_s"
-altitude_m = 4572
-mach       = 0.75
-mass       = "combat"
-thrust     = "max"
-expect     = 9.9
-tolerance  = 0.4
-source     = "TO 1F-5E-1 sample"
-
-[[point]]
-name       = "sustained turn, 15k ft, M0.60"
-metric     = "sustained_turn_g"
-altitude_m = 4572
-mach       = 0.60
-mass       = "combat"
-thrust     = "max"
-expect     = 3.3
-tolerance  = 0.15
-source     = "TO 1F-5E-1 sample: 3.3 G, 9.1 deg/s"
-
-[[point]]
-name       = "max-lift load factor, 15k ft, M0.60"
-metric     = "max_lift_g"           # lift-limited, NOT structurally limited
-altitude_m = 4572
-mach       = 0.60
-mass       = "combat"
-thrust     = "max"
-expect     = 5.2
-tolerance  = 0.2
-source     = "TO 1F-5E-1 sample: 5.2 G, 14.8 deg/s, Ps = -870 ft/s"
-# This point is what pins CL_max. It is pure lift -- no drag or thrust assumption enters:
-#   CL_max = n*W/(q*S) = 5.2 * 60,184 N / (14,411 Pa * 17.30 m^2) = 1.255
-
-[[point]]
-name       = "instantaneous turn rate at the G limit, 15k ft, M0.75"
-metric     = "instant_turn_deg_s"
-altitude_m = 4572
-mach       = 0.75
-mass       = "combat"
-expect     = 17.0
-tolerance  = 0.6
-source     = "TO 1F-5E-1 sample: 17 deg/s, radius 2,700 ft, at the 7.33 G limit"
-# At M0.75 the 7.33 G structural limit sits BELOW CL_max (CL there = 1.13 < 1.255), so this point
-# is structurally limited, not lift limited -- which is precisely what makes corner speed exist
-# where the manual's construction puts it.
-
-# ---------------------------------------------------------------------------------------------
-# Specific excess power. This ladder is what proved the parabolic drag polar could not represent
-# this aircraft (engine issue #820) -- the implied induced drag rises 3.5x from 1 G to max lift.
-# It is now the primary fit target for [aero.cd_table].
+# Ps ladder — 15,000 ft, M 0.60, max thrust, 6137 kg (2x AIM-9 + full ammo + 1/2 fuel).
+# This is what [aero.cd_table] is fitted to (see derive.py); it needs `mach` + `load_factor` + a
+# `ps_mps` metric.
+#     load factor 1.0  ->  Ps = +240 ft/s
+#     load factor 2.0  ->  Ps = +190 ft/s
+#     load factor 3.3  ->  Ps =    0 ft/s   (sustained -- and D = T exactly here, which is what
+#                                            lets the ladder pin CD(CL) with no thrust assumption)
+#     load factor 4.0  ->  Ps = -225 ft/s
+#     load factor 5.2  ->  Ps = -870 ft/s   (max lift -- this point pins CL_max = 1.255)
 #
-# All at 15,000 ft, M 0.60, maximum thrust, combat_kg.
-# ---------------------------------------------------------------------------------------------
-[[point]]
-name       = "Ps at 1 G, 15k ft, M0.60"
-metric     = "ps_ft_s"
-altitude_m = 4572
-mach       = 0.60
-load_factor = 1.0
-mass       = "combat"
-thrust     = "max"
-expect     = 240.0
-tolerance  = 15.0
-source     = "TO 1F-5E-1 sample"
-
-[[point]]
-name       = "Ps at 2 G, 15k ft, M0.60"
-metric     = "ps_ft_s"
-altitude_m = 4572
-mach       = 0.60
-load_factor = 2.0
-mass       = "combat"
-thrust     = "max"
-expect     = 190.0
-tolerance  = 15.0
-source     = "TO 1F-5E-1 sample"
-
-[[point]]
-name       = "Ps at 4 G, 15k ft, M0.60"
-metric     = "ps_ft_s"
-altitude_m = 4572
-mach       = 0.60
-load_factor = 4.0
-mass       = "combat"
-thrust     = "max"
-expect     = -225.0
-tolerance  = 25.0
-source     = "TO 1F-5E-1 sample"
-
-[[point]]
-name       = "Ps at max lift (5.2 G), 15k ft, M0.60"
-metric     = "ps_ft_s"
-altitude_m = 4572
-mach       = 0.60
-load_factor = 5.2
-mass       = "combat"
-thrust     = "max"
-expect     = -870.0
-tolerance  = 60.0
-source     = "TO 1F-5E-1 sample"
-
-# ---------------------------------------------------------------------------------------------
-# Maximum level speed. The only supersonic constraint in the entire data set, which is why the
-# transonic drag rise and the supersonic end of the thrust deck are the least certain parts of the
-# model. Do not read more confidence into cd_table above M ~0.9 than this one point supports.
-# ---------------------------------------------------------------------------------------------
-[[point]]
-name       = "max level Mach, 36k ft, clean"
-metric     = "max_level_mach"
-altitude_m = 10973                  # 36,000 ft
-mass       = "clean_half_fuel"
-thrust     = "max"
-expect     = 1.63
-tolerance  = 0.05
-source     = "TO 1F-5E-1: 'launcher rails only, no pylons', 1/2 internal fuel, 36,000 ft"
-
-[[point]]
-name       = "max level Mach, 36k ft, with tip missiles"
-metric     = "max_level_mach"
-altitude_m = 10973
-mass       = "combat"
-thrust     = "max"
-stores     = ["fl-base:aim9p", "fl-base:aim9p"]
-expect     = 1.57
-tolerance  = 0.05
-source     = "TO 1F-5E-1: 'launcher rails + tip missiles, no pylons'"
-# Two AIM-9s cost 0.06 Mach. This is the ONLY published check on whether the store drag model
-# (EntityDef hardpoints -> WeaponLoad.drag_factor -> PayloadEffect, engine #812) is calibrated.
-# It is the reason weapon drag_factor cannot simply be invented.
-
-# ---------------------------------------------------------------------------------------------
-# Structural limits. Published outright, and configuration-dependent rather than weight-dependent
-# in this manual -- worth preserving if [aero.limits] ever grows per-config values (engine #816).
-# ---------------------------------------------------------------------------------------------
-[[point]]
-name      = "symmetric G limit, clean / tip rails"
-metric    = "max_g_structural"
-expect    = 7.33
-tolerance = 0.0
-source    = "TO 1F-5E-1 Section V"
-
-[[point]]
-name      = "negative G limit, clean / tip rails"
-metric    = "min_g_structural"
-expect    = -3.0
-tolerance = 0.0
-source    = "TO 1F-5E-1 Section V"
-
-# ---------------------------------------------------------------------------------------------
-# Stall speed. THIS IS fighters-legacy#54's NAMED PHASE-4 GATE CRITERION.
+# Turn performance at a SPECIFIED Mach — needs `mach`.
+#     15,000 ft, M 0.75:  sustained 4.3 G / 9.9 deg/s / radius 4,700 ft
+#                         instantaneous at the 7.33 G limit: 17 deg/s / radius 2,700 ft
+#     15,000 ft, M 0.60:  sustained 3.3 G / 9.1 deg/s;  max lift 5.2 G / 14.8 deg/s
 #
-# T.O. 1F-5E-1 publishes stall speed only as a NOMOGRAM (Fig. 6-1, p. 6-5; basis: flight test, all
-# configurations, idle thrust). The values below were traced off the chart geometry, +/-3 KIAS,
-# clean configuration (0/0 flaps, gear up) at 15% MAC.
+# Max level Mach with tip missiles — needs `stores` (or a --payload the gate can vary per row).
+#     36,000 ft, 2x AIM-9: M 1.57 (vs 1.63 clean). This is the ONLY published check on whether the
+#     store-drag path (hardpoints -> WeaponLoad.drag_factor -> PayloadEffect) is calibrated, and it
+#     is where weapons/aim9p.toml's drag_factor = 0.00105 comes from.
 #
-# The trace is triple-validated, which is why these are gate points and not decoration:
-#   1. Back-solving CL_max from three different gross weights gives 1.260 / 1.256 / 1.261. The
-#      Vs ~ sqrt(W) relation FALLS OUT of the trace -- it was not imposed. A misread nomogram
-#      would not do that.
-#   2. It agrees with the CL_max = 1.255 derived INDEPENDENTLY from the max-lift turn point above,
-#      a different chart, a different flight condition, a different physical measurement. Two
-#      unrelated published sources, 0.4% apart.
-#   3. The manual's separate landing-speed chart (FA7-1) gives approach ~= 1.28 x Vs and touchdown
-#      ~= 1.19 x Vs at both 11,000 and 13,500 lb, and states obstacle-clearance speed is "at least
-#      20% higher than power-off stall speed".
-# ---------------------------------------------------------------------------------------------
-[[point]]
-name       = "1-g stall speed, clean, 13,500 lb"
-metric     = "stall_speed_1g_kias"
-mass_kg    = 6124                  # 13,500 lb at 15% MAC
-configuration = "clean"            # 0/0 flaps, gear up
-expect     = 131.0
-tolerance  = 4.0                   # KIAS; the chart trace is +/-3
-source     = "TO 1F-5E-1 Fig. 6-1 (stall speed nomogram), traced"
-
-[[point]]
-name       = "1-g stall speed, clean, 11,000 lb"
-metric     = "stall_speed_1g_kias"
-mass_kg    = 4990                  # 11,000 lb at 15% MAC
-configuration = "clean"
-expect     = 118.0
-tolerance  = 4.0
-source     = "TO 1F-5E-1 Fig. 6-1, traced"
-# Two weights, not one, deliberately: together they test that the model gets Vs ~ sqrt(W) right,
-# not merely that it hits one number by luck.
-
-# ---------------------------------------------------------------------------------------------
-# NOT INCLUDED, and why. An honest gate states its own gaps.
-# ---------------------------------------------------------------------------------------------
-# roll_rate        -- NOT PUBLISHED. Confirmed against the full T.O. chart inventory (there is no
-#                     roll chart in any part of Appendix I) and against the whole NTRS F-5E corpus.
-#                     The manual is qualitative only: "use of aileron to the spring stop produces
-#                     high roll rates, particularly in the 0.80 to 0.95 Mach region". So cl_p and
-#                     cl_da in f5e.toml are UNCONSTRAINED by any published number -- the only
-#                     derivatives in the model with nothing to check them against. Roll-rate figures
-#                     circulating online do not trace to any primary source; treat them as rejected.
-# roc_sl           -- WIKI/Jane's give 34,500 ft/min. This is almost certainly a zoom or peak-Ps
-#                     figure, NOT a steady sea-level rate of climb: with 9,300 lbf installed AB
-#                     thrust at ~13,500 lb, the excess thrust simply is not there. DO NOT calibrate
-#                     to it. The Ps ladder above is the honest climb constraint.
-# specific_range   -- TO has cruise charts only; no number is printed.
-# corner_speed     -- TO defines and plots it (charts FA8-13/-14/-15) but prints no numeric value.
-# service_ceiling  -- TO uses "combat ceiling" (ROC = 500 ft/min), charted, not printed.
-
-# ---------------------------------------------------------------------------------------------
-# Kinematic self-check. Turn rate and radius depend ONLY on load factor and true airspeed
-# (omega = g*sqrt(n^2-1)/V, R = V^2/(g*sqrt(n^2-1))) -- no drag, thrust, or lift assumption. So
-# these are not a test of our flight model; they are a test of whether the PUBLISHED numbers are
-# self-consistent and whether combat_kg is right. Worst error across all seven: 1.8%.
+# Structural limits — published outright, no trim needed: +7.33 / -3.0 G (clean / tip rails).
 #
-#   condition                    published    kinematic    err
-#   M0.60 sustained  (3.3 G)       9.1 d/s      9.14 d/s   0.4%
-#   M0.60 max lift   (5.2 G)      14.8 d/s     14.83 d/s   0.2%
-#   M0.60 4.0 G                   11.2 d/s     11.25 d/s   0.5%
-#   M0.75 sustained  (4.3 G)       9.9 d/s      9.72 d/s   1.8%
-#     radius                      4700 ft      4673 ft     0.6%
-#   M0.75 limit      (7.33 G)     17.0 d/s     16.88 d/s   0.7%
-#     radius                      2700 ft      2692 ft     0.3%
-#
-# fm-trim should reproduce this check itself, so the gate re-derives its own trust rather than
-# taking this comment's word for it.
+# ── NOT PUBLISHED AT ALL, so deliberately absent ────────────────────────────────────────────────
+# roll_rate       -- confirmed absent from the full T.O. chart inventory AND the whole NTRS F-5E
+#                    corpus. cl_p and cl_da are the only numbers in the model with nothing to check
+#                    them against. Figures circulating online trace to no primary source.
+# roc_sl          -- Wikipedia/Jane's say 34,500 ft/min. Not physically consistent with 9,300 lbf
+#                    of installed thrust at ~13,500 lb; almost certainly a zoom or peak-Ps figure.
+#                    DO NOT gate on it. The Ps ladder is the honest climb constraint.
+# specific_range  -- the T.O. has cruise charts only; no number is printed.
+# corner_speed    -- the T.O. defines and plots it but prints no numeric value.

@@ -225,3 +225,114 @@ if __name__ == "__main__":
     for a_deg, row in zip(ALPHA, rows):
         print(f"  {', '.join(f'{c:7.4f}' for c in row)},   # alpha {a_deg:>3}")
     print("]")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# DRAG: fit CD(CL) to the published Ps ladder  (engine #820's [aero.cd_table])
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+#
+# The T.O. gives specific excess power at five load factors, 15,000 ft / M 0.60, max thrust:
+#     n = 1.0, 2.0, 3.3, 4.0, 5.2   ->   Ps = 240, 190, 0, -225, -870 ft/s
+#
+# Ps = V*(T - D)/W with T constant, so D(n) = T - Ps(n)*W/V. And at n = 3.3, Ps = 0 BY DEFINITION,
+# which means D(3.3) = T exactly. So the ladder pins the SHAPE of CD(CL) with no thrust assumption
+# whatsoever -- only its absolute level rides on T, and that is one unknown, not a curve.
+#
+# We solve for CD(CL) = cd0 + k1*CL^2 + k2*CL^4, with cd0 anchored at the published 0.0200
+# (NASA SP-468) and the thrust level X = CD(CL at n=3.3) left free. Three unknowns (X, k1, k2),
+# five equations, least squares. The CL^4 term is what the parabola could not have.
+
+PS_LADDER = [(1.0, 240.0), (2.0, 190.0), (3.3, 0.0), (4.0, -225.0), (5.2, -870.0)]  # (n, Ps ft/s)
+CD0_PUB = 0.0200          # [P?] NASA SP-468 App. A Table V
+ALT_PS, MACH_PS = 4572.0, 0.60
+W_COMBAT_N = 6137 * 9.80665
+
+
+def isa(h):
+    T = 288.15 - 0.0065 * h
+    P = 101325.0 * (T / 288.15) ** 5.2559
+    return P / (287.05 * T), math.sqrt(1.4 * 287.05 * T)
+
+
+def fit_drag():
+    rho, a = isa(ALT_PS)
+    V = MACH_PS * a
+    q = 0.5 * rho * V * V
+    qS = q * S
+
+    # Rows of  [1, CL^2, CL^4] * [X, -k1, -k2]^T  ... rearranged:
+    #   X + dCD_i = cd0 + k1*CL_i^2 + k2*CL_i^4
+    #   =>  X - k1*CL^2 - k2*CL^4 = cd0 - dCD_i
+    A, b = [], []
+    for n, ps_ft in PS_LADDER:
+        cl = n * W_COMBAT_N / qS
+        dcd = -(ps_ft * 0.3048) * (W_COMBAT_N / V) / qS      # (D(n) - D(3.3)) / qS
+        A.append([1.0, -cl**2, -cl**4])
+        b.append(CD0_PUB - dcd)
+
+    # Normal equations, 3x3 -- solved by hand to keep this dependency-free.
+    ATA = [[sum(A[i][r] * A[i][c] for i in range(len(A))) for c in range(3)] for r in range(3)]
+    ATb = [sum(A[i][r] * b[i] for i in range(len(A))) for r in range(3)]
+    M = [ATA[r] + [ATb[r]] for r in range(3)]
+    for i in range(3):                                        # Gaussian elimination
+        p = max(range(i, 3), key=lambda r: abs(M[r][i]))
+        M[i], M[p] = M[p], M[i]
+        for r in range(3):
+            if r != i:
+                f = M[r][i] / M[i][i]
+                for c in range(i, 4):
+                    M[r][c] -= f * M[i][c]
+    X, k1, k2 = (M[i][3] / M[i][i] for i in range(3))
+    return X, k1, k2, qS, V
+
+
+POST_STALL_CD_RISE = 0.03   # [E] per degree past the stall, as a fraction of the stall-point CD
+
+
+def cd_table(k1, k2):
+    """CD(alpha, mach) on the SAME grid as cl_table.
+
+    TWO CORRECTIONS over the naive CD = f(CL), both of which matter:
+
+    1. SEPARATION DRAG SCALES WITH THE LIFT FRACTION, NOT WITH CL.
+       The fitted CL^4 term is not classical induced drag -- it is the drag rise as the wing
+       approaches ITS OWN stall. CL_max falls with Mach (1.255 at M0.6, 1.10 at M0.9), so at high
+       Mach the wing is far closer to stalling at the same CL, and its separation drag is
+       correspondingly higher. Applying the M0.6 coefficient unchanged at M0.9 would understate it.
+       So the quartic term is written in the LIFT FRACTION lam = CL / CL_max(M), which reduces
+       exactly to the fitted form at M 0.60 and behaves correctly everywhere else:
+
+           CD = cd0 + k1*CL^2  +  k2 * CL_max(0.6)^4 * lam^4
+                     ^classical induced   ^separation, keyed to how close to the stall we are
+
+    2. PAST THE STALL, DRAG KEEPS RISING WHILE LIFT COLLAPSES.
+       CD = f(CL) would have drag FOLLOW lift back down -- the table would say a fully stalled wing
+       is cleaner than one at its lift peak, which is nonsense and would let a departed aircraft
+       accelerate. Post-stall the flow is separated: lift dies, drag climbs. So beyond the stall
+       alpha we hold the stall-point CD and keep it increasing.
+
+       This region is [E] -- there is no published F-5E post-stall drag data. But monotonic-rising
+       is the only defensible shape, and monotonic-falling is definitely wrong.
+
+    Zero-lift Mach drag rise is [aero.cd_wave], added on top by the engine. Not double-counted here.
+    """
+    _, cl_rows = cl_table()
+    a_stall_ref = CLMAX_M060 / lift_slope(AR, 0.60)          # rad
+
+    rows = []
+    for a_deg, cl_row in zip(ALPHA, cl_rows):
+        row = []
+        for m, cl in zip(MACH, cl_row):
+            clmax = CLMAX_VS_MACH[m]
+            a_peak = math.degrees(clmax / lift_slope(AR, m))
+            mag = abs(a_deg)
+            lam = min(abs(cl) / clmax, 1.0)
+            cd_attached = CD0_PUB + k1 * cl * cl + k2 * (CLMAX_M060 ** 4) * lam ** 4
+            if mag <= a_peak:
+                cd = cd_attached
+            else:
+                cd_at_stall = CD0_PUB + k1 * clmax ** 2 + k2 * CLMAX_M060 ** 4
+                cd = cd_at_stall * (1.0 + POST_STALL_CD_RISE * (mag - a_peak))
+            row.append(round(cd, 5))
+        rows.append(row)
+    return rows
