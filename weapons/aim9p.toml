@@ -35,14 +35,20 @@ notch_susceptibility = 0.0
 # ── The one store number in this pack that is actually MEASURED ────────────────────────────────
 # T.O. 1F-5E-1 publishes max level Mach at 36,000 ft, half internal fuel, BOTH with and without
 # wingtip missiles: 1.63 clean, 1.57 with tip missiles. Same altitude, same fuel, same thrust --
-# the ONLY difference is two AIM-9s. That is a direct measurement of their drag.
+# the ONLY difference is two AIM-9s. That is a direct measurement of their drag, and it is the only
+# published check on the whole store-drag path (hardpoints -> WeaponLoad -> PayloadEffect).
 #
-# Solving T = D at each condition and stripping the induced term gives a parasite-drag delta of
-# 0.00210 for the pair => 0.00105 each. Derivation: aircraft/f5e/SOURCES.md.
+# CALIBRATED AGAINST THE SHIPPING MODEL, not against algebra. `fm-trim --payload` is run on the real
+# f5e.toml and drag_factor solved so the aircraft reaches M 1.57 with the pair aboard (mass +172 kg
+# is published and not free). At 0.00048 each it lands on 1.57 exactly; clean it makes 1.62 against
+# the published 1.63.
 #
-# CAVEAT: this inherits the F-5E's PROVISIONAL thrust deck (thrust vs Mach is published nowhere),
-# so it will move when engine #820 lands and the drag model is refitted. It is a calibration, not
-# a guess -- but it is a calibration against a model that is still settling.
+# THIS NUMBER WAS WRONG ONCE, AND THE WAY IT WAS WRONG IS WORTH KNOWING. It was first derived
+# algebraically (0.00105) against the PROVISIONAL parabolic drag polar and thrust deck. When
+# [aero.cd_table] replaced that polar, the derivation silently stopped being valid -- the aircraft
+# then lost 0.22 Mach to its missiles instead of the published 0.06, and NOTHING CAUGHT IT: every
+# validator passed and CI was green, because no gate can express "max Mach with stores" today
+# (fighters-legacy#826). It was caught by flying the thing. Calibrate against the model you ship.
 [load]
 weight_lb   = 190.0     # [P] AIM-9P
-drag_factor = 0.00105   # [D] from the published max-Mach delta. See above.
+drag_factor = 0.00048   # [D] solved against the shipping model to hit the published M 1.57
