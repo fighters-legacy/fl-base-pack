@@ -116,12 +116,31 @@ max_g_structural =  7.33  # [P] T.O. 1F-5E-1 Sec. V, symmetric, clean / tip-rail
 min_g_structural = -3.00  # [P] T.O. 1F-5E-1 Sec. V
 max_mach         =  2.00  # [P] T.O. airframe limit: "710 KEAS or 2.0 IMN, whichever is less"
 
-# PROVISIONAL — deflection limits not yet sourced. Pending research against T.O. 1F-5E-1's
-# flight-control and rigging sections.
+# All [P] — T.O. 1F-5E-1 Section I, pp. 1-79/1-80.
+#
+# TWO THINGS HERE ARE NOT WHAT YOU WOULD GUESS, and both change how the jet handles:
+#
+# 1. THE AILERON LIMITER. Full aileron travel is 35 deg up / 25 deg down -- but the manual:
+#      "An aileron limiter, mechanically positioned by retraction of the landing gear, provides a
+#       spring stop which limits the aileron to ONE-HALF TRAVEL. To obtain full aileron travel of
+#       35 up and 25 down, ADDITIONAL STICK FORCE must be applied to override the spring stop."
+#    Gear up -- i.e. all combat flight -- normal stick force gives only HALF authority. Section V
+#    further lists "continuous 360-degree rolls with more than half aileron" and "exceeding the
+#    aileron spring stop except for spin recovery" as STRUCTURAL LIMITS. So the honest value for
+#    normal maneuvering is the limited one, not the placard maximum. Authoring 35 here would give
+#    the player an F-5E that rolls roughly twice as fast as the real one in every fight.
+#
+# 2. THE STABILATOR IS ASYMMETRIC: 17 deg nose-up authority, 5 deg nose-down. The schema has ONE
+#    scalar per axis and cannot express that, so this is the nose-up figure -- the one that matters
+#    for pitch authority and the G limit. Nose-down authority is modelled 3.4x too generous as a
+#    result. Engine issue filed. (The manual prints "17 up / 5 down" without stating leading- vs
+#    trailing-edge, but the asymmetry settles it: no fighter has 17 deg of nose-DOWN and 5 of
+#    nose-up.)
 [aero.controls]
-max_elevator_deg = 20.0   # [E] all-moving stabilator
-max_aileron_deg  = 20.0   # [E]
-max_rudder_deg   = 30.0   # [E]
+max_elevator_deg = 17.0   # [P] all-moving stabilator, nose-up authority (5 deg nose-down)
+max_aileron_deg  = 17.5   # [P] HALF of the 35 deg placard travel -- the aileron limiter is engaged
+                          #     whenever the gear is up. See above. This is not a typo.
+max_rudder_deg   = 30.0   # [P] either side of neutral (in-flight deflection is q-limited)
 
 # ── Propulsion ─────────────────────────────────────────────────────────────────────────
 # 2x General Electric J85-GE-21. Sea-level static, INSTALLED (T.O. 1F-5E-1 Sec. I):
@@ -132,12 +151,21 @@ max_rudder_deg   = 30.0   # [E]
 # aircraft's published performance charts were computed from the INSTALLED figures above. Using
 # the popular number bakes a ~7% thrust error into the entire model while looking well-sourced.
 #
-# Fuel flows: PROVISIONAL [E]. The T.O. publishes flow CHARTS (PPH vs condition), not scalars.
-# Pending research.
+# Fuel flows. Total, BOTH engines. Idle and military are PRINTED AS TEXT in the T.O. (chart FA3-1,
+# "FUEL FLOW - (2) ENGINES: GROUND TAXI 18 LB/MIN; STATIC MIL THRUST 119 LB/MIN") and repeated in
+# the Part 10 mission-planning worked example.
+#
+# Afterburner is NOT printed anywhere -- the only MAX-thrust fuel data in the manual is chart FA8-1
+# (Combat Fuel Allowance), read at sea level / 0.2 IMN, the lowest Mach curve published. That read
+# is validated: the same chart's MIL panel reads 121 lb/min against the printed 119 (1.7%), and
+# 157 lb/min at 0.8 IMN against the manual's own worked example of 158 (0.6%).
+#
+# The implied AB/MIL fuel ratio is ~3.0, which is physically sane for a J85 with afterburner --
+# and it is the number that makes burner time actually cost the player something.
 [engine]
-fuel_flow_idle_kg_s = 0.076   # [E]
-fuel_flow_mil_kg_s  = 0.819   # [E]
-fuel_flow_ab_kg_s   = 2.344   # [E]
+fuel_flow_idle_kg_s = 0.136   # [P]  18 lb/min, ground taxi at idle (57% RPM), SL static
+fuel_flow_mil_kg_s  = 0.900   # [P] 119 lb/min, static MIL thrust, SL, standard day
+fuel_flow_ab_kg_s   = 2.840   # [D] ~375 lb/min, chart FA8-1 at SL / 0.2 IMN (+/-3%)
 spool_time_s        = 3.5     # [E] small-core turbojet, spools fast. Not published.
 
 # Thrust vs Mach and altitude is NOT PUBLISHED -- confirmed, the T.O.'s performance appendix is

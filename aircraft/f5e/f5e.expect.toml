@@ -207,13 +207,53 @@ tolerance = 0.0
 source    = "TO 1F-5E-1 Section V"
 
 # ---------------------------------------------------------------------------------------------
+# Stall speed. THIS IS fighters-legacy#54's NAMED PHASE-4 GATE CRITERION.
+#
+# T.O. 1F-5E-1 publishes stall speed only as a NOMOGRAM (Fig. 6-1, p. 6-5; basis: flight test, all
+# configurations, idle thrust). The values below were traced off the chart geometry, +/-3 KIAS,
+# clean configuration (0/0 flaps, gear up) at 15% MAC.
+#
+# The trace is triple-validated, which is why these are gate points and not decoration:
+#   1. Back-solving CL_max from three different gross weights gives 1.260 / 1.256 / 1.261. The
+#      Vs ~ sqrt(W) relation FALLS OUT of the trace -- it was not imposed. A misread nomogram
+#      would not do that.
+#   2. It agrees with the CL_max = 1.255 derived INDEPENDENTLY from the max-lift turn point above,
+#      a different chart, a different flight condition, a different physical measurement. Two
+#      unrelated published sources, 0.4% apart.
+#   3. The manual's separate landing-speed chart (FA7-1) gives approach ~= 1.28 x Vs and touchdown
+#      ~= 1.19 x Vs at both 11,000 and 13,500 lb, and states obstacle-clearance speed is "at least
+#      20% higher than power-off stall speed".
+# ---------------------------------------------------------------------------------------------
+[[point]]
+name       = "1-g stall speed, clean, 13,500 lb"
+metric     = "stall_speed_1g_kias"
+mass_kg    = 6124                  # 13,500 lb at 15% MAC
+configuration = "clean"            # 0/0 flaps, gear up
+expect     = 131.0
+tolerance  = 4.0                   # KIAS; the chart trace is +/-3
+source     = "TO 1F-5E-1 Fig. 6-1 (stall speed nomogram), traced"
+
+[[point]]
+name       = "1-g stall speed, clean, 11,000 lb"
+metric     = "stall_speed_1g_kias"
+mass_kg    = 4990                  # 11,000 lb at 15% MAC
+configuration = "clean"
+expect     = 118.0
+tolerance  = 4.0
+source     = "TO 1F-5E-1 Fig. 6-1, traced"
+# Two weights, not one, deliberately: together they test that the model gets Vs ~ sqrt(W) right,
+# not merely that it hits one number by luck.
+
+# ---------------------------------------------------------------------------------------------
 # NOT INCLUDED, and why. An honest gate states its own gaps.
 # ---------------------------------------------------------------------------------------------
-# stall_speed_1g   -- TO publishes it ONLY as a nomogram (Fig. 6-1), not a table. WIKI gives 124 kt
-#                     at 50% fuel, gear and flaps down (Jane's), but that is single-sourced and in a
-#                     dirty configuration the schema cannot yet express. Reading a number off a
-#                     scanned chart and calling it published would be dishonest. Add this row once
-#                     the chart is read properly -- it is fighters-legacy#54's named gate criterion.
+# roll_rate        -- NOT PUBLISHED. Confirmed against the full T.O. chart inventory (there is no
+#                     roll chart in any part of Appendix I) and against the whole NTRS F-5E corpus.
+#                     The manual is qualitative only: "use of aileron to the spring stop produces
+#                     high roll rates, particularly in the 0.80 to 0.95 Mach region". So cl_p and
+#                     cl_da in f5e.toml are UNCONSTRAINED by any published number -- the only
+#                     derivatives in the model with nothing to check them against. Roll-rate figures
+#                     circulating online do not trace to any primary source; treat them as rejected.
 # roc_sl           -- WIKI/Jane's give 34,500 ft/min. This is almost certainly a zoom or peak-Ps
 #                     figure, NOT a steady sea-level rate of climb: with 9,300 lbf installed AB
 #                     thrust at ~13,500 lb, the excess thrust simply is not there. DO NOT calibrate

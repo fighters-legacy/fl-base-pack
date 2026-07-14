@@ -1,0 +1,48 @@
+# AIM-9P Sidewinder — IR air-to-air missile. Wingtip rails.
+#
+# NOTE ON SCOPE: after engine #812 this weapon is a STORE, not ordnance. It has mass and drag and
+# appears on the rail. It does not fly, guide, or hit anything -- there is no fire path in the engine
+# (Epic fighters-legacy#583). The seeker and countermeasure fields below are authored now so they are
+# ready when it lands, and are consumed by nothing today.
+[weapon]
+id       = "fl-base:aim9p"
+name     = "AIM-9P Sidewinder"
+type     = "missile"
+category = "air-to-air"
+
+[seeker]
+type             = "ir"
+fov_deg          = 25.0     # [E] uncaged seeker gimbal limit
+acquisition_nm   = 5.0      # [E] against a baseline target; scales linearly with IR signature
+fire_and_forget  = true     # an IR missile does not need the launch aircraft after release
+
+[performance]
+max_range_nm      = 9.0     # [E] kinematic max, head-on. Real employment range is far shorter.
+min_range_nm      = 0.3     # [E] arming distance
+max_speed_kts     = 1500.0  # [E]
+motor_burn_time_s = 5.0     # [E]
+max_g             = 20.0    # [E]
+
+[warhead]
+blast_radius_ft = 30.0      # [E]
+damage          = 60.0      # gameplay value, not a physical one
+
+[countermeasures]
+flare_susceptibility = 0.6  # [E] an early rear-aspect IR seeker is genuinely easy to decoy
+chaff_susceptibility = 0.0  # immune -- it does not look at radar returns
+notch_susceptibility = 0.0
+
+# ── The one store number in this pack that is actually MEASURED ────────────────────────────────
+# T.O. 1F-5E-1 publishes max level Mach at 36,000 ft, half internal fuel, BOTH with and without
+# wingtip missiles: 1.63 clean, 1.57 with tip missiles. Same altitude, same fuel, same thrust --
+# the ONLY difference is two AIM-9s. That is a direct measurement of their drag.
+#
+# Solving T = D at each condition and stripping the induced term gives a parasite-drag delta of
+# 0.00210 for the pair => 0.00105 each. Derivation: aircraft/f5e/SOURCES.md.
+#
+# CAVEAT: this inherits the F-5E's PROVISIONAL thrust deck (thrust vs Mach is published nowhere),
+# so it will move when engine #820 lands and the drag model is refitted. It is a calibration, not
+# a guess -- but it is a calibration against a model that is still settling.
+[load]
+weight_lb   = 190.0     # [P] AIM-9P
+drag_factor = 0.00105   # [D] from the published max-Mach delta. See above.

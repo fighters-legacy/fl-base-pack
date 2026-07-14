@@ -1,0 +1,33 @@
+# AN/APQ-159(V) — F-5E fire-control radar (later blocks; early F-5E carried the APQ-153).
+#
+# PROVENANCE: T.O. 1F-5E-1's aircraft-differences table confirms the APQ-153 / APQ-157 / APQ-159(V)-3
+# /-4/-5 fits by block. But DETECTION RANGE AGAINST A FIGHTER-SIZE TARGET IS NOT PUBLISHED anywhere.
+# Wikipedia's "40 nm" is a DISPLAY RANGE SCALE, not a detection range, and is single-sourced -- using
+# it as a detection range would be a fabrication dressed up as a citation.
+#
+# The ranges below are therefore ENGINEERING ESTIMATES [E] for a 1970s lightweight X-band ranging set
+# on a light fighter: short-range, no look-down/shoot-down, no track-while-scan. They are deliberately
+# modest. If a primary source surfaces, replace them.
+#
+# Note max_range_nm is quoted against a BASELINE (signature 1.0) target and scales by sqrt(rcs).
+[sensor]
+id              = "fl-base:apq159"
+name            = "AN/APQ-159 fire-control radar"
+type            = "radar"
+omnidirectional = false
+emitter         = true          # it announces itself when it looks -- the seam RWR/EMCON hangs off
+
+[search]
+az_half_angle_deg = 45.0        # [E]
+el_half_angle_deg = 20.0        # [E]
+min_range_nm      = 0.1         # [E]
+max_range_nm      = 18.0        # [E] NOT PUBLISHED. A modest 1970s light-fighter set.
+pod               = 0.30        # [E] per check at 10 Hz
+
+[track]
+az_half_angle_deg = 20.0        # [E]
+el_half_angle_deg = 15.0        # [E]
+min_range_nm      = 0.1
+max_range_nm      = 10.0        # [E]
+pod               = 0.60        # [E]
+lock_hold_s       = 3.0         # [E]

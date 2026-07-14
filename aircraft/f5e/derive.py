@@ -40,10 +40,10 @@ AR     = B * B / S  #     3.82 -- matches NASA's stated value              [P]
 TAPER  = 0.19     #       wing taper ratio                                 [P]
 SWEEP  = 24.0     # deg   wing quarter-chord sweep                         [P]
 
-S_H    = 3.07     # m^2   horizontal tail  <-- AMBIGUOUS: see note below   [P?]
-AR_H   = 2.88     #       horizontal tail aspect ratio                     [P]
-S_V    = 3.85     # m^2   vertical tail (exposed)                          [P]
-AR_V   = 1.22     #       vertical tail aspect ratio                       [P]
+S_H    = 3.07     # m^2   horizontal tail, EXPOSED -- resolved, see below  [P]
+AR_H   = 2.88     #       horizontal tail aspect ratio, on EXPOSED span    [P]
+S_V    = 3.85     # m^2   vertical tail, exposed                           [P]
+AR_V   = 1.22     #       vertical tail aspect ratio, on exposed span      [P]
 S_AIL  = 0.86     # m^2   aileron area, both surfaces                      [P]
 S_RUD  = 0.60     # m^2   rudder area                                      [P]
 
@@ -61,12 +61,27 @@ TAU_A  = 0.45     #       aileron flap effectiveness (~25% chord)          [E]
 TAU_R  = 0.45     #       rudder flap effectiveness (~25% chord)           [E]
 CN_FUS = -0.10    # /rad  fuselage yaw destabilisation                     [E]
 
-# NASA Table I is internally inconsistent for the horizontal tail: it gives span
-# 4.30 m, "exposed area" 3.07 m^2, and AR 2.88. But 4.30^2 / 3.07 = 6.02, not 2.88.
-# AR 2.88 with span 4.30 implies a GROSS area of 6.42 m^2 -- i.e. AR is quoted on
-# the gross (theoretical) planform while the area quoted is the exposed one. Using
-# 6.42 instead of 3.07 changes Cm_alpha by ~75%. Open research item; see SOURCES.md.
-S_H_GROSS = B_H2 = (4.30 ** 2) / AR_H     # 6.42 m^2, the gross-area reading
+# RESOLVED (2026-07-14). NASA Table I LOOKS self-contradictory: horizontal tail span 4.30 m,
+# "area (exposed)" 3.07 m^2, aspect ratio 2.88 -- yet 4.30^2 / 3.07 = 6.02, not 2.88. The
+# tempting reading is that AR is quoted on a GROSS area of 6.42 m^2, which would change
+# cm_alpha by 75% and cm_q by 109%.
+#
+# That reading is WRONG. Reading the table off the page image (not the OCR): area, taper ratio
+# AND aspect ratio are each explicitly labelled "(exposed)", while the 4.30 m span row is NOT.
+# The aspect ratio is computed on the EXPOSED span -- the panels outboard of the fuselage --
+# not on the tip-to-tip span. Everything is then consistent:
+#
+#   exposed span   = sqrt(2.88 * 3.07)          = 2.97 m
+#   => fuselage width at the tail = 4.30 - 2.97 = 1.33 m   (plausible for the twin-J85 tail)
+#   independent check via the taper ratio (which does not involve AR at all):
+#     root chord   = tip / taper = 0.508 / 0.33 = 1.539 m
+#     exposed area = 2.97 * (1.539 + 0.508)/2   = 3.04 m^2  vs published 3.07  -- 0.9% agreement
+#   the same check on the vertical tail is exact: 2.17 * (2.845 + 0.711)/2 = 3.85 m^2 == published
+#
+# So the exposed-area reading is right, and the gross hypothesis is refuted by a cross-check that
+# never touches the aspect ratio. Kept below only so the sensitivity stays visible: if anyone ever
+# "fixes" S_H to 6.42, this is what it costs.
+S_H_GROSS = (4.30 ** 2) / AR_H     # 6.42 m^2 -- the REFUTED gross-area reading. Do not use.
 
 # ─── Calibration anchor — from f5e.expect.toml, drag-independent ────────────────
 CLMAX_M060 = 1.255   # [D] from the published 5.2 G max-lift point at 15k / M0.60
@@ -183,14 +198,13 @@ def cl_table() -> tuple[float, list[list[float]]]:
 if __name__ == "__main__":
     print(f"AR = {AR:.3f}   CL_a(M=0)   wing {A_W:.3f}  htail {A_H:.3f}  vtail {A_V:.3f}  /rad\n")
 
-    print("── SENSITIVITY: the unresolved NASA tail-area ambiguity ─────────────────")
+    print("── NASA tail-area reading: RESOLVED as exposed. Cost of getting it wrong: ──")
     exposed, gross = moments(S_H), moments(S_H_GROSS)
-    print(f"{'derivative':<11} {'S_h=3.07 (exposed)':>19} {'S_h=6.42 (gross)':>18} {'delta':>8}")
+    print(f"{'derivative':<11} {'S_h=3.07 (CORRECT)':>19} {'S_h=6.42 (refuted)':>19} {'delta':>8}")
     for kk in ("cm_alpha", "cm_q", "cm_de"):
         d = abs(gross[kk] - exposed[kk]) / abs(exposed[kk]) * 100
-        print(f"{kk:<11} {exposed[kk]:>19.3f} {gross[kk]:>18.3f} {d:>7.0f}%")
-    print("Pitch stiffness and damping swing by ~75-100% on this one reading.")
-    print("Using the EXPOSED area, which lands in the conventional fighter band.\n")
+        print(f"{kk:<11} {exposed[kk]:>19.3f} {gross[kk]:>19.3f} {d:>7.0f}%")
+    print("Confirmed exposed via the taper-ratio cross-check, which never touches AR.\n")
 
     m = moments(S_H)
     print("── [aero.moments] ───────────────────────────────────────────────────────")

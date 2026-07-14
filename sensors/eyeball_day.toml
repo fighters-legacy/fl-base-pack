@@ -1,0 +1,12 @@
+# Daylight visual acquisition. Search-only: an eyeball finds an aircraft, it does not hold a lock.
+# Generic, not F-5E-specific -- any crewed aircraft in the pack can carry it.
+[sensor]
+id   = "fl-base:eyeball_day"
+name = "Visual acquisition (day)"
+type = "visual"
+
+[search]
+az_half_angle_deg = 90.0
+el_half_angle_deg = 60.0
+max_range_nm      = 8.0
+pod               = 0.15

@@ -28,6 +28,7 @@ inventing numbers, so we do not.
 |---|---|
 | **TO** | *T.O. 1F-5E-1, USAF Series F-5E/F Flight Manual*, 1 Aug 1978 (and 1984 rev.) — <https://archive.org/details/F5EFFlightManual> |
 | **NASA-SPIN** | *Spin-Tunnel Investigation of a 1/20-Scale Model of the Northrop F-5E Airplane*, NASA Langley, 28 Jun 1977 — <https://ntrs.nasa.gov/citations/19980227417> |
+| **TO-84** | T.O. 1F-5E-1, 1984 rev. (page-image scan; the charts are graphics, so several numbers below were read off the rendered page, not the OCR) — <https://archive.org/details/T.O.1F5E11984OCR> |
 | **SP-468** | Loftin, *Quest for Performance*, NASA SP-468, App. A Table V — original host dead; **unverified at source** |
 | **WIKI** | Wikipedia, *Northrop F-5* (cites Jane's 1976–77 pp. 344–346) — cross-check only |
 
@@ -50,6 +51,31 @@ preferred over the Jane's/Wikipedia spec block wherever the two differ.
 
 Overall length 14.68 m, tail areas and control-surface areas are in NASA-SPIN Table I and are used
 for the DATCOM moment derivation (below), though the schema has no field for them.
+
+### The tail-area trap, and why it is not a trap
+
+NASA Table I *looks* self-contradictory for the horizontal tail: span 4.30 m, "area (exposed)"
+3.07 m², aspect ratio 2.88 — yet 4.30² / 3.07 = 6.02, not 2.88. The tempting reading is that the
+AR is quoted on a **gross** area of 6.42 m², and taking it would change `cm_alpha` by **75%** and
+`cm_q` by **109%**.
+
+That reading is **wrong**, and the table is not inconsistent. Read off the page image rather than
+the OCR, *area, taper ratio and aspect ratio are each explicitly labelled "(exposed)"*, while the
+4.30 m span row is not. The AR is computed on the **exposed span** — the panels outboard of the
+fuselage — not tip-to-tip. Everything then reconciles:
+
+    exposed span = sqrt(2.88 x 3.07) = 2.97 m  =>  fuselage width at tail = 1.33 m  (plausible)
+
+and an independent cross-check **that never touches the aspect ratio** confirms it: root chord =
+tip / taper = 0.508 / 0.33 = 1.539 m, so exposed area = 2.97 x (1.539 + 0.508)/2 = **3.04 m²**
+against the published **3.07** — 0.9%. The same check on the vertical tail is exact (3.85 m²).
+
+`derive.py` still prints the cost of the wrong reading, so that if anyone ever "fixes" `S_H` to
+6.42 they see immediately what it does.
+
+**The tail moment arm remains NOT PUBLISHED** — verified against the page image, not just the OCR.
+NASA prints no fuselage stations and no CG-to-tail distance. It stays an estimate, and it is the
+single largest input uncertainty in the moment derivatives.
 
 ---
 
@@ -114,6 +140,23 @@ sub-variant (-21A / -21B); the block→sub-variant mapping is **not published** 
 > performance charts were computed from. Using the popular figure would bake a **~7% thrust error**
 > into every derived value in this model while appearing perfectly well-sourced.
 
+### Fuel flow — published, and the afterburner number is chart-read but validated
+
+| Field | Value | Source |
+|---|---|---|
+| `fuel_flow_idle_kg_s` | **0.136** (18 lb/min) | **P** TO-84 chart FA3-1, printed as text: *"FUEL FLOW — (2) ENGINES: GROUND TAXI 18 LB/MIN"* |
+| `fuel_flow_mil_kg_s` | **0.900** (119 lb/min) | **P** same box: *"STATIC MIL THRUST 119 LB/MIN"* |
+| `fuel_flow_ab_kg_s` | **2.840** (~375 lb/min) | **D** chart FA8-1 (Combat Fuel Allowance), SL / 0.2 IMN — the lowest Mach curve published. ±3%. |
+
+There is **no printed static AB fuel flow anywhere in the manual**, so the AB figure had to be read
+off FA8-1. That read is validated against printed values on the same chart: its MIL panel reads
+121 lb/min against the printed 119 (**1.7%**), and 157 lb/min at 0.8 IMN against the manual's own
+worked example of 158 (**0.6%**). The implied AB/MIL fuel ratio is ~3.0, which is physically sane
+for a J85 with afterburner.
+
+**TSFC is not published** — the TO gives specific *range* (nm/lb), an airframe+engine quantity, and
+never publishes thrust, so TSFC cannot be derived from within the document.
+
 **Thrust vs Mach and altitude is NOT published.** Confirmed: the TO's entire performance appendix is
 built on a drag-index + fuel-flow methodology and contains **no net-thrust curves**. The only NASA
 J85-21 report is a compressor-rig study with no installed thrust deck. The `[engine.mil_thrust]` and
@@ -141,12 +184,33 @@ Near-misses, recorded so nobody re-runs this search:
 
 | Field | Value | Source |
 |---|---|---|
-| `CL_max` @ M 0.60 | **1.255** | **D** — from the TO's published max-lift point (5.2 G at 15,000 ft / M 0.60). Pure lift; no drag or thrust assumption. Derivation and cross-checks in `f5e.expect.toml`. |
-| `alpha_stall_deg` | **19** | **D** — CL_max ÷ lift-curve slope. Slope from the low-AR Helmbold relation, `CL_α = 2π·AR/(2+√(AR²+4))` = 3.80 /rad = 0.0664 /deg for AR 3.82; 1.255 / 0.0664 = 18.9°. Symmetric airfoil, so α₀ = 0. |
+| `CL_max` @ M 0.60 | **1.255** | **D** — from the TO's published max-lift point (5.2 G at 15,000 ft / M 0.60). Pure lift; no drag or thrust assumption. **Independently confirmed — see below.** |
+| `alpha_stall_deg` | **17** | **D** — CL_max ÷ the lift-curve slope *at M 0.60* (4.247 /rad, Helmbold + Prandtl-Glauert) = 16.9°. It must use the compressible slope: the calibration point is at M 0.60, and the incompressible slope would put the stall ~2° too high. |
 | `cd0` | 0.0200 | **P?** SP-468 App. A Table V — **cited via WIKI, unverified at source** (NASA's host is dead). The one drag number with a NASA lineage. Treat with caution. |
 | max L/D | 10.0 | **P?** SP-468, same caveat |
 | `[aero.moments]` (9 derivatives) | — | **D** — USAF DATCOM, from the NASA-SPIN geometry. Method documented inline in `f5e.toml`. |
 | `[aero.cd_table]` | — | **D** — fitted to the TO's published Ps ladder. See the note below. |
+
+### CL_max is confirmed by two unrelated documents
+
+This is the strongest result in the data set and it is worth stating plainly.
+
+`CL_max = 1.255` was derived from the **max-lift turn point** (5.2 G, 15,000 ft, M 0.60) — a combat
+performance chart. Separately, the **stall-speed nomogram** (TO-84 Fig. 6-1, basis: *flight test,
+idle thrust*) was traced and back-solved for CL_max at three gross weights:
+
+| Gross weight | Vs clean (KIAS) | implied CL_max |
+|---|---|---|
+| 11,000 lb | 118 | 1.253 |
+| 13,500 lb | 131 | 1.248 |
+| 20,000 lb | 159 | 1.255 |
+
+A different chart, a different flight condition, a different physical measurement, idle thrust
+versus max thrust — and the answer agrees to **0.4%**. The `Vs ∝ √W` relation also falls out of the
+trace rather than being imposed, which a misread nomogram would not do.
+
+Both stall-speed points are now **gate rows in `f5e.expect.toml`**, which closes
+fighters-legacy#54's named Phase-4 criterion ("flight model stall speed ... match design spec").
 
 ### Rejected: the LEX CL_max figures
 
@@ -154,6 +218,50 @@ The widely-circulated claim that the F-5E's LEX adds ~25% to CL_max (and the F-5
 back to a **DCS World flight-manual PDF**. It is not in the TO, not in NASA-SPIN, and not in any
 primary source. **Rejected under the clean-room rule.** If you find these numbers quoted elsewhere,
 assume sim-derived until proven otherwise.
+
+## Control surfaces — all published, and two of them are surprising
+
+T.O. 1F-5E-1 Section I, pp. 1-79/1-80. Both surprises change how the aircraft handles:
+
+**The aileron limiter.** Full travel is 35° up / 25° down — but the manual states an *aileron
+limiter, mechanically positioned by retraction of the landing gear, limits the aileron to* **one-half
+travel**, and full travel requires *"additional stick force ... to override the aileron spring stop."*
+Gear up — that is, all combat flight — normal authority is **half**. Section V additionally lists
+"continuous 360° rolls with more than half aileron" and "exceeding the aileron spring stop except
+for spin recovery" as **structural limits**.
+
+So `max_aileron_deg = 17.5`, not 35. Authoring the placard maximum would give the player an F-5E
+that rolls about twice as fast as the real one, in every fight, and it would look perfectly
+well-sourced.
+
+**The stabilator is asymmetric: 17° nose-up, 5° nose-down.** The schema has one scalar per axis and
+cannot express that, so `max_elevator_deg = 17` (the nose-up figure — the one that governs pitch
+authority and the G limit), and nose-down authority is consequently modelled 3.4× too generous.
+Engine issue filed.
+
+Rudder is 30° either side of neutral, though the manual notes in-flight deflection is
+dynamic-pressure limited.
+
+The **auto-flap schedule** is also fully published (Fig. 1-53: UP / 0-8 / 12-8 / 18-16 / 24-20,
+scheduled on AOA and KIAS with hysteresis). The schema has no maneuvering-flap concept, so it is
+recorded here and not modelled.
+
+## Roll: the one thing nobody can check
+
+**Roll rate is NOT PUBLISHED.** Confirmed against the complete Appendix I chart inventory — there is
+no roll chart in any part of the manual — and against the entire NTRS F-5E corpus. The manual is
+qualitative only: *"use of aileron (to the spring stop) produces high roll rates, particularly in
+the 0.80 to 0.95 Mach region."*
+
+So `cl_p` and `cl_da` are the only numbers in this model with **nothing whatsoever to check them
+against**. They are DATCOM-derived from geometry and that is all. Roll-rate figures circulating
+online do not trace to any primary source — treat them as rejected until someone produces a document.
+
+Partial consolation: NASA *does* publish the roll inertia (Ixx), so once `cl_p`/`cl_da` are chosen,
+the resulting roll rate is at least *computable* and can be sanity-checked against the manual's
+qualitative claim. Note also that NASA's loading 4 (wing stores) has **Ixx 4.7× higher** than clean —
+which is the real reason a loaded F-5E feels so different in roll, and which the engine cannot
+currently express.
 
 ### Why the drag model is a table, not a polar
 

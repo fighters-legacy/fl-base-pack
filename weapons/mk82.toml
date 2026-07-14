@@ -1,0 +1,25 @@
+# Mk 82 — 500 lb general-purpose bomb. Underwing/centreline pylons.
+# Generic US ordnance, not F-5E-specific.
+[weapon]
+id       = "fl-base:mk82"
+name     = "Mk 82 500 lb bomb"
+type     = "bomb"
+category = "air-to-ground"
+
+[performance]
+standoff_range_ft = 2000.0   # [E] unguided; glide range from release
+max_speed_kts     = 0.0
+motor_burn_time_s = 0.0
+max_g             = 0.0
+CEP_ft            = 150.0    # [E] unguided, visual delivery
+
+[warhead]
+blast_radius_ft = 120.0      # [E]
+damage          = 200.0
+
+[load]
+weight_lb   = 500.0   # [P] nominal
+drag_factor = 0.0040  # [E] NOT calibrated -- unlike the AIM-9, the T.O. gives no published
+                      #     max-speed delta for a bomb load. The pylon penalty it DOES give
+                      #     ("4% max speed per pylon at 36,000 ft") is a PYLON figure, not a
+                      #     store figure, and conflating the two would be wrong.
