@@ -11,7 +11,9 @@ inputs:
   repo:
     description: Engine repository to take the release from.
     required: false
-    default: jomkz/fighters-legacy
+    # The canonical org, not `jomkz/`. The old path still resolves, but only through GitHub's
+    # rename redirect -- which is a courtesy, not a contract, and not a thing to hang CI on.
+    default: fighters-legacy/fighters-legacy
 
 runs:
   using: composite
