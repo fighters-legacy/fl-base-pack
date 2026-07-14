@@ -4,3 +4,11 @@ version = 1
 path = "**"
 SPDX-FileCopyrightText = "Contributors to fl-base-pack"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# Vendored three.js (tools/gltf-inspect) — a third party's MIT-licensed work, not pack content.
+# It is committed rather than fetched so the stopgap viewer works offline with no build step.
+# Pinned to r160; to update, re-download the same file set at a new tag and keep this annotation.
+[[annotations]]
+path = "tools/gltf-inspect/vendor/**"
+SPDX-FileCopyrightText = "2010-2023 Three.js Authors"
+SPDX-License-Identifier = "MIT"

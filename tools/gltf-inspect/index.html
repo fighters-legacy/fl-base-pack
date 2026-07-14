@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: Contributors to fl-base-pack
+SPDX-License-Identifier: CC-BY-4.0
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gltf-inspect — fl-base-pack</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: #1c2129; --edge: #2c333d; --ink: #d7dde5;
+    --dim: #8b95a2; --accent: #4ea1ff; --warn: #ffb454; --err: #ff6b6b; --ok: #63d68b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    display: grid; grid-template-columns: 320px 1fr; grid-template-rows: auto 1fr;
+    grid-template-areas: "banner banner" "side stage";
+  }
+  #banner {
+    grid-area: banner; background: #3a2a14; color: var(--warn);
+    border-bottom: 1px solid #5a4520; padding: 6px 12px; font-weight: 600;
+    display: flex; gap: 10px; align-items: center;
+  }
+  #banner b { color: #ffd9a0; }
+  #side {
+    grid-area: side; background: var(--panel); border-right: 1px solid var(--edge);
+    overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px;
+  }
+  #stage { grid-area: stage; position: relative; }
+  #stage canvas { display: block; }
+  #drop-hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--dim); text-align: center; pointer-events: none; padding: 24px;
+  }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim);
+       margin: 0 0 6px; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button, label.file {
+    background: #232a34; color: var(--ink); border: 1px solid var(--edge);
+    border-radius: 5px; padding: 5px 10px; cursor: pointer; font: inherit;
+  }
+  button:hover, label.file:hover { border-color: var(--accent); }
+  button.on { background: #1d3450; border-color: var(--accent); color: #cfe6ff; }
+  label.toggle { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  #tree { font-size: 12px; }
+  #tree .node {
+    padding: 2px 6px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  #tree .node:hover { background: #232a34; }
+  #tree .node.sel { background: #1d3450; color: #cfe6ff; }
+  #tree .node .kind { color: var(--dim); }
+  #tree .node.mesh .kind { color: var(--accent); }
+  #tree .node.empty .kind { color: var(--warn); }
+  #tree .node.damage { color: var(--warn); }
+  #meta, #diag { font-size: 12px; }
+  #meta div, #diag div { padding: 1px 0; }
+  .tag { color: var(--dim); }
+  .val { color: var(--ink); }
+  .findings .warn { color: var(--warn); }
+  .findings .err { color: var(--err); }
+  .findings .ok { color: var(--ok); }
+  #clips label { display: block; margin: 8px 0 2px; color: var(--dim); font-size: 11px; }
+  #clips input[type=range] { width: 100%; }
+  .hint { color: var(--dim); font-size: 11px; }
+  kbd { background: #232a34; border: 1px solid var(--edge); border-radius: 3px; padding: 0 4px; }
+</style>
+</head>
+<body>
+  <div id="banner">
+    ⚠ <b>NOT the game renderer.</b>
+    <span class="hint">Geometry &amp; node inspection only. Materials, KTX2 textures, lighting and
+    LOD selection differ from fighters-legacy. Use this to catch shape and node-naming mistakes,
+    never to judge how the aircraft will actually look. Retire when engine <code>fl-viewer</code>
+    (fighters-legacy#838) ships.</span>
+  </div>
+
+  <div id="side">
+    <div>
+      <h2>Model</h2>
+      <div class="row">
+        <label class="file">Open .glb / .gltf<input id="file" type="file"
+          accept=".glb,.gltf" hidden></label>
+        <button id="btn-f5e" title="Load aircraft/f5e/f5e.glb relative to this page">F-5E</button>
+      </div>
+      <div class="hint" style="margin-top:6px">…or drag a file onto the viewport.</div>
+    </div>
+
+    <div>
+      <h2>View</h2>
+      <div class="row">
+        <button id="t-wire" data-mode="wire">Wireframe</button>
+        <button id="t-norm" data-mode="normals">Normals</button>
+        <button id="t-flat" data-mode="flat">Flat grey</button>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="toggle"><input id="c-axes" type="checkbox" checked> Axes</label>
+        <label class="toggle"><input id="c-grid" type="checkbox" checked> Grid</label>
+        <label class="toggle"><input id="c-wind" type="checkbox"> Backface tint</label>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        Engine axes: <span style="color:#ff6b6b">+X nose</span>,
+        <span style="color:#63d68b">+Y up</span>,
+        <span style="color:#4ea1ff">+Z starboard</span>. Drag to orbit, scroll to zoom.
+      </div>
+    </div>
+
+    <div>
+      <h2>Nodes</h2>
+      <div id="tree"><span class="hint">No model loaded.</span></div>
+    </div>
+
+    <div id="clips-wrap" hidden>
+      <h2>Animation clips</h2>
+      <div id="clips"></div>
+      <div class="hint">Sliders scrub each clip 0→1, the way the engine will
+        (fighters-legacy#840). Spin clips loop instead.</div>
+    </div>
+
+    <div>
+      <h2>Summary</h2>
+      <div id="meta"><span class="hint">—</span></div>
+    </div>
+
+    <div>
+      <h2>Convention checks</h2>
+      <div id="diag" class="findings"><span class="hint">—</span></div>
+      <div class="hint" style="margin-top:4px">A local sanity subset. The authority is
+        <code>validate-mesh</code> in CI, not this.</div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="drop-hint">Drop a <kbd>.glb</kbd> here, or use <b>Open</b> / <b>F-5E</b>.</div>
+  </div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ---- scene -----------------------------------------------------------------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x14171c);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 5000);
+camera.position.set(9, 5, 12);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x202024, 1.1));
+const key = new THREE.DirectionalLight(0xffffff, 1.4);
+key.position.set(6, 12, 8);
+scene.add(key);
+
+const grid = new THREE.GridHelper(40, 40, 0x2c333d, 0x21262e);
+scene.add(grid);
+// Engine axes: +X nose (red), +Y up (green), +Z starboard (blue). three.js is +Y up too, so the
+// AxesHelper colours already match the engine's convention documented in docs/modding/3d-models.md.
+const axes = new THREE.AxesHelper(3);
+scene.add(axes);
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+// ---- render loop -----------------------------------------------------------
+let mixer = null;
+const clock = new THREE.Clock();
+const spinClips = new Set();  // clip names that loop rather than scrub
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);   // only spin clips actually advance (others are paused)
+  controls.update();
+  renderer.render(scene, camera);
+}
+tick();
+
+// ---- model state -----------------------------------------------------------
+let current = null;              // THREE.Group root of loaded model
+let overlayMode = null;          // 'wire' | 'normals' | 'flat' | null
+const loader = new GLTFLoader();
+
+const flatMat = new THREE.MeshStandardMaterial({ color: 0x9aa1ab, metalness: 0.1, roughness: 0.6 });
+const normMat = new THREE.MeshNormalMaterial();
+const origMat = new WeakMap();
+
+function disposeCurrent() {
+  if (!current) return;
+  scene.remove(current);
+  current.traverse(o => {
+    if (o.isMesh) { o.geometry?.dispose(); }
+  });
+  if (mixer) { mixer.stopAllAction(); mixer = null; }
+  spinClips.clear();
+  current = null;
+}
+
+function frameModel(root) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const radius = Math.max(size.x, size.y, size.z) * 0.5 || 1;
+  controls.target.copy(center);
+  camera.position.copy(center).add(new THREE.Vector3(radius * 2.2, radius * 1.3, radius * 2.6));
+  camera.near = radius / 100; camera.far = radius * 100;
+  camera.updateProjectionMatrix();
+  grid.position.y = box.min.y;
+}
+
+function applyOverlay() {
+  if (!current) return;
+  current.traverse(o => {
+    if (!o.isMesh) return;
+    if (!origMat.has(o)) origMat.set(o, o.material);
+    const base = origMat.get(o);
+    o.material = overlayMode === 'normals' ? normMat
+              : overlayMode === 'flat'    ? flatMat
+              :                             base;
+    o.material.wireframe = overlayMode === 'wire';
+    o.material.side = document.getElementById('c-wind').checked
+      ? THREE.DoubleSide : THREE.FrontSide;
+  });
+}
+
+async function loadArrayBuffer(buf, name) {
+  disposeCurrent();
+  let gltf;
+  try {
+    gltf = await loader.parseAsync(buf, '');
+  } catch (e) {
+    setDiag([{ level: 'err', msg: 'Parse failed: ' + e.message }]);
+    return;
+  }
+  current = gltf.scene;
+  scene.add(current);
+  frameModel(current);
+  overlayMode = null;
+  document.querySelectorAll('#side button[data-mode]').forEach(b => b.classList.remove('on'));
+  applyOverlay();
+  buildTree(current);
+  buildClips(gltf.animations || []);
+  buildMeta(name, gltf);
+  runChecks(name, current, gltf.animations || []);
+  document.getElementById('drop-hint').style.display = 'none';
+}
+
+// ---- node tree -------------------------------------------------------------
+let selected = null;
+function buildTree(root) {
+  const tree = document.getElementById('tree');
+  tree.innerHTML = '';
+  const walk = (obj, depth) => {
+    // Skip the loader's synthetic wrapper scene node, show authored nodes.
+    const isMesh = obj.isMesh;
+    const isEmpty = !isMesh && obj.type === 'Object3D' && obj.name;
+    if (obj.name || isMesh) {
+      const el = document.createElement('div');
+      const damage = /_b$/.test(obj.name);
+      el.className = 'node' + (isMesh ? ' mesh' : isEmpty ? ' empty' : '') + (damage ? ' damage' : '');
+      el.style.paddingLeft = (6 + depth * 12) + 'px';
+      const kind = isMesh ? 'mesh' : isEmpty ? 'empty' : 'node';
+      el.innerHTML = `<span class="kind">${kind}</span> ${obj.name || '(unnamed)'}`;
+      el.onclick = () => selectNode(obj, el);
+      tree.appendChild(el);
+    }
+    obj.children.forEach(c => walk(c, depth + (obj.name || isMesh ? 1 : 0)));
+  };
+  root.children.forEach(c => walk(c, 0));
+  if (!tree.children.length) tree.innerHTML = '<span class="hint">No named nodes.</span>';
+}
+
+const hi = new THREE.Box3Helper(new THREE.Box3(), 0x4ea1ff);
+hi.visible = false; scene.add(hi);
+function selectNode(obj, el) {
+  document.querySelectorAll('#tree .node').forEach(n => n.classList.remove('sel'));
+  el.classList.add('sel');
+  selected = obj;
+  const box = new THREE.Box3().setFromObject(obj);
+  if (box.isEmpty()) { hi.visible = false; return; }
+  hi.box.copy(box); hi.visible = true;
+}
+
+// ---- clips -----------------------------------------------------------------
+function buildClips(clips) {
+  const wrap = document.getElementById('clips-wrap');
+  const host = document.getElementById('clips');
+  host.innerHTML = '';
+  if (!clips.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  mixer = new THREE.AnimationMixer(current);
+  clips.forEach(clip => {
+    const isSpin = /spin$/.test(clip.name);
+    const action = mixer.clipAction(clip);
+    action.play();
+    if (isSpin) { spinClips.add(clip.name); action.paused = false; }
+    else { action.paused = true; action.time = 0; }
+    const label = document.createElement('label');
+    label.textContent = `${clip.name}  (${clip.duration.toFixed(2)}s)` + (isSpin ? '  ⟳ loops' : '');
+    host.appendChild(label);
+    if (isSpin) return;   // spin clips animate on their own; no scrub slider
+    const s = document.createElement('input');
+    s.type = 'range'; s.min = 0; s.max = 1; s.step = 0.001; s.value = 0;
+    s.oninput = () => {
+      // Scrub: t = value * duration, exactly what the engine's sampler will do
+      // (fighters-legacy#840). Hold the action paused and seek.
+      action.time = parseFloat(s.value) * clip.duration;
+      mixer.update(0);
+    };
+    host.appendChild(s);
+  });
+}
+
+// ---- meta ------------------------------------------------------------------
+function buildMeta(name, gltf) {
+  let meshes = 0, tris = 0, mats = new Set(), nodes = 0;
+  current.traverse(o => {
+    if ((o.name && o !== current) || o.isMesh) nodes++;
+    if (o.isMesh) {
+      meshes++;
+      const g = o.geometry;
+      const idx = g.index ? g.index.count : g.attributes.position.count;
+      tris += idx / 3;
+      if (o.material) mats.add(o.material.name || '(unnamed)');
+    }
+  });
+  const box = new THREE.Box3().setFromObject(current);
+  const s = box.getSize(new THREE.Vector3());
+  const row = (t, v) => `<div><span class="tag">${t}</span> <span class="val">${v}</span></div>`;
+  document.getElementById('meta').innerHTML =
+    row('file', name) +
+    row('nodes', nodes) +
+    row('meshes', meshes) +
+    row('triangles', tris.toLocaleString()) +
+    row('materials', [...mats].join(', ') || '(none)') +
+    row('bounds m', `${s.x.toFixed(2)} × ${s.y.toFixed(2)} × ${s.z.toFixed(2)}`) +
+    row('clips', (gltf.animations || []).map(c => c.name).join(', ') || '(none)');
+}
+
+// ---- convention checks (a subset; validate-mesh is the authority) ----------
+function runChecks(name, root, clips) {
+  const f = [];
+  const names = [];
+  // Skip the loader's synthetic wrapper (gltf.scene, named "Scene") — it is not an authored node,
+  // and flagging its capital S would be a false positive on every file.
+  root.traverse(o => { if (o.name && o !== root) names.push(o.name); });
+
+  // Uppercase in node names — the engine lowercases asset names; node names should match style.
+  const upper = names.filter(n => /[A-Z]/.test(n));
+  if (upper.length) f.push({ level: 'warn', msg: `Uppercase node name(s): ${upper.join(', ')}` });
+
+  // Damage node convention: an `_b` node should have a base sibling of the same stem.
+  const set = new Set(names);
+  names.filter(n => /_b$/.test(n)).forEach(n => {
+    const base = n.replace(/_b$/, '');
+    if (!set.has(base))
+      f.push({ level: 'warn', msg: `Damage node ${n} has no base node ${base}` });
+  });
+
+  // Clip names should be lowercase_underscore (the channel-name contract, fighters-legacy#844).
+  clips.forEach(c => {
+    if (!/^[a-z][a-z0-9_]*$/.test(c.name))
+      f.push({ level: 'warn', msg: `Clip name "${c.name}" is not lowercase_underscore` });
+  });
+
+  // Skins / morph targets are not rigid articulation — the engine will reject them.
+  let hasSkin = false, hasMorph = false;
+  root.traverse(o => {
+    if (o.isSkinnedMesh) hasSkin = true;
+    if (o.isMesh && o.morphTargetInfluences?.length) hasMorph = true;
+  });
+  if (hasSkin) f.push({ level: 'err', msg: 'Skinned mesh present — rigid node animation only.' });
+  if (hasMorph) f.push({ level: 'err', msg: 'Morph targets present — rigid node animation only.' });
+
+  if (!f.length) f.push({ level: 'ok', msg: 'No local convention problems found.' });
+  setDiag(f);
+}
+function setDiag(findings) {
+  document.getElementById('diag').innerHTML = findings
+    .map(x => `<div class="${x.level}">${x.level.toUpperCase()}: ${x.msg}</div>`).join('');
+}
+
+// ---- inputs ----------------------------------------------------------------
+document.getElementById('file').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  loadArrayBuffer(await file.arrayBuffer(), file.name);
+});
+document.getElementById('btn-f5e').addEventListener('click', async () => {
+  // This page lives in tools/gltf-inspect/; the F-5E is three dirs over. Works when served over
+  // http:// (a file:// page cannot fetch a sibling — use Open instead in that case).
+  try {
+    const r = await fetch('../../aircraft/f5e/f5e.glb');
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    loadArrayBuffer(await r.arrayBuffer(), 'aircraft/f5e/f5e.glb');
+  } catch (e) {
+    setDiag([{ level: 'err', msg: 'Could not fetch F-5E (' + e.message +
+      '). Serve the pack over http, or use Open.' }]);
+  }
+});
+['wire', 'normals', 'flat'].forEach(mode => {
+  document.getElementById('t-' + mode.slice(0, 4)).addEventListener('click', e => {
+    overlayMode = overlayMode === mode ? null : mode;
+    document.querySelectorAll('#side button[data-mode]').forEach(b => b.classList.remove('on'));
+    if (overlayMode) e.target.classList.add('on');
+    applyOverlay();
+  });
+});
+document.getElementById('c-axes').addEventListener('change', e => axes.visible = e.target.checked);
+document.getElementById('c-grid').addEventListener('change', e => grid.visible = e.target.checked);
+document.getElementById('c-wind').addEventListener('change', applyOverlay);
+
+stage.addEventListener('dragover', e => { e.preventDefault(); });
+stage.addEventListener('drop', async e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  loadArrayBuffer(await file.arrayBuffer(), file.name);
+});
+</script>
+</body>
+</html>
