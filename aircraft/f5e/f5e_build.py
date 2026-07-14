@@ -588,4 +588,11 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    rc = main()
+    if bpy.app.background:
+        sys.exit(rc)          # headless (CI / --background): exit code matters
+    # GUI attached: stay open so the scene can be inspected. Tidy it for viewing --
+    # the shadow hull otherwise sits on top of the airframe.
+    for o in bpy.context.scene.objects:
+        if o.name.endswith("_shadow") or o.name == "camera_anchor":
+            o.hide_set(True)
