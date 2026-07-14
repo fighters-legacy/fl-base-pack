@@ -123,6 +123,39 @@ CANOPY_SPAN  = (0.245, 0.435)  # x/L range where z_up is canopy glass, not fusel
 CANOPY_HALFW = 0.34            # m [E] canopy width from the planform outline
 NOZZLE_R     = 0.28            # m [D] from the front view; two, side by side
 PITOT_LEN    = 0.55            # m [P] visible on the 3-view
+NOSE_BLEND_T = 0.16            # x/L [E] radome (circular) -> traced forebody. See _nose_section.
+SILL_EASE    = 2.2             # [E] cockpit-sill ease-in exponent. See _spine_top: 1.0 (linear)
+                               #     is what made the canopy a flat ridge instead of a bubble.
+WINDSCREEN_F = 0.14            # [E] fraction of the canopy span the windscreen occupies
+
+# ═══ LATERAL AIR INTAKES ═══════════════════════════════════════════════════════════════════ [E] ═
+#
+# The F-5E's signature feature, and until now entirely absent: the loft ran smooth past the intake
+# station and the aircraft read as a blob with wings.
+#
+# NASA Table I does not dimension the inlets, and the 3-view's own planform outline ALREADY INCLUDES
+# the intake fairing -- the traced y_half peaks at 0.645 m at x/L 0.46, which is exactly the "intake
+# fairing region, widest" note in STATIONS_FUS. So the body is already as wide as it should be;
+# adding a nacelle on top of that would double-count the width. What the traced outline CANNOT carry
+# is the sharp-edged detail: the cowl lip, and the dark recessed aperture behind it.
+#
+# These are therefore [E] -- judgement calls, shaped to the published outline and cross-checked
+# against public-domain photography (Northrop assembly-line shots and CC0 museum walk-arounds; see
+# SOURCES.md). Like the canopy and the fuselage cross-section, they are VISUAL ONLY: the flight model
+# reads nothing from this file.
+#
+# Modelled as a closed solid overlapping the fuselage loft, not a boolean cut: both are closed and
+# outward-facing, so the buried inboard faces are simply never seen.
+INTAKE_X0     = 0.415   # x/L  cowl lip. Just aft of the canopy, ahead of the wing root.
+INTAKE_X1     = 0.660   # x/L  where the fairing has faded back into the flank.
+INTAKE_ZC     = 0.28    # m    aperture centre, above the fuselage reference line
+INTAKE_HZ     = 0.33    # m    aperture half-height
+INTAKE_HY     = 0.20    # m    cowl half-width; the inboard half stays buried in the fuselage
+INTAKE_PROUD  = 0.13    # m    how far the cowl lip stands proud of the traced flank
+INTAKE_DEPTH  = 0.26    # m    how far the inlet face is recessed behind the lip -- this is what
+                        #      makes the aperture read as a hole rather than a painted-on panel
+# The boundary-layer splitter gap between cowl and fuselage is NOT modelled: it is a few centimetres
+# across and vanishes at any gameplay range. The lip and the recess are what make the jet readable.
 
 # Surface placement stations (planform work, unchanged from the validated planform build)
 WING_X_LE     = 5.95      # m   wing leading-edge root station
@@ -248,7 +281,47 @@ def _spine_top(t):
         return z_up
     a = _fus_at(c0)[0]
     b = _fus_at(c1)[0]
-    return a + (b - a) * (t - c0) / (c1 - c0)
+
+    # NOT linear. A straight ramp from the windshield base (0.50 m) to the aft fairing (0.97 m)
+    # climbs at the same rate as the glass above it, so the canopy never stands proud -- the loft
+    # produced one long flat-topped ridge merging into the spine, with no bubble and no windscreen.
+    # The real skin stays low along the cockpit sill and only rises BEHIND the cockpit, into the
+    # dorsal decking ahead of the intakes (USAF 74-00513, a clean side view). Ease-in does that:
+    # slow under the canopy, steep at the aft end, and it still meets the traced skin exactly at
+    # both ends -- so no traced value is overridden, only the curve BETWEEN them.
+    return a + (b - a) * ((t - c0) / (c1 - c0)) ** SILL_EASE
+
+
+def _nose_section(t, top, lo, w):
+    """Section centre and half-height at x/L = t, with the RADOME treated as a body of revolution.
+
+    The raw trace disagrees with itself at the nose. At x/L 0.03 it gives a section 0.12 m wide and
+    0.315 m TALL -- a vertical blade -- because the plan-view half-width and the side-view contour
+    were sampled independently and do not agree that close to the tip, where both are a few pixels of
+    ink. Lofted, that produced a nose whose belly plunged into a hanging chin within the first half
+    metre while the spine stayed flat. Public-domain photography (USAF 73-02896, and the CC0
+    walk-arounds) shows the opposite: a slender, near-conical radome with only a gentle droop.
+
+    A radome CANNOT be a blade -- it is a fairing over a circular radar antenna, so its sections are
+    circular. That is a physical fact, not a styling choice, and it is the constraint used here: in
+    the radome region the half-height is taken from the traced PLAN half-width (the more trustworthy
+    of the two near the tip, since the planform is what NASA's Table I closes against), and the
+    section centre rides a smooth droop line from the tip. By NOSE_BLEND_T the fuselage is deep and
+    genuinely non-circular -- gun bay, nose-gear well, cockpit floor -- and the trace is trusted
+    fully again. Between the two, blend.
+    """
+    cz_tr = (top + lo) / 2.0
+    hh_tr = max((top - lo) / 2.0, 0.02)
+    if t >= NOSE_BLEND_T:
+        return cz_tr, hh_tr
+
+    top_b = _spine_top(NOSE_BLEND_T)
+    lo_b = _fus_at(NOSE_BLEND_T)[1]
+    cz_rd = ((top_b + lo_b) / 2.0) * (t / NOSE_BLEND_T)   # droop: 0 at the tip -> traced centreline
+    hh_rd = max(w, 0.02)                                  # circular: half-height = half-width
+
+    u = _smoothstep(t / NOSE_BLEND_T)
+    return cz_rd + (cz_tr - cz_rd) * u, hh_rd + (hh_tr - hh_rd) * u
 
 
 def _fuselage(bm, sections=44):
@@ -265,9 +338,8 @@ def _fuselage(bm, sections=44):
         x = t * LENGTH
         top = _spine_top(t)
         _, lo, w = _fus_at(t)
-        cz = (top + lo) / 2.0
-        hh = max((top - lo) / 2.0, 0.02)
         w = max(w, 0.02)
+        cz, hh = _nose_section(t, top, lo, w)
         n = 2.05 + 0.4 * _smoothstep(t / 0.25)          # round nose, flatter-sided body
         ring = []
         steps = 16
@@ -331,6 +403,81 @@ def _fuselage(bm, sections=44):
             pass
 
 
+def _intake_section(t, steps=12):
+    """Cross-section of the intake cowl at x/L = t: (centre_y, centre_z, half_y, half_z, ring_uv).
+
+    The cowl hugs the flank. Its OUTER surface sits `INTAKE_PROUD` beyond the traced half-width at
+    the lip and fades back to flush by INTAKE_X1; its inboard half is buried inside the fuselage.
+    """
+    w = _fus_at(t)[2]                                        # traced fuselage half-width here
+    fade = 1.0 - _smoothstep((t - INTAKE_X0) / (INTAKE_X1 - INTAKE_X0))
+    outer = w + INTAKE_PROUD * fade
+    hy = INTAKE_HY
+    hz = INTAKE_HZ * (0.35 + 0.65 * fade)                    # tall at the lip, faded into the flank aft
+    return outer - hy, INTAKE_ZC, hy, max(hz, 0.02)
+
+
+def _intake_ring(bm, t, side, scale=1.0, dx=0.0, steps=12):
+    """One rounded-rectangle ring of the cowl, on `side` (+1 port, -1 starboard in Blender -Y)."""
+    cy, cz, hy, hz = _intake_section(t)
+    x = t * LENGTH + dx
+    ring = []
+    for j in range(steps):
+        th = 2.0 * math.pi * j / steps
+        c, sn = math.cos(th), math.sin(th)
+        n = 3.2                                              # rounded rectangle, like the real lip
+        y = hy * scale * math.copysign(abs(c) ** (2.0 / n), c)
+        z = hz * scale * math.copysign(abs(sn) ** (2.0 / n), sn)
+        ring.append(bm.verts.new(Vector((x, side * (cy + y), cz + z))))
+    return ring
+
+
+def _bridge(bm, a, b, flip):
+    """Quad-bridge two equal-length rings. `flip` reverses winding for the mirrored side."""
+    m = len(a)
+    for j in range(m):
+        k = (j + 1) % m
+        quad = (a[j], a[k], b[k], b[j]) if not flip else (a[j], b[j], b[k], a[k])
+        try:
+            bm.faces.new(quad)
+        except ValueError:
+            pass
+
+
+def _intakes(bm, stations=7):
+    """Lateral inlets: a cowl lofted along the flank, with a recessed aperture behind a sharp lip.
+
+    Built per side as a closed solid that overlaps the fuselage. Two pieces meet at the lip ring:
+      * the OUTER shell, lofted aft from the lip until it is buried in the flank at INTAKE_X1;
+      * the RECESS, stepping inward and aft from that same lip ring to a capped throat -- the dark
+        hole. Without it the lip is just a raised panel line and the jet still reads wrong.
+    """
+    for side in (1.0, -1.0):
+        flip = side < 0.0                                    # mirrored side needs reversed winding
+        lip = _intake_ring(bm, INTAKE_X0, side)
+
+        # Outer shell: lip -> aft, fading into the flank.
+        prev = lip
+        for i in range(1, stations + 1):
+            t = INTAKE_X0 + (INTAKE_X1 - INTAKE_X0) * (i / stations)
+            ring = _intake_ring(bm, t, side)
+            _bridge(bm, prev, ring, flip)
+            prev = ring
+        try:                                                 # aft cap: buried in the fuselage, unseen
+            bm.faces.new(prev if not flip else list(reversed(prev)))
+        except ValueError:
+            pass
+
+        # Recess: the same lip ring, stepped in and aft to a throat, then capped. Winding is the
+        # opposite of the outer shell -- these faces are seen from IN FRONT, looking into the duct.
+        throat = _intake_ring(bm, INTAKE_X0, side, scale=0.72, dx=INTAKE_DEPTH)
+        _bridge(bm, lip, throat, not flip)
+        try:
+            bm.faces.new(list(reversed(throat)) if not flip else throat)
+        except ValueError:
+            pass
+
+
 def _tip_rails(bm):
     """Wingtip AIM-9 launch rails. Part of the AIRFRAME, not a store.
 
@@ -379,7 +526,12 @@ def _canopy(bm):
         z_glass = _fus_at(t)[0]
         z_skin = _spine_top(t)
         h = max(z_glass - z_skin, 0.0) + 0.02
-        w = CANOPY_HALFW * math.sin(min(max(f, 0.04), 0.96) * math.pi) ** 0.5
+        # Plan shape. The old sin(f*pi)^0.5 was a symmetric lens: zero width at BOTH ends, so the
+        # canopy came to a point at the front and there was no windscreen at all. A windscreen base
+        # is nearly as wide as the canopy itself -- it is a screen, not a spike. So: come up to full
+        # width fast over the windscreen, hold it through the glass, then taper into the long aft
+        # fairing (which does not reach zero -- it fairs into the spine).
+        w = CANOPY_HALFW * _smoothstep(f / WINDSCREEN_F) * (1.0 - 0.80 * _smoothstep((f - 0.70) / 0.30))
         ring = []
         for j in range(10):
             th = math.pi * j / 9.0
@@ -399,6 +551,7 @@ def build_airframe(name: str) -> bpy.types.Object:
     bm = bmesh.new()
 
     _fuselage(bm)
+    _intakes(bm)
     _canopy(bm)
 
     # Wing — positioned by its published quarter-chord line.

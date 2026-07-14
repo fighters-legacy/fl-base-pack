@@ -383,3 +383,106 @@ tip arrowhead is ambiguous in the scan; the fin itself is built from published a
 width from NASA's own tail-span arithmetic), with the canopy span and its glass bump measured rather
 than invented. The only remaining **E** values in the whole mesh: canopy half-width (~0.34 m, read
 from the planform outline), the superellipse cross-section roundness, and surface placement stations.
+
+### Update: the lateral air intakes — **E**, cross-checked against public-domain photography
+
+The F-5E's most recognisable feature was **entirely absent**. The loft ran smooth past the intake
+station, and the aircraft read as a blob with wings. This adds the inlets.
+
+They are **E**, and they have to be: NASA Table I dimensions the planform and the tails, but it does
+not dimension the inlets, and no public document does. What *is* known constrains them:
+
+- The 3-view's planform outline **already includes the intake fairing** — the traced `y_half` peaks at
+  x/L 0.46, the "intake fairing region, widest" station. So the body is already about as wide as it
+  should be there, and bolting a nacelle onto it would double-count the width.
+- What the traced outline **cannot** carry is the sharp-edged detail: a lofted 2-D contour has no lip
+  and no aperture. Those are what make the jet readable, and they are what was added.
+
+| Value | m | Basis |
+|---|---|---|
+| `INTAKE_X0` (cowl lip) | x/L 0.415 | **E** — aft of the canopy, ahead of the wing root |
+| `INTAKE_X1` (faired out) | x/L 0.660 | **E** |
+| `INTAKE_ZC` (aperture centre) | 0.28 | **E** — high on the flank, per the photographs |
+| `INTAKE_HZ` (half-height) | 0.33 | **E** |
+| `INTAKE_HY` (cowl half-width) | 0.20 | **E** — inboard half stays buried in the fuselage |
+| `INTAKE_PROUD` | 0.13 | **E** — how far the lip stands off the traced flank |
+| `INTAKE_DEPTH` (recess) | 0.26 | **E** — what makes the aperture read as a hole, not a panel line |
+
+**Reference imagery — public domain and CC0 only.** Cross-checked against Northrop assembly-line
+photographs (public domain; bare, *unpainted* airframes, which is the best possible panel-line and
+inlet reference and carries no livery to strip) and CC0 museum walk-arounds. Per the likeness policy,
+**no scale plan, magazine drawing or cutaway illustration was used** — those are copyrighted works by
+identifiable artists, whatever their apparent licence, and a mesh traced from one is a derivative of
+the drawing. See `docs/legal/aircraft-likeness.md`, and fighters-legacy#835 on making that explicit.
+
+The reference set is held **outside** this repository with a per-file provenance manifest (licence,
+author, source URL). Only the derived mesh ships.
+
+**Deliberately not modelled:** the boundary-layer splitter gap between cowl and fuselage. It is a few
+centimetres across and invisible at any gameplay range; the lip and the recess carry the shape.
+
+The inlets are built as a closed solid overlapping the fuselage loft — not a boolean cut. Both are
+closed and outward-facing, so the buried faces are simply never seen, and `validate-mesh` reports zero
+winding or normal errors. Face count 2258 → 2454.
+
+As with everything else in this file: **nothing the flight model reads comes from the mesh.** The
+inlets change no number above.
+
+### Update: the radome — the trace disagreed with itself, and photography settled it
+
+The nose was wrong, and the raw trace could not have told us so on its own.
+
+At x/L 0.03 the traced stations give a section **0.12 m wide and 0.315 m tall** — a vertical blade,
+2.6× taller than wide. Lofted, that produced a nose whose belly **plunged into a hanging chin within
+the first half metre** while the spine stayed flat. The cause: `y_half` (from the plan view) and
+`z_upper`/`z_lower` (from the side view) were sampled independently, and that close to the tip both
+are only a few pixels of ink. They do not agree, and the superellipse loft turned the disagreement
+into geometry.
+
+Public-domain photography — **USAF 73-02896** (an in-flight side view; PD) and the CC0 walk-arounds —
+shows the opposite: a slender, near-conical radome with a gentle droop and no chin at all.
+
+The fix is a physical constraint, not a styling choice. **A radome is a fairing over a circular radar
+antenna, so its cross-sections are circular** — it cannot be a blade. So in the radome region:
+
+- half-height is taken from the traced **plan** half-width (the more trustworthy of the two near the
+  tip: the planform is what NASA's Table I closes against, to 0.04%),
+- the section centre rides a smooth droop line from the tip to the traced centreline,
+- by `NOSE_BLEND_T` = x/L 0.16 the fuselage is genuinely non-circular — gun bay, nose-gear well,
+  cockpit floor — and the trace is trusted fully again. Between the two, blend.
+
+The traced stations are **unchanged**; nothing was overwritten. `_nose_section()` reinterprets them in
+the region where they are self-inconsistent, and says so.
+
+This is what the photographs were for. They are not the source of a single dimension — they are the
+**cross-check that caught a source contradicting itself**, which is exactly the role the likeness
+policy gives a photograph. Nothing the flight model reads comes from the mesh.
+
+### Update: the canopy — the bubble was hiding inside a linear interpolation
+
+The canopy did not read as a canopy. It lofted as **one long flat-topped ridge** running from the
+windscreen back into the dorsal spine, with no bubble and no windscreen at all.
+
+Neither traced station was to blame. `_spine_top()` was: the skin under the canopy was interpolated
+**linearly** between the windshield base (0.50 m at x/L 0.245) and the aft fairing (0.97 m at 0.435).
+That ramp climbs at the same rate as the glass above it, so the glass never stands proud of the skin
+— the difference between them, which *is* the canopy, stayed nearly constant and small.
+
+**USAF 74-00513** (a clean in-flight side view, public domain) shows what the skin actually does: it
+stays low along the cockpit sill and only rises **behind** the cockpit, into the dorsal decking ahead
+of the intakes. An ease-in curve (`SILL_EASE` = 2.2) reproduces that, and it still meets the traced
+skin **exactly at both ends** — so no traced value is overridden, only the curve *between* them.
+
+The canopy plan shape was also wrong. It used `sin(f·π)^0.5`: a symmetric lens, **zero width at both
+ends**, so the canopy came to a spike at the front and there was no windscreen. A windscreen base is
+nearly as wide as the canopy — it is a screen, not a spike. It now comes up to full width across
+`WINDSCREEN_F` (14% of the canopy span), holds through the glass, and tapers into the aft fairing
+without reaching zero, because the fairing blends into the spine rather than ending.
+
+| Value | | Basis |
+|---|---|---|
+| `SILL_EASE` | 2.2 | **E** — cockpit-sill ease-in. 1.0 (linear) is the bug. |
+| `WINDSCREEN_F` | 0.14 | **E** — windscreen as a fraction of the canopy span |
+
+Both are **E**, both are visual only, and both are anchored to traced endpoints they do not move.
+Face count unchanged (2454). Nothing the flight model reads comes from the mesh.
