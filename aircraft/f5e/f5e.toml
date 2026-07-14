@@ -9,17 +9,14 @@
 # Calibration targets live in f5e.expect.toml and are enforced by `fm-trim --expect`
 # (engine #817).
 #
-# ── KNOWN-PROVISIONAL BLOCKS, so nobody mistakes them for settled ──────────────────────
-#   [aero.drag_polar]  The parabolic polar CANNOT represent this aircraft. The F-5E's
-#                      published Ps ladder shows drag rising 3.5x faster than CL^2 from 1 G
-#                      to max lift. `k` below is fitted to the SUSTAINED-TURN point, because
-#                      that is the number that defines the jet in a fight; cruise drag is
-#                      consequently overstated. Replaced by [aero.cd_table] when engine #820
-#                      lands. Do not tune `k` -- fix the schema.
-#   [engine.*_thrust]  Thrust vs Mach/altitude is NOT PUBLISHED anywhere. Derived model,
-#                      anchored on published SL static thrust. Largest uncertainty here.
-#   [engine] fuel flow Pending research; the T.O. gives flow charts, not scalars.
-#   [aero.controls]    Deflection limits not yet sourced. Pending research.
+# ── REMAINING PROVISIONAL BLOCKS, so nobody mistakes them for settled ───────────────────
+#   [engine.*_thrust]  Thrust vs Mach/altitude is NOT PUBLISHED anywhere. Derived turbojet
+#                      lapse anchored on published SL static thrust; validated indirectly by
+#                      the cd_table fit (0.2% agreement) and the published max level Mach
+#                      (0.7%). Still the largest uncertainty in the model.
+#   [aero.cd_wave]     Shape above M ~0.9 rests on ONE published point (M 1.63 at 36k ft).
+#   cl_p / cl_da       No public roll-rate data exists for the F-5E; these are the only
+#                      derivatives with nothing to check them against.
 
 [aircraft]
 name        = "F-5E Tiger II"
@@ -172,14 +169,13 @@ max_mach         =  2.00  # [P] T.O. airframe limit: "710 KEAS or 2.0 IMN, which
 #    normal maneuvering is the limited one, not the placard maximum. Authoring 35 here would give
 #    the player an F-5E that rolls roughly twice as fast as the real one in every fight.
 #
-# 2. THE STABILATOR IS ASYMMETRIC: 17 deg nose-up authority, 5 deg nose-down. The schema has ONE
-#    scalar per axis and cannot express that, so this is the nose-up figure -- the one that matters
-#    for pitch authority and the G limit. Nose-down authority is modelled 3.4x too generous as a
-#    result. Engine issue filed. (The manual prints "17 up / 5 down" without stating leading- vs
-#    trailing-edge, but the asymmetry settles it: no fighter has 17 deg of nose-DOWN and 5 of
-#    nose-up.)
+# 2. THE STABILATOR IS ASYMMETRIC: 17 deg nose-up authority, 5 deg nose-down -- and since
+#    fighters-legacy#822 the schema can say so. (The manual prints "17 up / 5 down" without stating
+#    leading- vs trailing-edge, but the asymmetry settles it: no fighter has 17 deg of nose-DOWN
+#    and 5 of nose-up.)
 [aero.controls]
-max_elevator_deg = 17.0   # [P] all-moving stabilator, nose-up authority (5 deg nose-down)
+max_elevator_deg     = 17.0   # [P] all-moving stabilator, nose-up authority
+max_elevator_neg_deg =  5.0   # [P] nose-down authority -- a 3.4:1 asymmetry, and it is real
 max_aileron_deg  = 17.5   # [P] HALF of the 35 deg placard travel -- the aileron limiter is engaged
                           #     whenever the gear is up. See above. This is not a typo.
 max_rudder_deg   = 30.0   # [P] either side of neutral (in-flight deflection is q-limited)

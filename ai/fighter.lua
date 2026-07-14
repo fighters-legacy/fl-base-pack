@@ -47,7 +47,10 @@ end
 local function steer(state, tx, tz, talt, throttle, ab)
     local herr = guidance.heading_error(state.quat, state.pos, { x = tx, y = state.pos.y, z = tz })
     local ail  = guidance.bank_to_turn_aileron(herr)
-    local perr = guidance.pitch_error_from_alt(state.quat, talt - state.pos.y)
+    -- NB: pitch_error_from_alt takes (quat, own_pos, alt_error). docs/modding/ai.md documents a
+    -- 2-arg form and its own example uses it; both are wrong. own_pos is needed because "up" is
+    -- geodetic on a spherical Earth. Filed against the engine docs.
+    local perr = guidance.pitch_error_from_alt(state.quat, state.pos, talt - state.pos.y)
     return {
         aileron     = ail,
         rudder      = guidance.coordinated_rudder(ail),

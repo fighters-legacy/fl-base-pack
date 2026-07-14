@@ -1,9 +1,13 @@
 # Northrop F-5E Tiger II — entity definition.
 #
-# EntityDef owns all asset wiring (engine #813). `mesh` and `flight_model` are ASSET NAMES --
-# bare stems. FolderContentPack prepends `aircraft/` itself, so `mesh = "f5e"` resolves to
-# aircraft/f5e/f5e.glb. Writing `mesh = "aircraft/f5e"` (as the engine docs currently do, engine
-# #818) would resolve to aircraft/aircraft/f5e.glb and render nothing.
+# EntityDef owns all asset wiring (engine #813). `mesh` and `flight_model` are ASSET NAMES, and
+# FolderContentPack prepends the TYPE's directory (`aircraft/`) -- but NOT the asset's own
+# subdirectory. So an asset at aircraft/f5e/f5e.toml is named "f5e/f5e", not "f5e".
+#
+# This bit me in the first end-to-end run: "f5e" resolved to aircraft/f5e.toml, which does not
+# exist, and the server silently fell back to the builtin flight model -- the UFO. The client would
+# then have flown a different aircraft from the server forever. Write the subdirectory.
+# (Writing "aircraft/f5e/f5e" instead would double-prefix to aircraft/aircraft/... -- engine #818.)
 #
 # By contrast, `sensors` and the hardpoint `allowed`/`default` lists are DEF IDS -- namespaced,
 # never filenames. The engine maps id -> asset name once, at bootstrap (engine #810). These two
@@ -15,9 +19,9 @@ id           = "fl-base:f5e"
 name         = "F-5E Tiger II"
 category     = "air_vehicle"
 max_hp       = 100.0
-mesh         = "f5e"          # -> aircraft/f5e/f5e.glb
-cockpit      = "f5e_cockpit"  # -> aircraft/f5e/f5e_cockpit.glb  (engine #813)
-flight_model = "f5e"          # -> aircraft/f5e/f5e.toml
+mesh         = "f5e/f5e"          # -> aircraft/f5e/f5e.glb
+cockpit      = "f5e/f5e_cockpit"  # -> aircraft/f5e/f5e_cockpit.glb  (engine #813)
+flight_model = "f5e/f5e"          # -> aircraft/f5e/f5e.toml
 ai_script    = "fighter"      # -> ai/fighter.lua
 
 # The eyeball is not optional and not a courtesy: honest sensing (Epic #670) means an AI F-5E sees
