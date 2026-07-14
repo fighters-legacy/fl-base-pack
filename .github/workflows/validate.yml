@@ -28,10 +28,16 @@ jobs:
             FAIL=1
           fi
 
-          # All filenames must be lowercase
-          if find aircraft terrain missions audio ai -name "*[A-Z]*" 2>/dev/null | grep -q .; then
-            echo "ERROR: uppercase filenames (Linux ext4 is case-sensitive):"
-            find aircraft terrain missions audio ai -name "*[A-Z]*"
+          # Asset filenames must be lowercase (Linux ext4 is case-sensitive, and the engine
+          # lowercases asset names before resolving them, so an uppercase asset silently misses).
+          #
+          # DOCUMENTATION IS NOT AN ASSET. `SOURCES.md` is REQUIRED in every aircraft directory by
+          # docs/legal/aircraft-likeness.md — it is the provenance manifest that makes the whole
+          # policy auditable — and it is uppercase by the same convention as README.md and LICENSE.
+          # The engine never loads it. Policing its case would fail every conforming aircraft PR.
+          if find aircraft terrain missions audio ai -name "*[A-Z]*" ! -name "*.md" 2>/dev/null | grep -q .; then
+            echo "ERROR: uppercase asset filenames (Linux ext4 is case-sensitive):"
+            find aircraft terrain missions audio ai -name "*[A-Z]*" ! -name "*.md"
             FAIL=1
           fi
 

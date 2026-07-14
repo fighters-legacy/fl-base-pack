@@ -1,0 +1,26 @@
+# M39A2 20 mm revolver cannon — 2x internal, nose. F-5E gun armament.
+#
+# WEIGHT IS AMMUNITION ONLY, NOT THE GUNS. The T.O.'s typical gross weight (from which the flight
+# model's mass_kg is derived) explicitly includes the aircraft "with full ballast, NO ammunition".
+# So the gun bodies are already in the airframe's empty weight; this store is the 560 rounds. Getting
+# this wrong would double-count ~360 lb of gun.
+[weapon]
+id       = "fl-base:m39a2"
+name     = "M39A2 20 mm cannon"
+type     = "gun"
+category = "air-to-air"
+
+[performance]
+max_range_nm      = 0.6      # [E] effective air-to-air range, ~1,100 m
+min_range_nm      = 0.0
+max_speed_kts     = 1950.0   # [E] ~3,300 ft/s muzzle velocity
+motor_burn_time_s = 0.0      # unpowered
+max_g             = 0.0
+
+[warhead]
+blast_radius_ft = 3.0        # [E] 20 mm HEI
+damage          = 8.0        # per round; gameplay value
+
+[load]
+weight_lb   = 300.0   # [P] 560 rounds (280/gun), per T.O. "FULL AMMO (560 ROUNDS)"
+drag_factor = 0.0     # internal. No external drag.

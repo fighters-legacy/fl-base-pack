@@ -1,0 +1,126 @@
+# Northrop F-5E Tiger II — entity definition.
+#
+# EntityDef owns all asset wiring (engine #813). `mesh` and `flight_model` are ASSET NAMES --
+# bare stems. FolderContentPack prepends `aircraft/` itself, so `mesh = "f5e"` resolves to
+# aircraft/f5e/f5e.glb. Writing `mesh = "aircraft/f5e"` (as the engine docs currently do, engine
+# #818) would resolve to aircraft/aircraft/f5e.glb and render nothing.
+#
+# By contrast, `sensors` and the hardpoint `allowed`/`default` lists are DEF IDS -- namespaced,
+# never filenames. The engine maps id -> asset name once, at bootstrap (engine #810). These two
+# vocabularies are not interchangeable, and conflating them is what made sensors silently
+# non-functional before #810.
+
+[entity]
+id           = "fl-base:f5e"
+name         = "F-5E Tiger II"
+category     = "air_vehicle"
+max_hp       = 100.0
+mesh         = "f5e"          # -> aircraft/f5e/f5e.glb
+cockpit      = "f5e_cockpit"  # -> aircraft/f5e/f5e_cockpit.glb  (engine #813)
+flight_model = "f5e"          # -> aircraft/f5e/f5e.toml
+ai_script    = "fighter"      # -> ai/fighter.lua
+
+# The eyeball is not optional and not a courtesy: honest sensing (Epic #670) means an AI F-5E sees
+# only what its sensors give it. Night degrades it hard -- see sensors/eyeball_night.toml.
+sensors = ["fl-base:apq159", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+
+# ── Signatures ────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers against a baseline fighter (1.0). Sensor max_range scales by sqrt(rcs) for
+# radar, and LINEARLY for ir/visual/laser.
+#
+# All [E]. No F-5E signature data is public, and none ever will be from an open source. But the
+# ESTIMATE IS NOT ARBITRARY: the F-5E is a physically tiny aeroplane -- 14.7 m long, 8.1 m span,
+# 17.3 m^2 of wing. It is one of the smallest supersonic fighters ever fielded, and its visual and
+# radar cross-sections should reflect that. Being hard to see IS the F-5E's defining tactical trait,
+# and it is the whole reason the type endured as an aggressor. If these numbers are wrong, the
+# aircraft is wrong.
+[signatures]
+rcs    = 0.55   # [E] small, but no shaping or RAM -- a 1970s airframe, just a little one
+ir     = 0.75   # [E] two afterburning J85s is not nothing, but they are small engines
+visual = 0.55   # [E] famously hard to pick up. "You don't see the F-5 until it's on you."
+laser  = 1.0    # [E] no basis to deviate from baseline
+
+[ai]
+skill    = 0.6  # aggressor-trained. This is the jet the good pilots fly.
+reaction = 0.6
+
+# ── Hardpoints ────────────────────────────────────────────────────────────────────────────────
+# T.O. 1F-5E-1 confirms "wingtip launcher rails and five pylons", and that only the inboard and
+# centreline pylons are fuel-plumbed. Seven stations total.
+#
+# `default` is what the aircraft spawns with, and it is the ONLY loadout the engine can express
+# today -- per-entity loadouts arrive with Epic #583. The default below is the T.O.'s own combat
+# configuration, which is also the configuration every published turn and Ps chart is flown at:
+# 2x AIM-9, full ammunition, clean pylons. That is not a coincidence; it is what makes the flight
+# model's calibration and the aircraft's spawn state describe the same aeroplane.
+
+[[hardpoints]]
+slot    = 0
+type    = "gun"
+allowed = ["fl-base:m39a2"]
+default = "fl-base:m39a2"     # 560 rounds. Internal; no drag.
+
+[[hardpoints]]
+slot    = 1
+type    = "missile"
+allowed = ["fl-base:aim9p"]
+default = "fl-base:aim9p"     # left wingtip rail
+
+[[hardpoints]]
+slot    = 2
+type    = "missile"
+allowed = ["fl-base:aim9p"]
+default = "fl-base:aim9p"     # right wingtip rail
+
+# Underwing and centreline pylons. Empty by default -- the published performance the flight model
+# is calibrated against is flown with NO pylons fitted, and hanging stores on it by default would
+# quietly contradict every number in f5e.expect.toml.
+[[hardpoints]]
+slot    = 3
+type    = "bomb"
+allowed = ["fl-base:mk82"]
+default = ""                  # outboard left, empty
+
+[[hardpoints]]
+slot    = 4
+type    = "bomb"
+allowed = ["fl-base:mk82"]
+default = ""                  # inboard left, empty
+
+[[hardpoints]]
+slot    = 5
+type    = "bomb"
+allowed = ["fl-base:mk82"]
+default = ""                  # inboard right, empty
+
+[[hardpoints]]
+slot    = 6
+type    = "bomb"
+allowed = ["fl-base:mk82"]
+default = ""                  # outboard right, empty
+
+# ── Damage ────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values, not physical ones -- there is no published damage data for any aircraft.
+# `avionics_failure` at critical kills the radar, which for this aircraft means falling back to
+# the eyeball. That is a meaningful loss and it should feel like one.
+[damage.light]
+hp_fraction   = 0.70
+visual_effect = "smoke_light"
+thrust_factor = 0.95
+control_factor = 1.0
+
+[damage.heavy]
+hp_fraction   = 0.35
+visual_effect = "smoke_heavy"
+thrust_factor = 0.70
+control_factor = 0.80
+
+[damage.critical]
+hp_fraction      = 0.10
+visual_effect    = "fire"
+thrust_factor    = 0.35
+control_factor   = 0.50
+avionics_failure = true
+
+[classic]
+damage_mesh = "f5e_b"

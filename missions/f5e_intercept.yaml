@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# f5e_intercept — the pack's first mission: a BFM training engagement, F-5E vs F-5E.
+#
+# The aggressor framing is deliberate: the same aircraft serves as player mount and adversary,
+# which is exactly how the real jet spent its career. It also means the first mission exercises
+# the whole vertical slice with ONE asset: flight model, entity def, radar + eyeball sensors,
+# the AI script, and the default loadout's mass and drag.
+#
+# WHY SUCCESS IS A TIMER: there is no fire path in the engine (Epic fighters-legacy#583) —
+# weapons are stores, not ordnance, so nothing can be shot down yet. The honest first mission is
+# therefore a training window: find the bandit, fight for position, come home when the range
+# closes. When #583 lands, replace the timer trigger with `on: destroy(bandit1)`.
+#
+# MAP: the pack has no terrain yet (#2 cube-sphere tiles, #9 global base). `earth` is the id the
+# terrain issues will ship; validate-mission checks structure, not asset existence, so this file
+# is valid today and becomes flyable when terrain lands. Same for the placeholder weather layer.
+
+name: "Tiger by the Tail"
+map: earth
+layer: earth_clear
+time: { hour: 9, minute: 30 }
+wind: { heading: 250, speed: 6 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0        # real-time: this is a training engagement, not a campaign transit
+
+sides: [blue, red]
+
+objects:
+  # Player: F-5E, combat-configured exactly as the flight model was calibrated —
+  # 2x AIM-9 on the tip rails, full 20 mm, clean pylons (the entity def's default loadout).
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    alt: 3000
+    heading: 45
+
+  # Adversary: same aircraft, AI-flown (entities/f5e.toml assigns ai/fighter.lua).
+  # It patrols its anchor until its OWN sensors find the player — the APQ-159 cone or the
+  # eyeball, whichever gets there first. Nobody in this mission gets ground truth.
+  - type: fl-base:f5e
+    id: bandit1
+    side: red
+    pos: [22000, 0, 18000]
+    alt: 4500
+    heading: 225
+
+triggers:
+  # The training window: 15 real minutes of finding, fighting and disengaging.
+  # fighters-legacy#583 replaces this with `on: destroy(bandit1)`.
+  - on: timer(900)
+    do: mission_success
+
+  # Losing your own aircraft still loses the fight.
+  - on: destroy(player1)
+    do: mission_failure

@@ -1,0 +1,12 @@
+# Night visual acquisition. Same cone, far shorter reach and much slower to notice anything --
+# which is the point: an unaided crew at night is nearly blind, and that should cost them.
+[sensor]
+id   = "fl-base:eyeball_night"
+name = "Visual acquisition (night)"
+type = "visual"
+
+[search]
+az_half_angle_deg = 90.0
+el_half_angle_deg = 60.0
+max_range_nm      = 2.0
+pod               = 0.05
