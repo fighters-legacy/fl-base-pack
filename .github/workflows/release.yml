@@ -14,6 +14,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fetch tex-compress
+        if: hashFiles('aircraft/*/textures-src/*.png') != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: tex-compress
+
+      - name: Compress textures
+        if: hashFiles('aircraft/*/textures-src/*.png') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          # PNG masters are the source and live in the repo; .ktx2 is a build artifact and is
+          # gitignored (fighters-legacy#846). Compression happens HERE, once, rather than on every
+          # contributor's machine -- an author must not need toktx installed to change a texture.
+          #
+          # An ORM map (occlusion/roughness/metallic) must NOT be treated as colour data, hence the
+          # per-map --type. Getting this wrong is invisible until the lighting looks wrong.
+          mkdir -p textures
+          for png in aircraft/*/textures-src/*.png; do
+            stem=$(basename "$png" .png)
+            case "$stem" in
+              *_orm)     type=orm ;;
+              *_diffuse) type=diffuse ;;
+              # The UV layout template is a painter's reference, not a runtime texture.
+              *_uv_layout) echo "skip (authoring reference): $png"; continue ;;
+              *)         type=diffuse ;;
+            esac
+            echo "tex-compress --type $type $png -> textures/${stem}.ktx2"
+            tex-compress --type "$type" "$png" "textures/${stem}.ktx2"
+          done
+
       - name: Build mod archives
         run: |
           VERSION="${{ github.ref_name }}"
@@ -21,8 +52,26 @@ jobs:
           # Copy content directories into fl-base-pack/ so users can extract directly
           # into mods/ and get mods/fl-base-pack/. Exclude .gitkeep (Git scaffolding,
           # not engine assets).
-          rsync -a --exclude='.gitkeep' \
+          #
+          # EVERY directory the engine loads assets from must be listed here. `entities/`,
+          # `sensors/` and `weapons/` were added to the pack after this job was written and were
+          # silently omitted: a release cut before this fix shipped an F-5E with no entity
+          # definition, no radar and no stores -- an aircraft the engine cannot even spawn. The
+          # engine's asset-type table (`kAssetPaths`) is the list to check this against.
+          #
+          # `textures-src/` is excluded: those are the multi-megabyte PNG masters an artist paints,
+          # not runtime assets. The engine loads the compressed `.ktx2` this workflow builds from
+          # them. Everything else in `aircraft/` ships, including SOURCES.md -- CC-BY attribution
+          # and the likeness-policy provenance must travel with the work, not stay behind in the
+          # repository.
+          rsync -a --exclude='.gitkeep' --exclude='textures-src/' \
             aircraft/ fl-base-pack/aircraft/
+          rsync -a --exclude='.gitkeep' \
+            entities/ fl-base-pack/entities/
+          rsync -a --exclude='.gitkeep' \
+            sensors/ fl-base-pack/sensors/
+          rsync -a --exclude='.gitkeep' \
+            weapons/ fl-base-pack/weapons/
           rsync -a --exclude='.gitkeep' \
             terrain/ fl-base-pack/terrain/
           rsync -a --exclude='.gitkeep' \
@@ -31,9 +80,20 @@ jobs:
             audio/ fl-base-pack/audio/
           rsync -a --exclude='.gitkeep' \
             ai/ fl-base-pack/ai/
+          # Compressed textures, when the compress step produced any. `textures/` is the location
+          # the engine's asset table resolves `Texture` assets from.
+          if [ -d textures ] && [ -n "$(ls -A textures 2>/dev/null)" ]; then
+            rsync -a textures/ fl-base-pack/textures/
+          fi
           cp manifest.toml fl-base-pack/
           tar -czf "fl-base-pack-${VERSION}.tar.gz" fl-base-pack/
           zip -r "fl-base-pack-${VERSION}.zip" fl-base-pack/
+
+      - name: Show archive contents
+        run: |
+          # A release that is missing a directory is a release nobody can play. Print the tree so
+          # the omission is visible in the log instead of in a bug report six weeks later.
+          tar -tzf "fl-base-pack-${{ github.ref_name }}.tar.gz" | sort
 
       - name: Publish GitHub Release
         run: |
