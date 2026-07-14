@@ -57,3 +57,5 @@ triggers:
   # Losing your own aircraft still loses the fight.
   - on: destroy(player1)
     do: mission_failure
+
+# (throwaway: proving the gate runs and passes on valid content)
