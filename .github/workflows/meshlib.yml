@@ -1,0 +1,43 @@
+name: meshlib
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/meshlib/**'
+      - 'aircraft/**/*_build.py'
+      - '.github/workflows/meshlib.yml'
+
+jobs:
+  # The pure-math core (airfoil, curves, stations, check) has no Blender dependency and runs
+  # everywhere. This is the fast gate; it does not need a Blender install.
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Run pure-math tests
+        working-directory: tools/meshlib
+        run: PYTHONPATH=src python -m pytest tests/ -q
+
+  # Determinism: build the F-5E twice with Blender-as-a-module and assert byte-identical output.
+  # This is the regression check behind the "generated" provenance mode -- the script must be the
+  # sole source of the committed .glb set. It does NOT assert a match with the committed bytes
+  # (that is Blender-version-specific; see test_determinism.py), only that the tool is deterministic.
+  determinism:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # The bpy wheel pins one exact CPython; keep this in step with the wheel that installs.
+          python-version: '3.11'
+      - name: Install bpy + pytest
+        run: python -m pip install pytest bpy
+      - name: Determinism (two builds, byte-identical)
+        working-directory: tools/meshlib
+        run: PYTHONPATH=src python -m pytest tests/test_determinism.py -q
