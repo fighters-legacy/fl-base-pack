@@ -11,3 +11,7 @@ desktop.ini
 # Build artifacts from the PNG→KTX2 pipeline (generated at pack time, not stored)
 *.ktx2
 *.dds
+
+# Python bytecode from the asset-derivation scripts
+__pycache__/
+*.pyc
