@@ -1,6 +1,10 @@
 [mod]
 name        = "fl-base-pack"
 id          = "fl-base-pack"
+# Def ids read "fl-base:f5e", not "fl-base-pack:f5e" — the pack is the shipping unit, the
+# namespace is the vocabulary. Without this the engine defaults the prefix to the mod id and
+# warns on every def it loads.
+namespace   = "fl-base"
 version     = "0.1.0"
 engine-api  = "1.0"
 priority    = 50
