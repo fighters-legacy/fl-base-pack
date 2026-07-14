@@ -172,7 +172,6 @@ HT_X_C4       = 13.10     # m   horizontal tail quarter-chord station
 VT_X_C4       = 11.90     # m   vertical tail quarter-chord station
 TIP_RAIL_LEN  = 2.10      # m   wingtip AIM-9 rail (part of the airframe; see SOURCES.md)
 
-MAT_AIRFRAME  = "f5e_airframe"
 TEX_DIFFUSE   = "../../textures/f5e_diffuse.ktx2"
 TEX_ORM       = "../../textures/f5e_orm.ktx2"
 
@@ -280,7 +279,29 @@ def _fuselage(bm, sections=44):
     except ValueError:
         pass
 
-    # Twin J85 nozzles, from the front view: two abreast at the tail.
+    # Pitot boom -- visible on the 3-view, part of the silhouette.
+    pb = []
+    for i in range(2):
+        x = -PITOT_LEN + i * PITOT_LEN
+        r = 0.016 if i == 0 else 0.028
+        pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
+                                        r * math.sin(2 * math.pi * j / 6))))
+                   for j in range(6)])
+    for j in range(6):
+        k = (j + 1) % 6
+        try:
+            bm.faces.new((pb[0][j], pb[0][k], pb[1][k], pb[1][j]))
+        except ValueError:
+            pass
+
+
+def _nozzles(bm):
+    """Twin J85 nozzles, from the front view: two abreast at the tail.
+
+    Built into their own face group so they can carry the dark burnt-metal material slot, separate
+    from the skin. The vertices are exactly those the fuselage loft used to emit — moving them here
+    changes no geometry, only which material they answer to.
+    """
     for side in (1.0, -1.0):
         y0 = -side * 0.30
         prev = None
@@ -301,21 +322,6 @@ def _fuselage(bm, sections=44):
                     except ValueError:
                         pass
             prev = ring
-
-    # Pitot boom -- visible on the 3-view, part of the silhouette.
-    pb = []
-    for i in range(2):
-        x = -PITOT_LEN + i * PITOT_LEN
-        r = 0.016 if i == 0 else 0.028
-        pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
-                                        r * math.sin(2 * math.pi * j / 6))))
-                   for j in range(6)])
-    for j in range(6):
-        k = (j + 1) % 6
-        try:
-            bm.faces.new((pb[0][j], pb[0][k], pb[1][k], pb[1][j]))
-        except ValueError:
-            pass
 
 
 def _intake_section(t, steps=12):
@@ -450,6 +456,19 @@ def _canopy(bm):
 
 
 # ─── Assembly ─────────────────────────────────────────────────────────────────────────────────────
+# The single airframe material. Named `f5e_skin` (not `f5e_airframe`) so it is already the liverable
+# slot name a livery will override (fighters-legacy#845) once the engine can consume materials.
+#
+# ONE material, ONE primitive — DELIBERATELY. glTF splits a mesh into one primitive per material, and
+# the engine loads only `meshes[0].primitives[0]` (VkResources.cpp:519) until the node-aware loader
+# lands (fighters-legacy#839). A canopy/nozzle material split would move that geometry into
+# primitive[1]/[2] and the current engine would simply drop it -- the aircraft would fly with no
+# canopy and no nozzles. So the skin/canopy/nozzle split waits behind #839, exactly as the articulated
+# build waits behind the same loader. The capability is ready in fl_meshlib (scene.material_slots,
+# uvatlas.atlas_uvs); the shipped mesh stays single-primitive.
+MAT_SKIN      = "f5e_skin"
+
+
 def build_airframe(name: str) -> bpy.types.Object:
     bm = bmesh.new()
 
@@ -478,17 +497,50 @@ def build_airframe(name: str) -> bpy.types.Object:
     loft.panel(bm, VT_X_C4, vt_height, vt_root, VT_TIP_CHORD, VT_SWEEP_C4, 0.04,
                vertical=True, z0=0.55)
 
+    # Twin J85 nozzles: their own function now (a group for the future material split and PR-6
+    # articulation), but built into the same bmesh, so the geometry is unchanged.
+    _nozzles(bm)
+
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)               # outward: CCW from outside
     return _commit(bm, name)
 
 
 def _commit(bm, name: str) -> bpy.types.Object:
-    """Finish the airframe bmesh into an object, with the F-5E's placeholder UVs and grey material."""
+    """Finish the airframe bmesh into an object with the single skin material and placeholder UVs."""
     obj = scene.finish_mesh(bm, name)
+    scene.principled_material(obj, MAT_SKIN, (0.42, 0.44, 0.47, 1.0), 0.15, 0.55)
     uvatlas.planar_uvs(obj, LENGTH, SPAN)
-    scene.principled_material(obj, MAT_AIRFRAME, (0.42, 0.44, 0.47, 1.0), 0.15, 0.55)
     return obj
+
+
+def _hardpoint_markers(aid: str):
+    """Marker empties for the 7 hardpoints, positioned FROM the airframe geometry (not by eye).
+
+    Exported as glTF nodes with `extras`; the engine ignores them today (fighters-legacy#844). They
+    are forward-compatible metadata: a starting point for a future hardpoint-position system, and a
+    guide for anyone opening the .blend. Positions are derived from the same wing/nose constants that
+    build the aircraft, so they track the geometry rather than floating free of it. Port is +Y,
+    starboard is -Y (see the header's axis note).
+    """
+    marks = []
+    # Slot 0 — nose cannon (M39A2), centreline, just under the upper nose line.
+    marks.append(scene.empty(f"hardpoint_0", location=(0.14 * LENGTH, 0.0, _fus_at(0.14)[0] - 0.10),
+                             extras={"fl_marker": "hardpoint", "fl_slot": 0, "fl_type": "gun"}))
+    # Slots 1,2 — wingtip missile rails (1 = left/port +Y, 2 = right/starboard -Y).
+    x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
+    x_tip = x_c4_tip - 0.25 * TIP_CHORD + 0.30
+    for slot, sgn in ((1, 1.0), (2, -1.0)):
+        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_tip, sgn * SPAN / 2.0, 0.0),
+                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "missile"}))
+    # Slots 3-6 — underwing pylons (outboard/inboard each side), at 40% chord, below the wing.
+    for slot, sgn, s in ((3, 1.0, 0.55), (4, 1.0, 0.32), (5, -1.0, 0.32), (6, -1.0, 0.55)):
+        yhalf = s * SPAN / 2.0
+        x_le = WING_X_LE + yhalf * math.tan(math.radians(SWEEP_C4))
+        chord = ROOT_CHORD + (TIP_CHORD - ROOT_CHORD) * s
+        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_le + 0.40 * chord, sgn * yhalf, WING_Z - 0.25),
+                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "bomb"}))
+    return marks
 
 
 def main() -> int:
@@ -496,6 +548,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="aircraft/f5e")
     ap.add_argument("--id", default="f5e")
+    ap.add_argument("--blend", metavar="PATH",
+                    help="also save a Blender project for artist polish (never committed for a "
+                         "generated aircraft; not byte-stable). Open it to unwrap UVs, repaint, or "
+                         "sculpt, then re-export per docs/CONTRIBUTING.")
     args = ap.parse_args(argv)
 
     out = Path(args.out)
@@ -506,9 +562,11 @@ def main() -> int:
     body = build_airframe(aid)
     tris = len(body.data.polygons)
 
-    # Base mesh + its damage state, in ONE file. The `_b` node MUST ship beside its base.
-    dmg = battle_damage(body, MAT_AIRFRAME)
-    export.export_glb(out / f"{aid}.glb", [body, dmg])
+    # Base mesh + its damage state + hardpoint markers, in ONE file. The `_b` node MUST ship beside
+    # its base; the marker empties are metadata nodes the engine currently ignores.
+    dmg = battle_damage(body)                       # inherit the airframe's skin/canopy/nozzle slots
+    markers = _hardpoint_markers(aid)
+    export.export_glb(out / f"{aid}.glb", [body, dmg, *markers])
     export.patch_textures(out / f"{aid}.glb", TEX_DIFFUSE, TEX_ORM)
     bpy.data.objects.remove(dmg)
 
@@ -528,8 +586,14 @@ def main() -> int:
         (CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25))
     export.export_glb(out / f"{aid}_cockpit.glb", [anchor])
 
+    if args.blend:
+        # Artist handoff: the airframe (three named material slots), its markers, the shadow proxy
+        # and the camera anchor, in an editable project. Not committed for a generated aircraft.
+        bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.blend).resolve()))
+        print(f"  wrote Blender project -> {args.blend}")
+
     print(f"\n  {aid}: {tris} faces")
-    print(f"  wrote {aid}.glb (+ _b), _lod0/1/2, _shadow, _cockpit -> {out}")
+    print(f"  wrote {aid}.glb (+ _b, +7 hardpoint markers), _lod0/1/2, _shadow, _cockpit -> {out}")
     return 0
 
 

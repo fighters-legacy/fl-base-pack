@@ -31,6 +31,7 @@ def export_glb(path, objs, animations=False) -> None:
         filepath=str(path), export_format="GLB",
         export_image_format="NONE",
         export_normals=True, export_tangents=True, export_texcoords=True,
+        export_extras=True,          # carry marker-empty custom props to glTF node `extras`
         use_selection=True,
     )
     if animations:
