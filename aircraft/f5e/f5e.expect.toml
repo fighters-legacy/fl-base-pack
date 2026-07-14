@@ -1,0 +1,241 @@
+# F-5E Tiger II — published performance targets.
+#
+# Consumed by `fm-trim --expect aircraft/f5e/f5e.expect.toml` (engine issue #817), which trims
+# f5e.toml at each point below and fails CI if the model does not reproduce the published number
+# within tolerance.
+#
+# This file is the mechanised form of fighters-legacy#54's Phase 4 acceptance gate:
+#   "flight model stall speed + fuel burn match design spec for each aircraft type."
+#
+# EVERY value here is read from a primary source. Nothing is fitted, and nothing is copied from a
+# flight simulator. Provenance for each row is in SOURCES.md. If a number is not published, it is
+# not in this file -- an empty gate is honest; an invented one is not.
+
+[meta]
+aircraft = "f5e"
+source   = "T.O. 1F-5E-1, USAF Series F-5E/F Flight Manual, 1 Aug 1978"
+
+# ---------------------------------------------------------------------------------------------
+# Reference masses. The engine's effective mass is mass_kg + fuel + stores, so these are the total
+# flying weights fm-trim should trim at.
+# ---------------------------------------------------------------------------------------------
+[mass]
+# The configuration ALL of the TO's turn and Ps charts are flown at:
+#   "2x AIM-9, full 20mm ammunition, one-half internal fuel, maximum thrust"
+#     operating empty                    10,650 lb   (SOURCES.md)
+#   + half internal fuel                  2,200 lb   (TO: 4,400 lb full usable)
+#   + 560 rounds 20mm                       300 lb
+#   + 2x AIM-9                              380 lb
+#                                       -----------
+#                                        13,530 lb  = 6137 kg
+#
+# This weight is not published directly -- it is derived. But it is strongly corroborated: it is the
+# ONLY free parameter in the turn kinematics below, and it reproduces seven independent published
+# numbers (turn rate and radius, at two Mach numbers, at four load factors) to within 1.8%. See the
+# `kinematic_crosscheck` table at the bottom of this file.
+combat_kg = 6137
+
+# Max-speed charts are flown clean: "launcher rails only, no pylons", one-half internal fuel.
+#   10,650 lb + 2,200 lb = 12,850 lb = 5829 kg
+clean_half_fuel_kg = 5829
+
+# ---------------------------------------------------------------------------------------------
+# Turn performance -- the strongest constraints in the whole data set, and the numbers that most
+# define how this aircraft feels in a fight.
+#
+# TO 1F-5E-1, worked sample problems, 15,000 ft (4572 m), maximum thrust, combat_kg.
+# ---------------------------------------------------------------------------------------------
+[[point]]
+name       = "sustained turn, 15k ft, M0.75"
+metric     = "sustained_turn_g"     # load factor at which Ps = 0
+altitude_m = 4572
+mach       = 0.75
+mass       = "combat"
+thrust     = "max"                  # afterburner
+expect     = 4.3
+tolerance  = 0.15                   # G
+source     = "TO 1F-5E-1 sample: 4.3 G, 9.9 deg/s, radius 4,700 ft"
+
+[[point]]
+name       = "sustained turn rate, 15k ft, M0.75"
+metric     = "sustained_turn_deg_s"
+altitude_m = 4572
+mach       = 0.75
+mass       = "combat"
+thrust     = "max"
+expect     = 9.9
+tolerance  = 0.4
+source     = "TO 1F-5E-1 sample"
+
+[[point]]
+name       = "sustained turn, 15k ft, M0.60"
+metric     = "sustained_turn_g"
+altitude_m = 4572
+mach       = 0.60
+mass       = "combat"
+thrust     = "max"
+expect     = 3.3
+tolerance  = 0.15
+source     = "TO 1F-5E-1 sample: 3.3 G, 9.1 deg/s"
+
+[[point]]
+name       = "max-lift load factor, 15k ft, M0.60"
+metric     = "max_lift_g"           # lift-limited, NOT structurally limited
+altitude_m = 4572
+mach       = 0.60
+mass       = "combat"
+thrust     = "max"
+expect     = 5.2
+tolerance  = 0.2
+source     = "TO 1F-5E-1 sample: 5.2 G, 14.8 deg/s, Ps = -870 ft/s"
+# This point is what pins CL_max. It is pure lift -- no drag or thrust assumption enters:
+#   CL_max = n*W/(q*S) = 5.2 * 60,184 N / (14,411 Pa * 17.30 m^2) = 1.255
+
+[[point]]
+name       = "instantaneous turn rate at the G limit, 15k ft, M0.75"
+metric     = "instant_turn_deg_s"
+altitude_m = 4572
+mach       = 0.75
+mass       = "combat"
+expect     = 17.0
+tolerance  = 0.6
+source     = "TO 1F-5E-1 sample: 17 deg/s, radius 2,700 ft, at the 7.33 G limit"
+# At M0.75 the 7.33 G structural limit sits BELOW CL_max (CL there = 1.13 < 1.255), so this point
+# is structurally limited, not lift limited -- which is precisely what makes corner speed exist
+# where the manual's construction puts it.
+
+# ---------------------------------------------------------------------------------------------
+# Specific excess power. This ladder is what proved the parabolic drag polar could not represent
+# this aircraft (engine issue #820) -- the implied induced drag rises 3.5x from 1 G to max lift.
+# It is now the primary fit target for [aero.cd_table].
+#
+# All at 15,000 ft, M 0.60, maximum thrust, combat_kg.
+# ---------------------------------------------------------------------------------------------
+[[point]]
+name       = "Ps at 1 G, 15k ft, M0.60"
+metric     = "ps_ft_s"
+altitude_m = 4572
+mach       = 0.60
+load_factor = 1.0
+mass       = "combat"
+thrust     = "max"
+expect     = 240.0
+tolerance  = 15.0
+source     = "TO 1F-5E-1 sample"
+
+[[point]]
+name       = "Ps at 2 G, 15k ft, M0.60"
+metric     = "ps_ft_s"
+altitude_m = 4572
+mach       = 0.60
+load_factor = 2.0
+mass       = "combat"
+thrust     = "max"
+expect     = 190.0
+tolerance  = 15.0
+source     = "TO 1F-5E-1 sample"
+
+[[point]]
+name       = "Ps at 4 G, 15k ft, M0.60"
+metric     = "ps_ft_s"
+altitude_m = 4572
+mach       = 0.60
+load_factor = 4.0
+mass       = "combat"
+thrust     = "max"
+expect     = -225.0
+tolerance  = 25.0
+source     = "TO 1F-5E-1 sample"
+
+[[point]]
+name       = "Ps at max lift (5.2 G), 15k ft, M0.60"
+metric     = "ps_ft_s"
+altitude_m = 4572
+mach       = 0.60
+load_factor = 5.2
+mass       = "combat"
+thrust     = "max"
+expect     = -870.0
+tolerance  = 60.0
+source     = "TO 1F-5E-1 sample"
+
+# ---------------------------------------------------------------------------------------------
+# Maximum level speed. The only supersonic constraint in the entire data set, which is why the
+# transonic drag rise and the supersonic end of the thrust deck are the least certain parts of the
+# model. Do not read more confidence into cd_table above M ~0.9 than this one point supports.
+# ---------------------------------------------------------------------------------------------
+[[point]]
+name       = "max level Mach, 36k ft, clean"
+metric     = "max_level_mach"
+altitude_m = 10973                  # 36,000 ft
+mass       = "clean_half_fuel"
+thrust     = "max"
+expect     = 1.63
+tolerance  = 0.05
+source     = "TO 1F-5E-1: 'launcher rails only, no pylons', 1/2 internal fuel, 36,000 ft"
+
+[[point]]
+name       = "max level Mach, 36k ft, with tip missiles"
+metric     = "max_level_mach"
+altitude_m = 10973
+mass       = "combat"
+thrust     = "max"
+stores     = ["fl-base:aim9p", "fl-base:aim9p"]
+expect     = 1.57
+tolerance  = 0.05
+source     = "TO 1F-5E-1: 'launcher rails + tip missiles, no pylons'"
+# Two AIM-9s cost 0.06 Mach. This is the ONLY published check on whether the store drag model
+# (EntityDef hardpoints -> WeaponLoad.drag_factor -> PayloadEffect, engine #812) is calibrated.
+# It is the reason weapon drag_factor cannot simply be invented.
+
+# ---------------------------------------------------------------------------------------------
+# Structural limits. Published outright, and configuration-dependent rather than weight-dependent
+# in this manual -- worth preserving if [aero.limits] ever grows per-config values (engine #816).
+# ---------------------------------------------------------------------------------------------
+[[point]]
+name      = "symmetric G limit, clean / tip rails"
+metric    = "max_g_structural"
+expect    = 7.33
+tolerance = 0.0
+source    = "TO 1F-5E-1 Section V"
+
+[[point]]
+name      = "negative G limit, clean / tip rails"
+metric    = "min_g_structural"
+expect    = -3.0
+tolerance = 0.0
+source    = "TO 1F-5E-1 Section V"
+
+# ---------------------------------------------------------------------------------------------
+# NOT INCLUDED, and why. An honest gate states its own gaps.
+# ---------------------------------------------------------------------------------------------
+# stall_speed_1g   -- TO publishes it ONLY as a nomogram (Fig. 6-1), not a table. WIKI gives 124 kt
+#                     at 50% fuel, gear and flaps down (Jane's), but that is single-sourced and in a
+#                     dirty configuration the schema cannot yet express. Reading a number off a
+#                     scanned chart and calling it published would be dishonest. Add this row once
+#                     the chart is read properly -- it is fighters-legacy#54's named gate criterion.
+# roc_sl           -- WIKI/Jane's give 34,500 ft/min. This is almost certainly a zoom or peak-Ps
+#                     figure, NOT a steady sea-level rate of climb: with 9,300 lbf installed AB
+#                     thrust at ~13,500 lb, the excess thrust simply is not there. DO NOT calibrate
+#                     to it. The Ps ladder above is the honest climb constraint.
+# specific_range   -- TO has cruise charts only; no number is printed.
+# corner_speed     -- TO defines and plots it (charts FA8-13/-14/-15) but prints no numeric value.
+# service_ceiling  -- TO uses "combat ceiling" (ROC = 500 ft/min), charted, not printed.
+
+# ---------------------------------------------------------------------------------------------
+# Kinematic self-check. Turn rate and radius depend ONLY on load factor and true airspeed
+# (omega = g*sqrt(n^2-1)/V, R = V^2/(g*sqrt(n^2-1))) -- no drag, thrust, or lift assumption. So
+# these are not a test of our flight model; they are a test of whether the PUBLISHED numbers are
+# self-consistent and whether combat_kg is right. Worst error across all seven: 1.8%.
+#
+#   condition                    published    kinematic    err
+#   M0.60 sustained  (3.3 G)       9.1 d/s      9.14 d/s   0.4%
+#   M0.60 max lift   (5.2 G)      14.8 d/s     14.83 d/s   0.2%
+#   M0.60 4.0 G                   11.2 d/s     11.25 d/s   0.5%
+#   M0.75 sustained  (4.3 G)       9.9 d/s      9.72 d/s   1.8%
+#     radius                      4700 ft      4673 ft     0.6%
+#   M0.75 limit      (7.33 G)     17.0 d/s     16.88 d/s   0.7%
+#     radius                      2700 ft      2692 ft     0.3%
+#
+# fm-trim should reproduce this check itself, so the gate re-derives its own trust rather than
+# taking this comment's word for it.
