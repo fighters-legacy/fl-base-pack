@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: MIT
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fl-meshlib"
+version = "0.1.0"
+description = "Shared procedural-aircraft mesh helpers for fl-base-pack build scripts"
+requires-python = ">=3.10"
+# bpy/bmesh/mathutils are provided by Blender, not installed from PyPI. The pure-math modules
+# (airfoil, curves, stations, check) have no third-party dependencies and are unit-tested without
+# Blender; the bpy-using modules (loft, scene, uvatlas, damage, export) import bpy lazily.
+dependencies = []
+
+[project.optional-dependencies]
+# `pip install fl-meshlib[headless]` pulls the Blender-as-a-module wheel so the generators and the
+# determinism test can run in CI without a Blender binary. One bpy wheel pins one exact Python.
+headless = ["bpy"]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

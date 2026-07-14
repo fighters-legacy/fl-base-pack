@@ -45,15 +45,26 @@ CONVENTIONS (docs/modding/3d-models.md — get these wrong and validate-mesh rej
 """
 
 import argparse
-import json
 import math
-import struct
 import sys
 from pathlib import Path
 
-import bmesh
+# bpy must be imported before bmesh/mathutils: under the pip `bpy` wheel (used by the determinism
+# CI job) importing bmesh first raises ModuleNotFoundError, because bpy's init registers the sibling
+# modules. The Blender binary does not care about order; the wheel does.
 import bpy
+import bmesh
 from mathutils import Vector
+
+# Shared procedural-mesh helpers. The library lives in the repo, not on Blender's Python path, so
+# add it from this file's location (aircraft/f5e/ -> repo root -> tools/meshlib/src). No install
+# step; works under `blender --background`.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO_ROOT / "tools" / "meshlib" / "src"))
+from fl_meshlib import export, loft, scene, uvatlas  # noqa: E402
+from fl_meshlib.curves import smoothstep as _smoothstep  # noqa: E402
+from fl_meshlib.damage import battle_damage  # noqa: E402
+from fl_meshlib.stations import interp_table  # noqa: E402
 
 # ═══ PUBLISHED GEOMETRY — NASA spin-tunnel report (NTRS 19980227417), Table I ═══════════════ [P] ═
 LENGTH        = 14.68     # m   overall
@@ -164,108 +175,14 @@ HT_X_C4       = 13.10     # m   horizontal tail quarter-chord station
 VT_X_C4       = 11.90     # m   vertical tail quarter-chord station
 TIP_RAIL_LEN  = 2.10      # m   wingtip AIM-9 rail (part of the airframe; see SOURCES.md)
 
-MAT_AIRFRAME  = "f5e_airframe"
 TEX_DIFFUSE   = "../../textures/f5e_diffuse.ktx2"
 TEX_ORM       = "../../textures/f5e_orm.ktx2"
 
 
-# ─── Airfoil ──────────────────────────────────────────────────────────────────────────────────────
-def naca_symmetric(x: float, t: float) -> float:
-    """Half-thickness of a symmetric NACA section at chord fraction x, thickness ratio t.
-
-    The standard NACA thickness distribution. NASA gives the section as 65A004.8 — a symmetric
-    4.8%-thick laminar-flow series. This reproduces its thickness envelope closely enough for a
-    game mesh; the 6-series' exact camber-line mathematics buy nothing a player can see.
-    """
-    x = min(max(x, 0.0), 1.0)
-    return 5.0 * t * (0.2969 * math.sqrt(x) - 0.1260 * x - 0.3516 * x * x
-                      + 0.2843 * x ** 3 - 0.1015 * x ** 4)
-
-
-def _clear_scene() -> None:
-    bpy.ops.object.select_all(action="SELECT")
-    bpy.ops.object.delete()
-    for block in (bpy.data.meshes, bpy.data.materials, bpy.data.objects):
-        for item in list(block):
-            block.remove(item)
-
-
-# ─── Lifting surfaces ─────────────────────────────────────────────────────────────────────────────
-def _panel(bm, x_c4_root, semi_span, root_c, tip_c, sweep_c4, thick, dihedral=0.0,
-           vertical=False, z0=0.0, sections=9):
-    """One trapezoidal lifting surface, mirrored to both sides unless `vertical`.
-
-    Positioned by its QUARTER-CHORD line, because that is how the source data is published:
-        x_c4(y) = x_c4_root + y*tan(sweep_c4)      and      x_le(y) = x_c4(y) - 0.25*c(y)
-    Building from the leading edge instead would mean back-computing a number NASA already gives us.
-    """
-    sides = [1.0] if vertical else [1.0, -1.0]
-    for side in sides:
-        rings = []
-        for i in range(sections + 1):
-            f = i / sections
-            span_pos = f * semi_span
-            chord = root_c + (tip_c - root_c) * f
-            x_c4 = x_c4_root + span_pos * math.tan(math.radians(sweep_c4))
-            x_le = x_c4 - 0.25 * chord
-
-            ring = []
-            steps = 14
-            for j in range(steps + 1):                       # upper surface, LE -> TE
-                xc = j / steps
-                ring.append((x_le + xc * chord, naca_symmetric(xc, thick) * chord))
-            for j in range(steps - 1, 0, -1):                # lower surface, TE -> LE
-                xc = j / steps
-                ring.append((x_le + xc * chord, -naca_symmetric(xc, thick) * chord))
-
-            verts = []
-            for (x, half_t) in ring:
-                if vertical:
-                    # A fin: "span" runs up (+Z), thickness runs across (Y).
-                    verts.append(bm.verts.new(Vector((x, half_t, z0 + span_pos))))
-                else:
-                    y = -side * span_pos                      # -Y is starboard, see the header
-                    z = z0 + span_pos * math.tan(math.radians(dihedral)) * side * side
-                    verts.append(bm.verts.new(Vector((x, y, z + half_t))))
-            rings.append(verts)
-
-        for i in range(sections):
-            a, b = rings[i], rings[i + 1]
-            n = len(a)
-            for j in range(n):
-                k = (j + 1) % n
-                try:
-                    # Winding flips with the mirror: keep normals pointing OUT on both wings.
-                    f = (a[j], b[j], b[k], a[k]) if side > 0 or vertical else (a[j], a[k], b[k], b[j])
-                    bm.faces.new(f)
-                except ValueError:
-                    pass                                       # duplicate face at a degenerate tip
-        # Cap the tip so the surface is closed (validate-mesh wants a manifold, lit solid).
-        try:
-            bm.faces.new(rings[-1] if side > 0 or vertical else list(reversed(rings[-1])))
-        except ValueError:
-            pass
-
-
-def _smoothstep(u: float) -> float:
-    u = min(max(u, 0.0), 1.0)
-    return u * u * (3.0 - 2.0 * u)
-
-
-def _lerp(a, b, u):
-    return a + (b - a) * _smoothstep(u)
-
-
+# ─── Fuselage station lookup ────────────────────────────────────────────────────────────────────
 def _fus_at(t):
     """Interpolate the traced station table at x/L = t. Returns (z_up, z_lo, y_half)."""
-    pts = STATIONS_FUS
-    t = min(max(t, 0.0), 1.0)
-    for i in range(len(pts) - 1):
-        a, b = pts[i], pts[i + 1]
-        if a[0] <= t <= b[0]:
-            u = (t - a[0]) / (b[0] - a[0]) if b[0] > a[0] else 0.0
-            return tuple(a[k] + (b[k] - a[k]) * u for k in (1, 2, 3))
-    return pts[-1][1:]
+    return interp_table(STATIONS_FUS, t)
 
 
 def _spine_top(t):
@@ -365,7 +282,29 @@ def _fuselage(bm, sections=44):
     except ValueError:
         pass
 
-    # Twin J85 nozzles, from the front view: two abreast at the tail.
+    # Pitot boom -- visible on the 3-view, part of the silhouette.
+    pb = []
+    for i in range(2):
+        x = -PITOT_LEN + i * PITOT_LEN
+        r = 0.016 if i == 0 else 0.028
+        pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
+                                        r * math.sin(2 * math.pi * j / 6))))
+                   for j in range(6)])
+    for j in range(6):
+        k = (j + 1) % 6
+        try:
+            bm.faces.new((pb[0][j], pb[0][k], pb[1][k], pb[1][j]))
+        except ValueError:
+            pass
+
+
+def _nozzles(bm):
+    """Twin J85 nozzles, from the front view: two abreast at the tail.
+
+    Built into their own face group so they can carry the dark burnt-metal material slot, separate
+    from the skin. The vertices are exactly those the fuselage loft used to emit — moving them here
+    changes no geometry, only which material they answer to.
+    """
     for side in (1.0, -1.0):
         y0 = -side * 0.30
         prev = None
@@ -386,21 +325,6 @@ def _fuselage(bm, sections=44):
                     except ValueError:
                         pass
             prev = ring
-
-    # Pitot boom -- visible on the 3-view, part of the silhouette.
-    pb = []
-    for i in range(2):
-        x = -PITOT_LEN + i * PITOT_LEN
-        r = 0.016 if i == 0 else 0.028
-        pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
-                                        r * math.sin(2 * math.pi * j / 6))))
-                   for j in range(6)])
-    for j in range(6):
-        k = (j + 1) % 6
-        try:
-            bm.faces.new((pb[0][j], pb[0][k], pb[1][k], pb[1][j]))
-        except ValueError:
-            pass
 
 
 def _intake_section(t, steps=12):
@@ -432,18 +356,6 @@ def _intake_ring(bm, t, side, scale=1.0, dx=0.0, steps=12):
     return ring
 
 
-def _bridge(bm, a, b, flip):
-    """Quad-bridge two equal-length rings. `flip` reverses winding for the mirrored side."""
-    m = len(a)
-    for j in range(m):
-        k = (j + 1) % m
-        quad = (a[j], a[k], b[k], b[j]) if not flip else (a[j], b[j], b[k], a[k])
-        try:
-            bm.faces.new(quad)
-        except ValueError:
-            pass
-
-
 def _intakes(bm, stations=7):
     """Lateral inlets: a cowl lofted along the flank, with a recessed aperture behind a sharp lip.
 
@@ -461,7 +373,7 @@ def _intakes(bm, stations=7):
         for i in range(1, stations + 1):
             t = INTAKE_X0 + (INTAKE_X1 - INTAKE_X0) * (i / stations)
             ring = _intake_ring(bm, t, side)
-            _bridge(bm, prev, ring, flip)
+            loft.bridge(bm, prev, ring, flip)
             prev = ring
         try:                                                 # aft cap: buried in the fuselage, unseen
             bm.faces.new(prev if not flip else list(reversed(prev)))
@@ -471,7 +383,7 @@ def _intakes(bm, stations=7):
         # Recess: the same lip ring, stepped in and aft to a throat, then capped. Winding is the
         # opposite of the outer shell -- these faces are seen from IN FRONT, looking into the duct.
         throat = _intake_ring(bm, INTAKE_X0, side, scale=0.72, dx=INTAKE_DEPTH)
-        _bridge(bm, lip, throat, not flip)
+        loft.bridge(bm, lip, throat, not flip)
         try:
             bm.faces.new(list(reversed(throat)) if not flip else throat)
         except ValueError:
@@ -547,6 +459,19 @@ def _canopy(bm):
 
 
 # ─── Assembly ─────────────────────────────────────────────────────────────────────────────────────
+# The single airframe material. Named `f5e_skin` (not `f5e_airframe`) so it is already the liverable
+# slot name a livery will override (fighters-legacy#845) once the engine can consume materials.
+#
+# ONE material, ONE primitive — DELIBERATELY. glTF splits a mesh into one primitive per material, and
+# the engine loads only `meshes[0].primitives[0]` (VkResources.cpp:519) until the node-aware loader
+# lands (fighters-legacy#839). A canopy/nozzle material split would move that geometry into
+# primitive[1]/[2] and the current engine would simply drop it -- the aircraft would fly with no
+# canopy and no nozzles. So the skin/canopy/nozzle split waits behind #839, exactly as the articulated
+# build waits behind the same loader. The capability is ready in fl_meshlib (scene.material_slots,
+# uvatlas.atlas_uvs); the shipped mesh stays single-primitive.
+MAT_SKIN      = "f5e_skin"
+
+
 def build_airframe(name: str) -> bpy.types.Object:
     bm = bmesh.new()
 
@@ -555,8 +480,8 @@ def build_airframe(name: str) -> bpy.types.Object:
     _canopy(bm)
 
     # Wing — positioned by its published quarter-chord line.
-    _panel(bm, WING_X_LE + 0.25 * ROOT_CHORD, SPAN / 2.0, ROOT_CHORD, TIP_CHORD,
-           SWEEP_C4, THICKNESS, dihedral=0.0, z0=WING_Z)
+    loft.panel(bm, WING_X_LE + 0.25 * ROOT_CHORD, SPAN / 2.0, ROOT_CHORD, TIP_CHORD,
+               SWEEP_C4, THICKNESS, dihedral=0.0, z0=WING_Z)
     _tip_rails(bm)
 
     # Horizontal tail — all-moving, and it droops 4 degrees.
@@ -566,14 +491,18 @@ def build_airframe(name: str) -> bpy.types.Object:
     w_tail = _fus_at(HT_X_C4 / LENGTH)[2]          # 0.665 -- NASA tail-span arithmetic
     f_side = w_tail / (HT_SPAN / 2.0)
     ht_c0 = (ht_root - HT_TIP_CHORD * f_side) / (1.0 - f_side)
-    _panel(bm, HT_X_C4, HT_SPAN / 2.0, ht_c0, HT_TIP_CHORD, HT_SWEEP_C4, 0.04,
-           dihedral=HT_DIHEDRAL, z0=0.10)
+    loft.panel(bm, HT_X_C4, HT_SPAN / 2.0, ht_c0, HT_TIP_CHORD, HT_SWEEP_C4, 0.04,
+               dihedral=HT_DIHEDRAL, z0=0.10)
 
     # Vertical tail — exposed AR 1.22 on exposed area 3.85 m^2.
     vt_height = math.sqrt(VT_AR * VT_AREA)                          # 2.167 m
     vt_root = VT_TIP_CHORD / VT_TAPER                               # 2.845 m
-    _panel(bm, VT_X_C4, vt_height, vt_root, VT_TIP_CHORD, VT_SWEEP_C4, 0.04,
-           vertical=True, z0=0.55)
+    loft.panel(bm, VT_X_C4, vt_height, vt_root, VT_TIP_CHORD, VT_SWEEP_C4, 0.04,
+               vertical=True, z0=0.55)
+
+    # Twin J85 nozzles: their own function now (a group for the future material split and PR-6
+    # articulation), but built into the same bmesh, so the geometry is unchanged.
+    _nozzles(bm)
 
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)               # outward: CCW from outside
@@ -581,112 +510,40 @@ def build_airframe(name: str) -> bpy.types.Object:
 
 
 def _commit(bm, name: str) -> bpy.types.Object:
-    me = bpy.data.meshes.new(name)
-    bm.to_mesh(me)
-    bm.free()
-    me.validate()
-    obj = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(obj)
-    _uvs(obj)
-    _material(obj)
+    """Finish the airframe bmesh into an object with the single skin material and placeholder UVs."""
+    obj = scene.finish_mesh(bm, name)
+    scene.principled_material(obj, MAT_SKIN, (0.42, 0.44, 0.47, 1.0), 0.15, 0.55)
+    uvatlas.planar_uvs(obj, LENGTH, SPAN)
     return obj
 
 
-def _uvs(obj) -> None:
-    """Planar-ish UVs. Real texel density needs a proper unwrap; this is honest placeholder mapping."""
-    me = obj.data
-    uv = me.uv_layers.new(name="uv")
-    for loop in me.loops:
-        co = me.vertices[loop.vertex_index].co
-        uv.data[loop.index].uv = (co.x / LENGTH, (co.y + SPAN / 2.0) / SPAN)
+def _hardpoint_markers(aid: str):
+    """Marker empties for the 7 hardpoints, positioned FROM the airframe geometry (not by eye).
 
-
-def _material(obj) -> None:
-    mat = bpy.data.materials.get(MAT_AIRFRAME) or bpy.data.materials.new(MAT_AIRFRAME)
-    mat.use_nodes = True
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    if bsdf:
-        bsdf.inputs["Base Color"].default_value = (0.42, 0.44, 0.47, 1.0)   # aggressor grey
-        bsdf.inputs["Metallic"].default_value = 0.15
-        bsdf.inputs["Roughness"].default_value = 0.55
-    obj.data.materials.clear()
-    obj.data.materials.append(mat)
-
-
-def apply_battle_damage(obj, seed: int = 5) -> bpy.types.Object:
-    """The `_b` damage-state node: same topology, torn and dented.
-
-    validate-mesh requires that a `_b` node have a base node of the same name in the SAME .glb --
-    a damage node with no base is an error. So this is exported alongside f5e, not separately.
+    Exported as glTF nodes with `extras`; the engine ignores them today (fighters-legacy#844). They
+    are forward-compatible metadata: a starting point for a future hardpoint-position system, and a
+    guide for anyone opening the .blend. Positions are derived from the same wing/nose constants that
+    build the aircraft, so they track the geometry rather than floating free of it. Port is +Y,
+    starboard is -Y (see the header's axis note).
     """
-    import random
-    rng = random.Random(seed)
-    me = obj.data.copy()
-    dmg = bpy.data.objects.new(obj.name + "_b", me)
-    bpy.context.collection.objects.link(dmg)
-    for v in me.vertices:
-        if rng.random() < 0.22:
-            s = 0.05 * rng.random()
-            v.co += Vector((rng.uniform(-s, s), rng.uniform(-s, s), rng.uniform(-s, s)))
-    me.materials.clear()
-    me.materials.append(bpy.data.materials[MAT_AIRFRAME])
-    return dmg
-
-
-# ─── Export ───────────────────────────────────────────────────────────────────────────────────────
-def _select_only(objs) -> None:
-    for o in bpy.context.scene.objects:
-        o.select_set(o in objs)
-
-
-def _export(path: Path, objs) -> None:
-    _select_only(objs)
-    bpy.ops.export_scene.gltf(
-        filepath=str(path), export_format="GLB",
-        export_image_format="NONE",          # NEVER embed images -- validate-mesh errors on it
-        export_normals=True, export_tangents=True, export_texcoords=True,
-        use_selection=True,
-    )
-
-
-def _patch_textures(path: Path) -> None:
-    """Wire external .ktx2 URIs into the GLB's JSON chunk.
-
-    validate-mesh checks only that no image is EMBEDDED; it does not require the .ktx2 to exist yet.
-    So the references can be pre-wired before tex-compress has ever run -- which is what lets this
-    script produce a validating mesh with no texture pipeline in place.
-    """
-    raw = path.read_bytes()
-    if struct.unpack_from("<I", raw, 0)[0] != 0x46546C67:
-        raise ValueError(f"not a GLB: {path}")
-    jlen = struct.unpack_from("<I", raw, 12)[0]
-    g = json.loads(raw[20:20 + jlen])
-    tail = raw[20 + jlen:]
-
-    g["images"] = [{"uri": TEX_DIFFUSE}, {"uri": TEX_ORM}]
-    g["textures"] = [{"source": 0}, {"source": 1}]
-    for mat in g.get("materials", []):
-        pbr = mat.setdefault("pbrMetallicRoughness", {})
-        pbr["baseColorTexture"] = {"index": 0}
-        pbr["metallicRoughnessTexture"] = {"index": 1}
-        mat["occlusionTexture"] = {"index": 1}
-
-    js = json.dumps(g, separators=(",", ":")).encode()
-    js += b" " * ((4 - len(js) % 4) % 4)
-    path.write_bytes(struct.pack("<III", 0x46546C67, 2, 12 + 8 + len(js) + len(tail))
-                     + struct.pack("<II", len(js), 0x4E4F534A) + js + tail)
-
-
-def _decimate(obj, ratio: float, name: str) -> bpy.types.Object:
-    lod = obj.copy()
-    lod.data = obj.data.copy()
-    lod.name = lod.data.name = name
-    bpy.context.collection.objects.link(lod)
-    m = lod.modifiers.new("dec", "DECIMATE")
-    m.ratio = ratio
-    bpy.context.view_layer.objects.active = lod
-    bpy.ops.object.modifier_apply(modifier="dec")
-    return lod
+    marks = []
+    # Slot 0 — nose cannon (M39A2), centreline, just under the upper nose line.
+    marks.append(scene.empty(f"hardpoint_0", location=(0.14 * LENGTH, 0.0, _fus_at(0.14)[0] - 0.10),
+                             extras={"fl_marker": "hardpoint", "fl_slot": 0, "fl_type": "gun"}))
+    # Slots 1,2 — wingtip missile rails (1 = left/port +Y, 2 = right/starboard -Y).
+    x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
+    x_tip = x_c4_tip - 0.25 * TIP_CHORD + 0.30
+    for slot, sgn in ((1, 1.0), (2, -1.0)):
+        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_tip, sgn * SPAN / 2.0, 0.0),
+                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "missile"}))
+    # Slots 3-6 — underwing pylons (outboard/inboard each side), at 40% chord, below the wing.
+    for slot, sgn, s in ((3, 1.0, 0.55), (4, 1.0, 0.32), (5, -1.0, 0.32), (6, -1.0, 0.55)):
+        yhalf = s * SPAN / 2.0
+        x_le = WING_X_LE + yhalf * math.tan(math.radians(SWEEP_C4))
+        chord = ROOT_CHORD + (TIP_CHORD - ROOT_CHORD) * s
+        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_le + 0.40 * chord, sgn * yhalf, WING_Z - 0.25),
+                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "bomb"}))
+    return marks
 
 
 def main() -> int:
@@ -694,49 +551,52 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="aircraft/f5e")
     ap.add_argument("--id", default="f5e")
+    ap.add_argument("--blend", metavar="PATH",
+                    help="also save a Blender project for artist polish (never committed for a "
+                         "generated aircraft; not byte-stable). Open it to unwrap UVs, repaint, or "
+                         "sculpt, then re-export per docs/CONTRIBUTING.")
     args = ap.parse_args(argv)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     aid = args.id
 
-    _clear_scene()
+    scene.clear_scene()
     body = build_airframe(aid)
     tris = len(body.data.polygons)
 
-    # Base mesh + its damage state, in ONE file. The `_b` node MUST ship beside its base.
-    dmg = apply_battle_damage(body)
-    _export(out / f"{aid}.glb", [body, dmg])
-    _patch_textures(out / f"{aid}.glb")
+    # Base mesh + its damage state + hardpoint markers, in ONE file. The `_b` node MUST ship beside
+    # its base; the marker empties are metadata nodes the engine currently ignores.
+    dmg = battle_damage(body)                       # inherit the airframe's skin/canopy/nozzle slots
+    markers = _hardpoint_markers(aid)
+    export.export_glb(out / f"{aid}.glb", [body, dmg, *markers])
+    export.patch_textures(out / f"{aid}.glb", TEX_DIFFUSE, TEX_ORM)
     bpy.data.objects.remove(dmg)
 
     # LODs are separate FILES, not nodes. (fl-base-pack's CONTRIBUTING.md said nodes; it was wrong.)
     for i, ratio in enumerate((0.50, 0.20, 0.05)):
-        lod = _decimate(body, ratio, f"{aid}_lod{i}")
-        _export(out / f"{aid}_lod{i}.glb", [lod])
-        _patch_textures(out / f"{aid}_lod{i}.glb")
+        lod = export.decimate(body, ratio, f"{aid}_lod{i}")
+        export.export_glb(out / f"{aid}_lod{i}.glb", [lod])
+        export.patch_textures(out / f"{aid}_lod{i}.glb", TEX_DIFFUSE, TEX_ORM)
         bpy.data.objects.remove(lod)
 
     # Shadow proxy: convex hull, NO materials.
-    bm = bmesh.new()
-    bm.from_mesh(body.data)
-    bmesh.ops.convex_hull(bm, input=bm.verts)
-    sh_me = bpy.data.meshes.new(f"{aid}_shadow")
-    bm.to_mesh(sh_me)
-    bm.free()
-    sh_me.materials.clear()
-    shadow = bpy.data.objects.new(f"{aid}_shadow", sh_me)
-    bpy.context.collection.objects.link(shadow)
-    _export(out / f"{aid}_shadow.glb", [shadow])
+    shadow = scene.convex_hull(body, f"{aid}_shadow")
+    export.export_glb(out / f"{aid}_shadow.glb", [shadow])
 
     # Cockpit: must contain a node named exactly `camera_anchor` -- the renderer looks for it by name.
-    anchor = bpy.data.objects.new("camera_anchor", None)
-    anchor.location = ((CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25)
-    bpy.context.collection.objects.link(anchor)
-    _export(out / f"{aid}_cockpit.glb", [anchor])
+    anchor = scene.empty("camera_anchor", location=(
+        (CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25))
+    export.export_glb(out / f"{aid}_cockpit.glb", [anchor])
+
+    if args.blend:
+        # Artist handoff: the airframe (three named material slots), its markers, the shadow proxy
+        # and the camera anchor, in an editable project. Not committed for a generated aircraft.
+        bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.blend).resolve()))
+        print(f"  wrote Blender project -> {args.blend}")
 
     print(f"\n  {aid}: {tris} faces")
-    print(f"  wrote {aid}.glb (+ _b), _lod0/1/2, _shadow, _cockpit -> {out}")
+    print(f"  wrote {aid}.glb (+ _b, +7 hardpoint markers), _lod0/1/2, _shadow, _cockpit -> {out}")
     return 0
 
 

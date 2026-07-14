@@ -323,6 +323,14 @@ model is right; the tool is not, and the fix is filed.)
 
 ## Mesh — `f5e_build.py`
 
+**Mesh provenance: `generated`.** The source of truth is `f5e_build.py`; the committed `.glb` files
+regenerate byte-for-byte from it, and that reproducibility is the regression check (see
+CONTRIBUTING.md → *Mesh provenance*). Do not hand-edit the `.glb` — change the script and re-run it.
+No `.blend` is committed. To polish this aircraft in Blender, run the generator with
+`--blend <path>`, edit, commit the `.blend` under `src/`, re-export, and flip this line to
+`authored` — at which point the byte-identical check no longer applies and `validate-mesh` becomes
+the gate.
+
 The airframe is **generated from published dimensions**, not modelled from a reference. Nothing in it
 is traced from, derived from, or cleaned up out of another simulator, game, or commercial 3D model.
 Run it with:
