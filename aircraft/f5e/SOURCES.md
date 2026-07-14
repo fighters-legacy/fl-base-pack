@@ -318,3 +318,53 @@ Scanning the full envelope at 36,000 ft, clean, afterburner: the model reaches *
 T.O.'s published **1.63** — **0.7%**. (`fm-trim` currently reports this as "cannot hold level flight"
 because of engine bug #825, which stops its speed search at the back side of the power curve. The
 model is right; the tool is not, and the fix is filed.)
+
+---
+
+## Mesh — `f5e_build.py`
+
+The airframe is **generated from published dimensions**, not modelled from a reference. Nothing in it
+is traced from, derived from, or cleaned up out of another simulator, game, or commercial 3D model.
+Run it with:
+
+    blender --background --python aircraft/f5e/f5e_build.py -- --out aircraft/f5e
+
+### What is published, and therefore correct
+
+The **entire planform** is in NASA Table I, and it closes: root chord 3.5735 m, tip chord 0.6840 m
+and span 8.13 m give a trapezoid of **17.307 m²** against the published wing area of **17.30 m²** —
+0.04%. So the wing is not an interpretation; it is the published shape. Same for both tails: the
+horizontal tail's 25° sweep, 0.33 taper and −4° **anhedral** (it droops — that is real), and the
+fin's exposed area and aspect ratio.
+
+The wingtip **launch rails are part of the airframe**, not stores. The T.O. quotes max level Mach for
+"launcher rails only" (1.63) *and* "with tip missiles" (1.57) — the rails are present in both, so they
+belong to the aeroplane. The missiles are stores and are not in the mesh.
+
+### What is NOT published, and is therefore an estimate
+
+Fuselage cross-sections, canopy shape and intake geometry. NASA gives length, and the tail width falls
+out of the exposed-vs-total tail span (1.33 m) — but the cross-sections do not exist in any public
+table. These are shaped by eye to the published length, height and tail width, and they are marked
+**E** in `f5e_build.py`.
+
+**They are the weakest part of this aircraft, and the side profile is not good enough.** From above the
+model reads correctly, because that view is driven by the published planform. In profile it reads as a
+dart rather than a Tiger: the belly line is wrong and the canopy is a blister.
+
+### The fix, and why it is also better provenance
+
+NASA's spin-tunnel report contains **Figure 1: a dimensioned 3-view drawing**. The likeness policy
+explicitly permits *"declassified 3-view drawings and general-arrangement diagrams"* as references. So
+the fuselage should be built from **stations sampled off that published 3-view**, rather than from the
+superellipses currently in `f5e_build.py`.
+
+That is both better-looking and better-sourced: it moves the fuselage from **E** to **P**, which is the
+direction the policy wants. Tracked as a follow-up.
+
+Nothing the flight model reads comes from the mesh, so this does not affect a single number above.
+
+### No markings
+
+Policy §4. No unit insignia, squadron badges, nose art or operator liveries. A generic aggressor-grey
+scheme, applied through external `.ktx2` textures, never baked into geometry.
