@@ -76,27 +76,60 @@ VT_SWEEP_C4   = 25.0      # deg
 VT_AREA       = 3.85      # m^2 exposed
 VT_AR         = 1.22      # on the exposed span
 
-# ═══ NOT PUBLISHED — visual only. Nothing the flight model reads comes from here. ══════════ [E] ═
+# ═══ FUSELAGE STATIONS — traced from NASA Figure 1 (the published 3-view) ══════════ [P/D] ═
 #
-# The F-5E's fuselage is SLIM and WAISTED, then WIDENS AGAIN AT THE TAIL for the two side-by-side
-# J85s. That is not a stylistic reading -- FUS_TAIL_W below is derived, not guessed, and it is wider
-# than the forward fuselage. Getting this wrong makes a slab, which is exactly what the first cut of
-# this script produced.
-FUS_FWD_W     = 0.56      # m   half-width of the forward fuselage (slim -- it holds a small radar)
-FUS_INTAKE_W  = 0.88      # m   half-width across the intake fairings, the widest point
-FUS_TAIL_W    = 0.665     # m   half-width at the tail — DERIVED: NASA's exposed h-tail span (2.97 m)
-                          #     subtracted from its tip-to-tip span (4.30 m), halved.
-FUS_MAX_H     = 0.72      # m   half-height at the cockpit
-NOSE_LEN      = 3.30      # m   radome + forward fuselage to the intake lips
-PITOT_LEN     = 0.55      # m   the F-5E really does carry a nose pitot boom
-WING_X_LE     = 5.95      # m   wing leading-edge root station aft of the nose
-WING_Z        = -0.12     # m   low-mid wing, blended into the fuselage side
+# NASA's spin-tunnel report includes Figure 1, a dimensioned three-view of the F-5E (1/20 scale,
+# dimensions in cm). docs/legal/aircraft-likeness.md explicitly permits declassified 3-views as
+# references. The side-view contour below was SAMPLED OFF THAT DRAWING programmatically (column
+# scan of the page ink; scale anchored to the printed 73.15 cm overall length and cross-checked
+# against the printed 12.88 cm fin height and the printed MAC bar, 12.27 cm = 2.454 m vs the
+# published 2.456). Method and verification overlays: the f5e_trace work recorded in SOURCES.md.
+#
+# Each station: (x/L, z_upper, z_lower, y_half), metres full scale, z from the fuselage reference
+# line (= the drawing's own datum; the nose tip sits on it).
+#   z_upper  [P] traced. In the canopy span it is the CANOPY top; under the fin (x/L > 0.78,
+#            where the fin occludes the spine) and at two dimension-line-polluted stations it is
+#            interpolated [D], marked below.
+#   z_lower  [P] traced (the belly, including the aft boat-tail).
+#   y_half   nose region [P] traced; mid/aft [D] from the twin-J85 packaging and NASA's own
+#            tail-span arithmetic: exposed h-tail span 2.97 = 4.30 tip-to-tip - 2*0.665, so the
+#            fuselage half-width AT THE TAILPLANE IS 0.665 -- published numbers, one subtraction.
+#            The planform confirms the aft body stays broad to the nozzles (two engines abreast).
+STATIONS_FUS = [
+    # x/L    z_up    z_lo   y_half
+    (0.000,  0.015, -0.015, 0.038),   # radome tip, on the reference line
+    (0.030,  0.008, -0.307, 0.060),
+    (0.060, -0.008, -0.369, 0.161),   # slight nose droop -- traced, it is real
+    (0.100,  0.077, -0.438, 0.315),
+    (0.140,  0.192, -0.499, 0.438),
+    (0.190,  0.323, -0.553, 0.530),
+    (0.240,  0.453, -0.584, 0.580),   # windshield base
+    (0.290,  0.950, -0.561, 0.590),   # [D] canopy rise (dim-line polluted; interp of neighbours)
+    (0.340,  1.020, -0.538, 0.590),   # [D] canopy peak (same)
+    (0.400,  1.007, -0.523, 0.590),   # aft canopy fairing [P]
+    (0.460,  0.937, -0.499, 0.645),   # intake fairing region, widest
+    (0.520,  0.853, -0.469, 0.620),   # area-rule waist begins
+    (0.580,  0.780, -0.553, 0.600),   # [D] (dimension-stem mask; interp)
+    (0.640,  0.707, -0.561, 0.600),
+    (0.700,  0.638, -0.561, 0.620),
+    (0.760,  0.791, -0.553, 0.640),   # spine kick-up at the fin fillet
+    (0.815,  0.700, -0.530, 0.665),   # [D] under the fin: spine interp; width = tail-span arith
+    (0.860,  0.580, -0.499, 0.660),   # [D]
+    (0.910,  0.460, -0.553, 0.630),   # [D]
+    (0.960,  0.340, -0.400, 0.580),   # [D] boat-tail
+    (1.000,  0.280, -0.200, 0.520),   # nozzle station
+]
+CANOPY_SPAN  = (0.245, 0.435)  # x/L range where z_up is canopy glass, not fuselage spine
+CANOPY_HALFW = 0.34            # m [E] canopy width from the planform outline
+NOZZLE_R     = 0.28            # m [D] from the front view; two, side by side
+PITOT_LEN    = 0.55            # m [P] visible on the 3-view
+
+# Surface placement stations (planform work, unchanged from the validated planform build)
+WING_X_LE     = 5.95      # m   wing leading-edge root station
+WING_Z        = -0.12     # m   low-mid wing
 HT_X_C4       = 13.10     # m   horizontal tail quarter-chord station
 VT_X_C4       = 11.90     # m   vertical tail quarter-chord station
-CANOPY_X0     = 3.10      # m
-CANOPY_X1     = 5.55      # m
-TIP_RAIL_LEN  = 2.10      # m   the AIM-9 launch rail is part of the airframe, not a store
-NOZZLE_R      = 0.30      # m   J85 exhaust radius; two of them, side by side
+TIP_RAIL_LEN  = 2.10      # m   wingtip AIM-9 rail (part of the airframe; see SOURCES.md)
 
 MAT_AIRFRAME  = "f5e_airframe"
 TEX_DIFFUSE   = "../../textures/f5e_diffuse.ktx2"
@@ -190,79 +223,67 @@ def _lerp(a, b, u):
     return a + (b - a) * _smoothstep(u)
 
 
-def _fuselage(bm, sections=40):
-    """Lofted fuselage — slim forward body, intake fairings, area-ruled waist, twin-engine tail.
+def _fus_at(t):
+    """Interpolate the traced station table at x/L = t. Returns (z_up, z_lo, y_half)."""
+    pts = STATIONS_FUS
+    t = min(max(t, 0.0), 1.0)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        if a[0] <= t <= b[0]:
+            u = (t - a[0]) / (b[0] - a[0]) if b[0] > a[0] else 0.0
+            return tuple(a[k] + (b[k] - a[k]) * u for k in (1, 2, 3))
+    return pts[-1][1:]
 
-    THE SHAPE THAT MATTERS: the F-5E is NOT a slab. Its forward fuselage is slim (it carries a small
-    ranging radar, not a big pulse-doppler set), it bulges at the side intakes, waists in behind them
-    where the wing joins -- that is the AREA RULE, and it is why 9,300 lbf of thrust gets this
-    aeroplane past Mach 1.6 -- and then WIDENS AGAIN at the tail to hold two J85s side by side.
 
-    The width curve below is non-monotonic for exactly that reason. Cross-sections are [E]; the tail
-    half-width is derived (see the constants).
+def _spine_top(t):
+    """The fuselage TOP at x/L = t, i.e. z_up with the canopy glass excluded.
+
+    Inside the canopy span the traced z_up is the glass, not the skin; the skin is the smooth
+    line between the windshield base and the aft fairing, so blend linearly across the span.
+    The canopy bubble is then built separately, exactly as tall as the difference.
     """
-    x_intake = NOSE_LEN / LENGTH
-    x_wing = WING_X_LE / LENGTH
+    c0, c1 = CANOPY_SPAN
+    z_up, _, _ = _fus_at(t)
+    if t <= c0 or t >= c1:
+        return z_up
+    a = _fus_at(c0)[0]
+    b = _fus_at(c1)[0]
+    return a + (b - a) * (t - c0) / (c1 - c0)
 
-    def half_width(t):
-        if t <= 0.0:
-            return 0.03
-        if t < x_intake:                                    # radome -> forward fuselage
-            return _lerp(0.05, FUS_FWD_W, t / x_intake)
-        if t < x_wing:                                      # intake fairings: the widest point
-            return _lerp(FUS_FWD_W, FUS_INTAKE_W, (t - x_intake) / (x_wing - x_intake))
-        if t < 0.78:                                        # AREA-RULE WAIST behind the intakes
-            return _lerp(FUS_INTAKE_W, 0.60, (t - x_wing) / (0.78 - x_wing))
-        return _lerp(0.60, FUS_TAIL_W, (t - 0.78) / 0.22)   # widen again for the twin J85s
 
-    def half_height(t):
-        if t <= 0.0:
-            return 0.03
-        if t < 0.20:
-            return _lerp(0.05, FUS_MAX_H * 0.92, t / 0.20)
-        if t < 0.68:
-            return FUS_MAX_H
-        return _lerp(FUS_MAX_H, 0.44, (t - 0.68) / 0.32)    # aft body tapers to the nozzles
+def _fuselage(bm, sections=44):
+    """Loft the traced NASA Figure 1 stations. See STATIONS_FUS for provenance.
 
-    def zc(t):
-        """Centreline height. THIS is what stops it reading as a dart.
-
-        A real fighter is not a symmetric lens about a straight axis. The belly is roughly FLAT and
-        level from the nose to the wing, and the aft fuselage BOAT-TAILS UPWARD to the nozzles. So
-        the centreline rises aft. The first cut instead drooped the NOSE, which is what made the
-        whole silhouette look like a dart rather than an aeroplane.
-        """
-        if t < x_intake:
-            return _lerp(0.14, 0.0, t / x_intake)           # nose sits slightly HIGH, not low
-        if t < 0.68:
-            return 0.0
-        return _lerp(0.0, 0.20, (t - 0.68) / 0.32)          # boat-tail up toward the exhausts
-
-    def roundness(t):
-        # Superellipse exponent: round nose (2.0), flatter mid-body sides where the intakes sit.
-        return _lerp(2.05, 2.45, min(t / x_intake, 1.0))
-
+    Cross-section: superellipse spanning [z_lo, spine_top] with the traced half-width. The
+    section is asymmetric top-to-bottom exactly as the drawing is -- centreline and half-height
+    fall out of the traced upper/lower contours; nothing here is shaped by eye any more except
+    the superellipse roundness itself.
+    """
     rings = []
     for i in range(sections + 1):
         t = i / sections
         x = t * LENGTH
-        w, h, n = half_width(t), half_height(t), roundness(t)
-        cz = zc(t)
+        top = _spine_top(t)
+        _, lo, w = _fus_at(t)
+        cz = (top + lo) / 2.0
+        hh = max((top - lo) / 2.0, 0.02)
+        w = max(w, 0.02)
+        n = 2.05 + 0.4 * _smoothstep(t / 0.25)          # round nose, flatter-sided body
         ring = []
         steps = 16
         for j in range(steps):
             th = 2.0 * math.pi * j / steps
-            c, s = math.cos(th), math.sin(th)
+            c, sn = math.cos(th), math.sin(th)
             y = w * math.copysign(abs(c) ** (2.0 / n), c)
-            z = h * math.copysign(abs(s) ** (2.0 / n), s)
+            z = hh * math.copysign(abs(sn) ** (2.0 / n), sn)
             ring.append(bm.verts.new(Vector((x, y, cz + z))))
         rings.append(ring)
 
     for i in range(sections):
         a, b = rings[i], rings[i + 1]
-        n = len(a)
-        for j in range(n):
-            k = (j + 1) % n
+        m = len(a)
+        for j in range(m):
+            k = (j + 1) % m
             try:
                 bm.faces.new((a[j], a[k], b[k], b[j]))
             except ValueError:
@@ -272,16 +293,16 @@ def _fuselage(bm, sections=40):
     except ValueError:
         pass
 
-    # Twin exhaust nozzles, recessed into the tail face rather than a flat cap.
+    # Twin J85 nozzles, from the front view: two abreast at the tail.
     for side in (1.0, -1.0):
-        y0 = -side * (FUS_TAIL_W * 0.48)
+        y0 = -side * 0.30
         prev = None
         for i in range(4):
             f = i / 3.0
-            x = LENGTH - 0.35 + f * 0.35
-            r = NOZZLE_R * (1.0 - 0.18 * f)
+            x = LENGTH - 0.30 + f * 0.30
+            r = NOZZLE_R * (1.0 - 0.15 * f)
             ring = [bm.verts.new(Vector((x, y0 + r * math.cos(2 * math.pi * j / 10),
-                                         -0.06 + r * math.sin(2 * math.pi * j / 10))))
+                                         0.04 + r * math.sin(2 * math.pi * j / 10))))
                     for j in range(10)]
             if prev:
                 for j in range(10):
@@ -294,13 +315,13 @@ def _fuselage(bm, sections=40):
                         pass
             prev = ring
 
-    # Pitot boom. The F-5E genuinely carries one, and its silhouette is part of the aircraft.
+    # Pitot boom -- visible on the 3-view, part of the silhouette.
     pb = []
     for i in range(2):
         x = -PITOT_LEN + i * PITOT_LEN
-        r = 0.018 if i == 0 else 0.030
+        r = 0.016 if i == 0 else 0.028
         pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
-                                        zc(0.0) + r * math.sin(2 * math.pi * j / 6))))
+                                        r * math.sin(2 * math.pi * j / 6))))
                    for j in range(6)])
     for j in range(6):
         k = (j + 1) % 6
@@ -344,22 +365,25 @@ def _tip_rails(bm):
 
 
 def _canopy(bm):
-    """Bubble canopy. Shape is [E]. A teardrop that RISES from the spine and fairs back into it --
-    the first cut was a flat elliptical patch stuck on top, which read as a blister, not a cockpit."""
+    """Canopy glass: exactly the bump the trace measured -- z_up minus the blended spine.
+
+    Width is the one [E] left in the canopy: the planform outline reads ~0.34 m half-width.
+    """
+    c0, c1 = CANOPY_SPAN
     rings = []
-    steps = 16
+    steps = 14
     for i in range(steps + 1):
         f = i / steps
-        x = CANOPY_X0 + f * (CANOPY_X1 - CANOPY_X0)
-        # Rise fast at the windscreen, hold, then fair away long and low into the spine.
-        prof = math.sin(min(f * 1.55, 1.0) * math.pi / 2) ** 0.85 * (1.0 - _smoothstep(max(0.0, (f - 0.55) / 0.45)) * 0.92)
-        w = 0.40 * prof + 0.03
-        h = 0.52 * prof
-        base = FUS_MAX_H * 0.72
+        t = c0 + f * (c1 - c0)
+        x = t * LENGTH
+        z_glass = _fus_at(t)[0]
+        z_skin = _spine_top(t)
+        h = max(z_glass - z_skin, 0.0) + 0.02
+        w = CANOPY_HALFW * math.sin(min(max(f, 0.04), 0.96) * math.pi) ** 0.5
         ring = []
         for j in range(10):
-            th = math.pi * j / 9.0                        # upper half only: it sits ON the spine
-            ring.append(bm.verts.new(Vector((x, w * math.cos(th), base + h * math.sin(th)))))
+            th = math.pi * j / 9.0
+            ring.append(bm.verts.new(Vector((x, w * math.cos(th), z_skin - 0.05 + h * math.sin(th)))))
         rings.append(ring)
     for i in range(steps):
         a, b = rings[i], rings[i + 1]
@@ -370,48 +394,12 @@ def _canopy(bm):
                 pass
 
 
-def _intakes(bm):
-    """Side-mounted intake fairings. [E].
-
-    NOT boxes -- the first cut extruded literal rectangular blocks and they looked exactly like
-    rectangular blocks. These are half-teardrops swept along the fuselage side: a sharp lip at the
-    front, swelling aft, fairing back into the body ahead of the wing root.
-    """
-    for side in (1.0, -1.0):
-        rings = []
-        steps = 14
-        x0, x1 = NOSE_LEN - 0.15, WING_X_LE + 0.35
-        for i in range(steps + 1):
-            f = i / steps
-            x = x0 + f * (x1 - x0)
-            # Sharp at the lip, fullest at ~60%, faired out at the wing root.
-            bulge = math.sin(min(f * 1.25, 1.0) * math.pi) ** 0.6
-            r = 0.30 * bulge + 0.02
-            y_c = -side * (FUS_FWD_W + 0.16 * bulge)
-            ring = []
-            for j in range(9):
-                th = -math.pi / 2 + math.pi * j / 8.0     # outboard half only; inboard side is the fuselage
-                ring.append(bm.verts.new(Vector((x,
-                                                 y_c - side * r * 0.75 * math.cos(th),
-                                                 -0.02 + r * math.sin(th)))))
-            rings.append(ring)
-        for i in range(steps):
-            a, b = rings[i], rings[i + 1]
-            for j in range(8):
-                try:
-                    f4 = (a[j], a[j + 1], b[j + 1], b[j]) if side > 0 else (a[j], b[j], b[j + 1], a[j + 1])
-                    bm.faces.new(f4)
-                except ValueError:
-                    pass
-
-
 # ─── Assembly ─────────────────────────────────────────────────────────────────────────────────────
 def build_airframe(name: str) -> bpy.types.Object:
     bm = bmesh.new()
 
     _fuselage(bm)
     _canopy(bm)
-    _intakes(bm)
 
     # Wing — positioned by its published quarter-chord line.
     _panel(bm, WING_X_LE + 0.25 * ROOT_CHORD, SPAN / 2.0, ROOT_CHORD, TIP_CHORD,
@@ -422,7 +410,8 @@ def build_airframe(name: str) -> bpy.types.Object:
     ht_exposed_span = math.sqrt(2.88 * 3.07)                       # 2.97 m, from NASA's exposed AR
     ht_root = HT_TIP_CHORD / HT_TAPER                              # 1.539 m at the fuselage side
     # Extrapolate the taper line inboard to the centreline so the surface meets the fuselage.
-    f_side = (FUS_TAIL_W) / (HT_SPAN / 2.0)
+    w_tail = _fus_at(HT_X_C4 / LENGTH)[2]          # 0.665 -- NASA tail-span arithmetic
+    f_side = w_tail / (HT_SPAN / 2.0)
     ht_c0 = (ht_root - HT_TIP_CHORD * f_side) / (1.0 - f_side)
     _panel(bm, HT_X_C4, HT_SPAN / 2.0, ht_c0, HT_TIP_CHORD, HT_SWEEP_C4, 0.04,
            dihedral=HT_DIHEDRAL, z0=0.10)
@@ -589,7 +578,7 @@ def main() -> int:
 
     # Cockpit: must contain a node named exactly `camera_anchor` -- the renderer looks for it by name.
     anchor = bpy.data.objects.new("camera_anchor", None)
-    anchor.location = ((CANOPY_X0 + CANOPY_X1) / 2.0 - 0.35, 0.0, FUS_MAX_H * 0.55)
+    anchor.location = ((CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25)
     bpy.context.collection.objects.link(anchor)
     _export(out / f"{aid}_cockpit.glb", [anchor])
 

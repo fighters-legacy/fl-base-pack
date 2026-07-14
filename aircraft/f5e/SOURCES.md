@@ -368,3 +368,18 @@ Nothing the flight model reads comes from the mesh, so this does not affect a si
 
 Policy §4. No unit insignia, squadron badges, nose art or operator liveries. A generic aggressor-grey
 scheme, applied through external `.ktx2` textures, never baked into geometry.
+
+### Update: fuselage now traced from NASA Figure 1 — moved from E to P/D
+
+The follow-up landed. The fuselage side profile is now **sampled programmatically off NASA Figure 1**
+(the report's dimensioned 3-view, 1/20 scale in cm): column-scan of the drawing ink, dimension lines
+and leader text masked, verified against overlay renders at every pass. Scale anchored to the printed
+**73.15 cm overall length**; cross-checked against the printed MAC bar (12.27 cm = 2.454 m vs the
+published 2.456 m, 0.1%) and the printed fin height (read 2.46 m vs printed 2.576 m — 4.5%, the fin
+tip arrowhead is ambiguous in the scan; the fin itself is built from published area/AR, not the trace).
+
+`STATIONS_FUS` in `f5e_build.py` is the result: 21 stations of (z_upper, z_lower, y_half), each tagged
+**P** (traced), **D** (interpolated across a dimension-line pollution or under the fin, or the tail
+width from NASA's own tail-span arithmetic), with the canopy span and its glass bump measured rather
+than invented. The only remaining **E** values in the whole mesh: canopy half-width (~0.34 m, read
+from the planform outline), the superellipse cross-section roundness, and surface placement stations.
