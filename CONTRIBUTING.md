@@ -48,25 +48,61 @@ case-sensitive while Windows and macOS are not.
 
 ### `aircraft/<name>/`
 
-One directory per aircraft. Directory name must match the asset name stem.
+One directory per aircraft. Directory name must match the asset-name stem, and **asset names
+include the subdirectory** — the F-5E's mesh is `f5e/f5e`, not `f5e` (get this wrong and the engine
+silently falls back to a builtin placeholder). A complete aircraft is a set of files, not one:
 
 ```
 aircraft/
-  fa-18c/
-    fa-18c.glb       ← glTF 2.0 model
-    fa-18c.toml      ← flight model data
+  f5e/
+    f5e.glb            ← base model; root node `f5e`, damage-state node `f5e_b` (same file)
+    f5e_lod0.glb       ← ~50% triangle budget   ┐ LODs are SEPARATE FILES, not nodes.
+    f5e_lod1.glb       ← ~20%                    │ (An earlier version of this doc said nodes;
+    f5e_lod2.glb       ← ~5%                     ┘  it was wrong. The renderer loads them by file.)
+    f5e_shadow.glb     ← convex hull, no materials
+    f5e_cockpit.glb    ← contains a node named `camera_anchor`
+    f5e.toml           ← flight model data       (see aircraft/<name>/*.expect.toml for the CI gate)
+    f5e_build.py       ← the generator (see "Mesh provenance" below)
+    derive.py          ← generates the aero tables
+    SOURCES.md         ← required provenance manifest (docs/legal/aircraft-likeness.md)
 ```
 
-**Model requirements:**
-- Format: glTF 2.0 (`.glb` preferred for self-contained files)
-- Required node hierarchy and material slots per the engine mesh specification
-- Damage-state mesh: `<name>_b` node (e.g. `fa-18c_b`)
-- LOD variants: `<name>_lod1`, `<name>_lod2` nodes
+The entity definition, sensors and weapons live in the top-level `entities/`, `sensors/` and
+`weapons/` directories (namespaced def-ids, e.g. `fl-base:f5e`), not under `aircraft/`.
+
+**Model requirements** (full spec:
+[3d-models.md](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/3d-models.md)):
+- glTF 2.0 binary (`.glb`). No embedded image data — textures are external `.ktx2` URIs.
+- Node/material names lowercase with underscores; winding CCW from outside.
+- Damage-state node `<name>_b` in the same file as its base node.
+- **One material, one primitive, for now.** The engine loads only `meshes[0].primitives[0]` until
+  its node-aware loader lands
+  ([fighters-legacy#839](https://github.com/fighters-legacy/fighters-legacy/issues/839)); a
+  multi-material split would push geometry into primitives the engine drops. Multiple parts and
+  material slots come with that engine work, not before it.
+- Run [`validate-mesh`] locally, and preview with `tools/gltf-inspect/` (a stopgap browser viewer)
+  — but note it is **not** the game renderer.
 
 **Flight data:** Follow the
-[flight model schema](https://github.com/jomkz/fighters-legacy/blob/main/docs/modding/flight-model.md)
-exactly. The TOML flight model validator (CI job `flight-model-validate`) will check all fields
-and ranges once fighters-legacy#109 ships.
+[flight model schema](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/flight-model.md)
+exactly. The `flight-model-validate` CI job checks every field and range, and `fm-trim --expect`
+gates the aircraft against a performance table you author in `<name>.expect.toml`.
+
+**Mesh provenance — every aircraft is `generated` or `authored`:**
+
+- **`generated`** (the F-5E): the source of truth is the build script (`<name>_build.py`), and the
+  committed `.glb` files must regenerate **byte-for-byte** from it — that reproducibility is the
+  regression check. Never hand-edit a generated `.glb`; change the script and re-run it. No `.blend`
+  is committed (Blender projects are not byte-stable).
+- **`authored`**: the source of truth is a committed `src/<name>.blend` plus the exported `.glb`
+  set. A PR that touches an authored `.glb` must also touch its `.blend`. The byte-identical regen
+  check does not apply (Blender export is not byte-stable across versions); `validate-mesh` is the
+  gate instead.
+
+An aircraft flips from generated to authored the first time an artist polishes it in Blender: run
+the generator with `--blend out.blend` (or import the shipped `.glb`), polish, commit the `.blend`
+under `src/`, re-export, and record the flip in `SOURCES.md`. The build script stays in the tree as
+the geometry's provenance. Shared generator helpers live in `tools/meshlib/` (`fl_meshlib`).
 
 ### `terrain/<id>/`
 
@@ -91,12 +127,12 @@ terrain/
 - **Terrain ID**: `"world"` is the canonical global terrain; theater packs override individual chunks at higher mod priority via `IContentPack::resolveTerrainChunk()`
 - **Surface class map**: companion JSON at `terrain/<id>/surface.json` — maps pixel brightness ranges to surface class IDs (grass, water, urban, etc.) with associated `*.ktx2` textures
 
-See [terrain format documentation](https://github.com/jomkz/fighters-legacy/blob/main/docs/modding/formats.md#terrain) for full chunk format spec and the `tools/gen_terrain_chunks.py` tool for converting GeoTIFF/DEM sources.
+See [terrain format documentation](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/formats.md#terrain) for full chunk format spec and the `tools/gen_terrain_chunks.py` tool for converting GeoTIFF/DEM sources.
 
 ### `missions/<name>.yaml`
 
-YAML mission files. See the mission schema documentation in fighters-legacy
-`docs/modding/missions.md` (forthcoming with fighters-legacy#34).
+YAML mission files, gated in CI by `validate-mission`. See
+[missions.md](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/missions.md).
 
 ### `audio/sfx/<name>.ogg`
 
@@ -111,18 +147,38 @@ and request a maintainer render in your PR description.
 
 ### `ai/<name>.lua`
 
-Lua 5.4 AI behaviour scripts. The engine AI API is documented in fighters-legacy
-`docs/modding/ai.md` (forthcoming with fighters-legacy#33).
+Lua 5.4 AI behaviour scripts. The engine AI API is documented in
+[ai.md](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/ai.md). Use
+`detected_contacts()` (honest sensing) — a script never reads ground truth.
 
 ---
 
 ## Review criteria
 
-- CI must pass: `license-check`, `asset-naming`, `DCO`
+- CI must pass. Required checks are `license-check`, `asset-naming`, `DCO`, `mission-validate`, and
+  `mesh-validate`; `flight-model-validate` runs and will become required once an engine release
+  ships the post-#823 validator. `meshlib` runs when you touch `tools/meshlib/` or a build script.
 - Models must be original work or sourced from a verifiably compatible open licence — include a
-  source link in your PR description
+  source link in your PR description.
 - No copyrighted IP: meshes, markings, or liveries derived from proprietary references without
-  documented clearance will be rejected
+  documented clearance will be rejected. Reference imagery must be PD or CC0 and is listed in the
+  aircraft's `SOURCES.md`; **scale plans and cutaway drawings are copyrighted even when labelled
+  "for reference"** — do not use them.
+
+## What the engine renders today (so you are not surprised)
+
+The engine is mid-build. An aircraft that validates and loads will still, right now:
+
+- render in **flat grey** — there is no mesh-texture pipeline yet
+  ([#833](https://github.com/fighters-legacy/fighters-legacy/issues/833)); your `.ktx2` references
+  are correct and dormant.
+- show only its **first primitive** — keep to one material (above).
+- **not move** — landing gear, flaps and control surfaces are not animated yet
+  ([#837](https://github.com/fighters-legacy/fighters-legacy/issues/837)).
+
+None of these are defects in your asset; author to the documented conventions and the aircraft
+lights up as the engine catches up. Preview geometry with `tools/gltf-inspect/`; confirm it actually
+loads by booting `fl-server` against a real `mods/` tree (a green validator is not proof it renders).
 
 ---
 
