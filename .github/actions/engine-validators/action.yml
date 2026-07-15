@@ -14,16 +14,36 @@ inputs:
     # The canonical org, not `jomkz/`. The old path still resolves, but only through GitHub's
     # rename redirect -- which is a courtesy, not a contract, and not a thing to hang CI on.
     default: fighters-legacy/fighters-legacy
+  optional:
+    description: >
+      "true" turns a MISSING validator from a hard failure into a green SKIP that sets the
+      `available` output to "false". Use this for a gate whose validator has not shipped in an
+      engine release yet (e.g. a post-#583 validator against the current v0.3.1): the leg reports
+      success today and starts running for real the moment a release includes the binary -- no
+      manual flip. It does NOT soften a validator that IS present: once fetched, the caller runs it
+      and a real validation error still fails. (A present-but-absent binary is the only thing this
+      relaxes; it never resurrects the "|| true" soft landing this action exists to kill.)
+    required: false
+    default: "false"
+
+outputs:
+  available:
+    description: >
+      "true" when every required validator was found and put on PATH; "false" only when
+      `optional` is set and at least one was missing. Gate the run step on this.
+    value: ${{ steps.fetch.outputs.available }}
 
 runs:
   using: composite
   steps:
     - name: Fetch validators from the latest engine release
+      id: fetch
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
         REPO: ${{ inputs.repo }}
         REQUIRE: ${{ inputs.require }}
+        OPTIONAL: ${{ inputs.optional }}
       run: |
         set -euo pipefail
 
@@ -56,7 +76,6 @@ runs:
         missing=0
         for v in $REQUIRE; do
           if [ ! -f "$dir/$v" ]; then
-            echo "::error::$v is not in $REPO @ $tag."
             missing=1
             continue
           fi
@@ -65,8 +84,17 @@ runs:
         done
 
         if [ "$missing" -ne 0 ]; then
-          echo "::error::Required validators are missing from the release. Not skipping -- failing."
+          if [ "$OPTIONAL" = "true" ]; then
+            # The validator has not shipped in a release yet. Skip GREEN and let the caller decide
+            # (it gates its run step on `available`). This is NOT the "|| true" soft landing: it
+            # fires only for a validator that is genuinely absent from the release, and it says so.
+            echo "::notice::A required validator is not in $REPO @ $tag; skipping (optional=true). It will run once a release ships it."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::A required validator is not in $REPO @ $tag. Not skipping -- failing."
           exit 1
         fi
 
+        echo "available=true" >> "$GITHUB_OUTPUT"
         echo "$dir" >> "$GITHUB_PATH"
