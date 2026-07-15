@@ -31,16 +31,23 @@ sides: [blue, red]
 objects:
   # Player: F-5E, combat-configured exactly as the flight model was calibrated —
   # 2x AIM-9 on the tip rails, full 20 mm, clean pylons (the entity def's default loadout).
+  #
+  # `player: true` makes this a JOINABLE PLAYER SLOT (engine #854): the connecting pilot binds to it
+  # and inherits its faction, spawn and aircraft. WITHOUT it, the human gets a default spawn and this
+  # object spawns as a world entity — and since it has no `ai:`, the single-player lifecycle (#634)
+  # auto-attaches the entity's default fighter.lua, so the intended player jet would fly itself.
   - type: fl-base:f5e
     id: player1
     side: blue
     pos: [0, 0, 0]
     alt: 3000
     heading: 45
+    player: true
 
-  # Adversary: same aircraft, AI-flown (entities/f5e.toml assigns ai/fighter.lua).
-  # It patrols its anchor until its OWN sensors find the player — the APQ-159 cone or the
-  # eyeball, whichever gets there first. Nobody in this mission gets ground truth.
+  # Adversary: same aircraft, AI-flown. No `ai:` on purpose — the #634 auto-detect attaches the
+  # entity's own default script (entities/f5e.toml → ai/fighter.lua). It patrols its anchor until its
+  # OWN sensors find the player — the APQ-159 cone or the eyeball, whichever gets there first. Nobody
+  # in this mission gets ground truth.
   - type: fl-base:f5e
     id: bandit1
     side: red
