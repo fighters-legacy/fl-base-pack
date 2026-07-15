@@ -8,10 +8,10 @@
 # the whole vertical slice with ONE asset: flight model, entity def, radar + eyeball sensors,
 # the AI script, and the default loadout's mass and drag.
 #
-# WHY SUCCESS IS A TIMER: there is no fire path in the engine (Epic fighters-legacy#583) —
-# weapons are stores, not ordnance, so nothing can be shot down yet. The honest first mission is
-# therefore a training window: find the bandit, fight for position, come home when the range
-# closes. When #583 lands, replace the timer trigger with `on: destroy(bandit1)`.
+# WIN ON THE KILL: Epic fighters-legacy#583 landed the fire path, so the F-5E's gun and AIM-9P are
+# real ordnance and the bandit can be shot down. Success is `on: destroy(bandit1)`. (The mission
+# TRIGGER RUNTIME itself -- the loop that evaluates `on:` each tick -- arrives with #632; until then
+# this file is a correct, validated declaration that becomes live when that lands.)
 #
 # MAP: the pack has no terrain yet (#2 cube-sphere tiles, #9 global base). `earth` is the id the
 # terrain issues will ship; validate-mission checks structure, not asset existence, so this file
@@ -49,9 +49,8 @@ objects:
     heading: 225
 
 triggers:
-  # The training window: 15 real minutes of finding, fighting and disengaging.
-  # fighters-legacy#583 replaces this with `on: destroy(bandit1)`.
-  - on: timer(900)
+  # Win by killing the bandit -- the whole point of a BFM engagement, now that kills are real.
+  - on: destroy(bandit1)
     do: mission_success
 
   # Losing your own aircraft still loses the fight.

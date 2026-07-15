@@ -1,0 +1,40 @@
+# AIM-9P Sidewinder seeker head.
+#
+# THE SEEKER IS A SENSOR (engine RFC #676 / 2026-07-14 decision record). There is one SensorDef
+# vocabulary for player avionics, AI detection, and missile seekers -- a seeker is a cone, a range
+# band, and a per-check probability of detection, evaluated through the same detection math as every
+# other observer. What stays on weapons/aim9p.toml is doctrine about the SHOT (fire-and-forget,
+# flare susceptibility), not the sensor. The weapon references this def by id via `sensor_id`.
+#
+# PASSIVE IR: the seeker radiates nothing, so `emitter = false` (validate-sensor warns on an IR
+# emitter). All numbers are ENGINEERING ESTIMATES [E] for an early rear-aspect cooled-PbS seeker --
+# the AIM-9P is genuinely short-legged and best from behind, which the countermeasure susceptibility
+# on the weapon reflects. Ranges are quoted against a BASELINE (ir signature 1.0) tailpipe and scale
+# LINEARLY with a target's [signatures] ir.
+[sensor]
+id              = "fl-base:aim9p_seeker"
+name            = "AIM-9P IR seeker"
+type            = "ir"
+omnidirectional = false
+emitter         = false
+
+# Acquisition lobe -- how the seeker FINDS a target. Wide uncaged basket, lower per-check PoD. The
+# 5 nm reaches well past 25% of the weapon's 9 nm kinematic max, so validate-weapon --pack does not
+# warn that the missile shoots further than it can see.
+[search]
+az_half_angle_deg = 25.0        # [E] uncaged gimbal basket off boresight
+el_half_angle_deg = 25.0        # [E]
+min_range_nm      = 0.0
+max_range_nm      = 5.0         # [E] against a baseline tailpipe; scales with the target's IR signature
+pod               = 0.55        # [E] per check at the 10 Hz reference cadence
+
+# Track lobe -- how a lock is HELD once acquired. Kept narrower, shorter and higher-confidence than
+# search so validate-sensor's plausibility check stays clean; lock_hold_s carries the track through
+# a brief flare/occlusion blink before it coasts and drops.
+[track]
+az_half_angle_deg = 20.0        # [E] <= search
+el_half_angle_deg = 20.0        # [E]
+min_range_nm      = 0.0
+max_range_nm      = 4.0         # [E] <= search max
+pod               = 0.90        # [E] >= search pod
+lock_hold_s       = 1.0         # [E] brief coast through a blink; [0, 60]

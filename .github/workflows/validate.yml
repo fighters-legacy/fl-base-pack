@@ -204,3 +204,99 @@ jobs:
       - name: Run mission validator
         if: steps.changed.outputs.files != ''
         run: validate-mission ${{ steps.changed.outputs.files }}
+
+  # ── Weapons / sensors / entity legs (engine #583). ─────────────────────────────────────────────
+  # SOFT, ON PURPOSE. Like flight-model-validate above, these are continue-on-error because the
+  # engine-validators action pulls from the LATEST engine RELEASE, and the current one (v0.3.1)
+  # predates the #583 weapons/damage merge: it either lacks these validators (the action then
+  # hard-fails, which continue-on-error absorbs) or ships versions that do not know the new schema
+  # (sensor_id seekers, [damage.subsystems], the damage_mesh asset-ref check). The pack is validated
+  # against a LOCAL post-#583 engine build in the meantime.
+  #
+  # When an engine release built from post-#583 main ships: drop `continue-on-error` and add these
+  # three jobs to the branch-protection required checks. That is all that is left to harden them.
+  #
+  # Unlike the per-file legs above, validate-entity/validate-weapon run in `--pack` mode (they
+  # cross-check references across the whole pack: hardpoint weapon ids, seeker sensor_id, and every
+  # asset name), so they take the pack root, not a changed-file list. A change anywhere in the pack's
+  # asset dirs triggers a full-pack revalidation.
+  entity-validate:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect pack asset changes
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # validate-entity --pack resolves mesh/cockpit/flight_model/ai_script/damage_mesh/manual
+          # asset names AND sensor/weapon def ids, so any of these dirs changing warrants a re-run.
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            -- entities sensors weapons aircraft ai | tr '\n' ' ')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Pack asset changes: ${CHANGED:-(none)}"
+      - name: Fetch validators
+        if: steps.changed.outputs.changed != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-entity
+      - name: Run entity validator (whole pack)
+        if: steps.changed.outputs.changed != ''
+        run: validate-entity --pack .
+
+  weapon-validate:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect weapon/sensor changes
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --pack cross-checks each seeker.sensor_id against the pack's sensor defs, so a sensor
+          # change can invalidate a weapon and vice versa: watch both dirs.
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            -- weapons sensors | tr '\n' ' ')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Weapon/sensor changes: ${CHANGED:-(none)}"
+      - name: Fetch validators
+        if: steps.changed.outputs.changed != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-weapon
+      - name: Run weapon validator (whole pack)
+        if: steps.changed.outputs.changed != ''
+        run: validate-weapon --pack .
+
+  sensor-validate:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find changed sensors
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # validate-sensor has no --pack mode; it validates each file, so pass the changed list.
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- sensors \
+            | { grep -E '\.toml$' || true; } \
+            | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "Sensors to validate: ${FILES:-(none)}"
+      - name: Fetch validators
+        if: steps.changed.outputs.files != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-sensor
+      - name: Run sensor validator
+        if: steps.changed.outputs.files != ''
+        run: validate-sensor ${{ steps.changed.outputs.files }}
