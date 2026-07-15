@@ -22,9 +22,9 @@ jobs:
           FAIL=0
 
           # No spaces in filenames
-          if find aircraft terrain missions audio ai -name "* *" 2>/dev/null | grep -q .; then
+          if find aircraft entities sensors weapons terrain missions audio ai -name "* *" 2>/dev/null | grep -q .; then
             echo "ERROR: filenames with spaces:"
-            find aircraft terrain missions audio ai -name "* *"
+            find aircraft entities sensors weapons terrain missions audio ai -name "* *"
             FAIL=1
           fi
 
@@ -35,9 +35,9 @@ jobs:
           # docs/legal/aircraft-likeness.md — it is the provenance manifest that makes the whole
           # policy auditable — and it is uppercase by the same convention as README.md and LICENSE.
           # The engine never loads it. Policing its case would fail every conforming aircraft PR.
-          if find aircraft terrain missions audio ai -name "*[A-Z]*" ! -name "*.md" 2>/dev/null | grep -q .; then
+          if find aircraft entities sensors weapons terrain missions audio ai -name "*[A-Z]*" ! -name "*.md" 2>/dev/null | grep -q .; then
             echo "ERROR: uppercase asset filenames (Linux ext4 is case-sensitive):"
-            find aircraft terrain missions audio ai -name "*[A-Z]*" ! -name "*.md"
+            find aircraft entities sensors weapons terrain missions audio ai -name "*[A-Z]*" ! -name "*.md"
             FAIL=1
           fi
 
@@ -48,7 +48,7 @@ jobs:
               echo "ERROR: Windows reserved filename: $f"
               FAIL=1
             fi
-          done < <(find aircraft terrain missions audio ai -type f 2>/dev/null)
+          done < <(find aircraft entities sensors weapons terrain missions audio ai -type f 2>/dev/null)
 
           # OGG files only under audio/
           if find . -name "*.ogg" -not -path "./audio/*" 2>/dev/null | grep -q .; then
@@ -136,6 +136,55 @@ jobs:
       - name: Run flight model validator
         if: steps.changed.outputs.files != ''
         run: validate-flight-model ${{ steps.changed.outputs.files }}
+
+  # fm-trim --expect: the Phase-4 gate from #1/#54, mechanised. Where validate-flight-model checks a
+  # model is well-formed, fm-trim derives its performance and fails when it stops reproducing the
+  # numbers its flight manual publishes (stall speed, max Mach, ROC, sustained turn, fuel burn). It
+  # runs each changed model against its sibling `<name>.expect.toml`. Auto-activating like the other
+  # #583/#829 legs: fm-trim (#817) may predate the pinned engine release, so the fetch skips green
+  # (optional) until a release ships it, then gates for real -- see the engine-validators action.
+  fm-trim-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find changed flight models
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Same glob as flight-model-validate: aircraft TOMLs, minus the *.expect.toml fixtures
+          # (which have no [flight_model] table and are the expectation input, not a model).
+          FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
+            | { grep -E '\.toml$' || true; } \
+            | { grep -v -E '\.expect\.toml$' || true; } \
+            | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "Flight models to fm-trim: ${FILES:-(none)}"
+      - name: Fetch fm-trim (skip if the engine release predates it)
+        id: fetch
+        if: steps.changed.outputs.files != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: fm-trim
+          optional: "true"
+      - name: Run fm-trim --expect
+        if: steps.fetch.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rc=0
+          for model in ${{ steps.changed.outputs.files }}; do
+            expect="${model%.toml}.expect.toml"
+            if [ -f "$expect" ]; then
+              echo "fm-trim $model --expect $expect"
+              fm-trim "$model" --expect "$expect" || rc=1
+            else
+              echo "note: $model has no $expect — skipping its performance check"
+            fi
+          done
+          exit $rc
 
   mesh-validate:
     runs-on: ubuntu-latest

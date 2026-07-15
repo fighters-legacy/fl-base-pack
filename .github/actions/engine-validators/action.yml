@@ -71,7 +71,16 @@ runs:
 
         gh release download "$tag" --repo "$REPO" \
           --pattern 'fighters-legacy-linux.zip' --output "$dir/engine.zip"
-        unzip -oq "$dir/engine.zip" -d "$dir" 'validate-*'
+
+        # The tools install at the archive root (fighters-legacy#814). Extract exactly the binaries
+        # this caller REQUIRES, by name -- not a 'validate-*' glob -- so non-validator tools are
+        # fetched too: `fm-trim` (the flight-model expectation check) and `tex-compress` (the release
+        # texture build) are required by name and would be silently missed by a validate-only glob.
+        # A pattern that matches nothing is not fatal here; the presence check below is the single
+        # authority on "did we get it", and `optional` decides what a miss means.
+        for v in $REQUIRE; do
+          unzip -oq "$dir/engine.zip" -d "$dir" "$v" 2>/dev/null || true
+        done
 
         missing=0
         for v in $REQUIRE; do
@@ -88,11 +97,11 @@ runs:
             # The validator has not shipped in a release yet. Skip GREEN and let the caller decide
             # (it gates its run step on `available`). This is NOT the "|| true" soft landing: it
             # fires only for a validator that is genuinely absent from the release, and it says so.
-            echo "::notice::A required validator is not in $REPO @ $tag; skipping (optional=true). It will run once a release ships it."
+            echo "::notice::A required tool is not in $REPO @ $tag; skipping (optional=true). It will run once a release ships it."
             echo "available=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "::error::A required validator is not in $REPO @ $tag. Not skipping -- failing."
+          echo "::error::A required tool is not in $REPO @ $tag. Not skipping -- failing."
           exit 1
         fi
 
