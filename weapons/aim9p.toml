@@ -1,9 +1,9 @@
 # AIM-9P Sidewinder — IR air-to-air missile. Wingtip rails.
 #
-# NOTE ON SCOPE: after engine #812 this weapon is a STORE, not ordnance. It has mass and drag and
-# appears on the rail. It does not fly, guide, or hit anything -- there is no fire path in the engine
-# (Epic fighters-legacy#583). The seeker and countermeasure fields below are authored now so they are
-# ready when it lands, and are consumed by nothing today.
+# After Epic fighters-legacy#583 this is ordnance: it flies, its seeker looks, and its warhead
+# applies damage through the full kill chain. The seeker head is now a SENSOR def
+# (sensors/aim9p_seeker.toml) referenced by id -- see RFC #676. What stays on the weapon is about
+# the SHOT: fire-and-forget doctrine, warhead, and countermeasure susceptibility.
 [weapon]
 id       = "fl-base:aim9p"
 name     = "AIM-9P Sidewinder"
@@ -11,10 +11,11 @@ type     = "missile"
 category = "air-to-air"
 
 [seeker]
-type             = "ir"
-fov_deg          = 25.0     # [E] uncaged seeker gimbal limit
-acquisition_nm   = 5.0      # [E] against a baseline target; scales linearly with IR signature
-fire_and_forget  = true     # an IR missile does not need the launch aircraft after release
+type            = "ir"
+sensor_id       = "fl-base:aim9p_seeker"   # the seeker head, defined in sensors/aim9p_seeker.toml
+fire_and_forget = true                     # an IR missile does not need the launch aircraft after release
+# The pre-#583 ad-hoc lobe (fov_deg / acquisition_nm) is gone: it is mutually exclusive with
+# sensor_id, and its acquisition math now lives in the sensor def's [search] lobe.
 
 [performance]
 max_range_nm      = 9.0     # [E] kinematic max, head-on. Real employment range is far shorter.

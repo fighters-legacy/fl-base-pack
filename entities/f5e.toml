@@ -19,6 +19,8 @@ id           = "fl-base:f5e"
 name         = "F-5E Tiger II"
 category     = "air_vehicle"
 max_hp       = 100.0
+# collision_radius_m is intentionally omitted: the air-vehicle default is 8 m, which fits the F-5E
+# (8.1 m span). An explicit value would only be needed to override it for an oversized airframe.
 mesh         = "f5e/f5e"          # -> aircraft/f5e/f5e.glb
 cockpit      = "f5e/f5e_cockpit"  # -> aircraft/f5e/f5e_cockpit.glb  (engine #813)
 flight_model = "f5e/f5e"          # -> aircraft/f5e/f5e.toml
@@ -126,5 +128,42 @@ thrust_factor    = 0.35
 control_factor   = 0.50
 avionics_failure = true
 
-[classic]
-damage_mesh = "f5e_b"
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# Optional, additive granularity ON TOP OF the three tiers above -- absent, the tiers are the whole
+# story. Each subsystem has its own HP pool (independent of max_hp) and a `weight` biasing an
+# undirected hit toward it (a directed hit also biases by where it struck). Values are gameplay [E].
+#
+# The twin J85 is the marquee: engine_left / engine_right are separate pools, and losing ONE is the
+# asymmetric engine-out the whole feature exists for -- half thrust plus a yaw moment toward the
+# dead engine (the arm is 0.15 x wingspan, so the aircraft's own span drives the yaw). This jet has
+# no G limiter and no FBW; an engine-out on top of that is a genuine handful, which is the point.
+[damage.subsystems.engine_left]
+hp     = 40.0
+weight = 2.0
+
+[damage.subsystems.engine_right]
+hp     = 40.0
+weight = 2.0
+
+# Flight controls. Failure cuts control authority hard (it multiplies the tier control_factor).
+[damage.subsystems.controls]
+hp     = 25.0
+weight = 1.5
+
+# Avionics: failure strips the sensor suite to the eyeball -- for this aircraft that means the
+# APQ-159 goes dark and it hunts by Mark One Eyeball, the same loss [damage.critical] models at HP.
+[damage.subsystems.avionics]
+hp     = 15.0
+weight = 1.0
+
+# A punctured tank leaks on top of the normal burn. The F-5E's endurance is already modest; a leak
+# turns a long fight into a fuel emergency.
+[damage.subsystems.fuel]
+hp     = 50.0
+weight = 1.2
+
+# NB: no [classic] block. `damage_mesh` is an ASSET NAME (a separate .glb file), but the F-5E's
+# battle-damage geometry is the `f5e_b` NODE already inside aircraft/f5e/f5e.glb (built by
+# fl_meshlib/damage.py) -- the render path swaps to it. The old `damage_mesh = "f5e_b"` pointed a
+# file-asset field at a node name, resolved to no file, and validate-entity (engine #829) flags it.
+# JumpToDamage classic-mode geometry is optional and this pack does not ship a separate file for it.
