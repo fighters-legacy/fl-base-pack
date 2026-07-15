@@ -494,3 +494,28 @@ without reaching zero, because the fairing blends into the spine rather than end
 
 Both are **E**, both are visual only, and both are anchored to traced endpoints they do not move.
 Face count unchanged (2454). Nothing the flight model reads comes from the mesh.
+
+## Textures — `f5e_textures.py`
+
+**Texture provenance: `generated`.** The base-colour and ORM maps are produced procedurally by the
+committed, deterministic script `f5e_textures.py` — the same discipline as the mesh (`f5e_build.py`)
+and the weapon SFX (`tools/sfxgen`). The masters live in `aircraft/f5e/textures-src/`
+(`f5e_diffuse.png`, `f5e_orm.png`); the runtime `.ktx2` are build artifacts compressed from them by
+`tex-compress` in CI (`.ktx2` is gitignored). Re-run the script to regenerate; `--check` asserts the
+committed masters still match.
+
+**No external reference, and therefore nothing to license.** No photograph, drawing, or other image
+is traced or sampled — the panel grid, anti-glare shield, weathering and material response are
+synthesised from geometry and noise. This keeps the textures clear of `docs/legal/aircraft-likeness.md`
+§2/§4 (fighters-legacy#835) entirely: there is no reference file to record because none was used.
+Livery and markings remain **absent** (§4); a real aggressor scheme is future art.
+
+- `f5e_diffuse` — a detail/weathering map that *modulates* the mesh material's grey
+  `baseColorFactor`, so panel lines and the anti-glare shield read on top of the aggressor grey
+  without changing the untextured fallback colour.
+- `f5e_orm` — occlusion (R) / roughness (G) / metallic (B), packed per the engine's ORM convention
+  (fighters-legacy#833); the mesh binds it to both `metallicRoughnessTexture` and `occlusionTexture`.
+
+The UV map is `fl_meshlib.uvatlas.planar_uvs` — an honest top-down planar projection (adequate while
+a proper per-part unwrap waits on the texture-work follow-up), so top and bottom surfaces share the
+map. Texel density is not uniform; art quality iterates without touching any other layer.
