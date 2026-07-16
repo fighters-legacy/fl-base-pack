@@ -1,0 +1,155 @@
+# General Dynamics F-16A Fighting Falcon (ADF) — entity definition.
+#
+# EntityDef owns all asset wiring (engine #813). `mesh`/`flight_model` are ASSET NAMES with the
+# asset's own subdirectory ("f16a/f16a" -> aircraft/f16a/f16a.glb — write the subdirectory or fly
+# the silent builtin UFO; the F-5E's file tells that war story). `sensors` and the hardpoint
+# `allowed`/`default` lists are namespaced DEF IDS, resolved through the pack index, never the
+# filesystem. Two vocabularies; not interchangeable (#810).
+#
+# WHY "(ADF)": the Air Defense Fighter conversion is the only F-16A that could employ the AIM-7
+# (APG-66(V)1 with CW illumination). Aerodynamically it IS a Block 15 — TP-1538's data and the
+# flight model are unaffected — so the id stays `f16a` (which the future F-16C's mesh reuse,
+# fl-base-pack#44, also expects). The ADF's visible deltas (IFF "bird slicer" antennas ahead of
+# the canopy) are sub-visual at gameplay range and are not modelled; SOURCES.md says so.
+
+[entity]
+id           = "fl-base:f16a"
+name         = "F-16A Fighting Falcon (ADF)"
+category     = "air_vehicle"
+max_hp       = 100.0
+collision_radius_m = 9.0          # span 9.45 m over the rails; the 8 m air default is a shave
+mesh         = "f16a/f16a"        # -> aircraft/f16a/f16a.glb
+cockpit      = "f16a/f16a_cockpit"
+flight_model = "f16a/f16a"        # -> aircraft/f16a/f16a.toml
+ai_script    = "fighter"          # shared ai/fighter.lua; gun station 0 + missile station 1
+                                  # match its expectations, so no script fork
+sensors = ["fl-base:apg66", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+
+# ── Signatures ────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers vs a baseline fighter (1.0); radar range scales sqrt(rcs), ir/visual
+# linearly. All [E] — signature data is not public and never will be — but reasoned: the F-16 is
+# a small fighter (bigger than the tiny F-5E, far smaller than an F-15), one big afterburning
+# turbofan is a real IR source, and the bubble canopy + small planform keep it famously hard to
+# see nose-on.
+[signatures]
+rcs    = 0.80   # [E] small airframe, round intake lip, no shaping
+ir     = 0.95   # [E] one F100 in burner is most of a signature
+visual = 0.70   # [E] small, but bigger than the F-5E's 0.55
+laser  = 1.0
+
+[ai]
+skill    = 0.6
+reaction = 0.7
+
+# ── Hardpoints — ten stations, allowed-driven (engine #895) ──────────────────────────────────
+# Slot map matches the mesh's marker empties and the real jet's station numbering:
+#   0 = internal gun            1/2 = wingtips (stations 1/9)
+#   3/4 = outboard wing (2/8)   5/6 = mid wing (3/7, the ADF's Sparrow-wired pair)
+#   7/8 = inboard wet (4/6)     9 = centreline wet (5)
+# Stations have no `type` of their own — each `allowed` list IS the station's kind, which is
+# what lets the wet stations honestly offer a bomb OR a rocket pod OR a tank (the mixed-type
+# schema exists because of exactly these pylons).
+#
+# The DEFAULT loadout is the ADF's intercept configuration: gun + 2x AIM-9P + 2x AIM-7M.
+# fm-trim gate rows pin their own payload per row, so the spawn state and the calibration rows
+# are independently honest; f16a.expect.toml's M 2.05 row is quoted with the tip missiles only,
+# and SOURCES.md carries the configuration statement.
+
+[[hardpoints]]
+slot    = 0
+allowed = ["fl-base:m61a1"]
+default = "fl-base:m61a1"         # 511 rounds, internal; no drag
+
+[[hardpoints]]
+slot    = 1
+allowed = ["fl-base:aim9p"]
+default = "fl-base:aim9p"         # left wingtip rail
+
+[[hardpoints]]
+slot    = 2
+allowed = ["fl-base:aim9p"]
+default = "fl-base:aim9p"         # right wingtip rail
+
+[[hardpoints]]
+slot    = 3
+allowed = ["fl-base:aim9p"]
+default = ""                      # outboard left — empty by default
+
+[[hardpoints]]
+slot    = 4
+allowed = ["fl-base:aim9p"]
+default = ""                      # outboard right
+
+[[hardpoints]]
+slot    = 5
+allowed = ["fl-base:aim7m", "fl-base:aim9p"]
+default = "fl-base:aim7m"         # mid left — the ADF's Sparrow station
+
+[[hardpoints]]
+slot    = 6
+allowed = ["fl-base:aim7m", "fl-base:aim9p"]
+default = "fl-base:aim7m"         # mid right
+
+[[hardpoints]]
+slot    = 7
+allowed = ["fl-base:mk82", "fl-base:lau3", "fl-base:tank_370gal"]
+default = ""                      # inboard left, wet: bombs OR rockets OR gas
+
+[[hardpoints]]
+slot    = 8
+allowed = ["fl-base:mk82", "fl-base:lau3", "fl-base:tank_370gal"]
+default = ""                      # inboard right, wet
+
+[[hardpoints]]
+slot    = 9
+allowed = ["fl-base:tank_300gal", "fl-base:alq131"]
+default = ""                      # centreline, wet: the tank or the jammer
+
+# ── Damage ────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values [E]. Tiers mirror the F-5E's; avionics_failure at critical drops the APG-66
+# and with it any Sparrow support — for this aircraft that is the loss that matters.
+[damage.light]
+hp_fraction   = 0.70
+visual_effect = "smoke_light"
+thrust_factor = 0.95
+control_factor = 1.0
+
+[damage.heavy]
+hp_fraction   = 0.35
+visual_effect = "smoke_heavy"
+thrust_factor = 0.70
+control_factor = 0.80
+
+[damage.critical]
+hp_fraction      = 0.10
+visual_effect    = "fire"
+thrust_factor    = 0.35
+control_factor   = 0.50
+avionics_failure = true
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────
+# NO engine_left/engine_right pools, DELIBERATELY. The subsystem vocabulary is twin-shaped: a
+# failed engine pool means HALF thrust plus a yaw moment toward the dead side
+# (FixedWingForceModel), which is a lie about a single-F100 jet — an F-16 engine kill is all
+# the thrust and no asymmetry. Until the vocabulary grows a centreline `engine` entry (engine
+# issue filed from #19), engine damage rides the tier thrust_factors above, which is at least
+# honest. The F-16 is instead the pack's first user of the `hydraulics` pool: the FLCS actuators
+# ride the hydraulic systems, so hydraulic failure IS control failure on this jet.
+[damage.subsystems.controls]
+hp     = 25.0
+weight = 1.5
+
+[damage.subsystems.hydraulics]
+hp     = 30.0
+weight = 1.3
+
+[damage.subsystems.avionics]
+hp     = 15.0
+weight = 1.0
+
+[damage.subsystems.fuel]
+hp     = 45.0
+weight = 1.2
+
+# NB: no [classic] block and no damage_mesh key — battle damage is the f16a_b NODE inside
+# aircraft/f16a/f16a.glb, same convention as the F-5E.
