@@ -1,0 +1,44 @@
+# AIM-7M Sparrow — semi-active radar-homing air-to-air missile (fl-base-pack#23).
+#
+# The pack's first radar-guided missile, and the reason the F-16A modelled here is the ADF:
+# among F-16As, only the Air Defense Fighter conversion (APG-66(V)1 with CW illumination)
+# could employ Sparrow. SEMI-ACTIVE means the missile rides the LAUNCH AIRCRAFT'S illumination:
+# fire_and_forget = false, and the shooter must hold the lock — the engine's SupportQuery path.
+# (`requires_designator` is the laser/GPS spot-holding flag and does NOT apply; `pitbull_nm`
+# is active-radar-only and would be a parse error here.)
+#
+# STORE, NOT ORDNANCE: no fire path, no guidance loop, no chaff/notch modelling until Epic
+# fighters-legacy#583. The [countermeasures] fields are authored now so the data is ready.
+
+[weapon]
+id       = "fl-base:aim7m"
+name     = "AIM-7M Sparrow"
+type     = "missile"
+category = "air-to-air"
+
+[seeker]
+type            = "semi-active-radar"
+sensor_id       = "fl-base:aim7m_seeker"
+fire_and_forget = false    # [P] the defining SARH property: lose the lock, lose the missile
+
+[performance]
+max_range_nm      = 20.0   # [E] practical head-on employment range; brochure maxima are longer
+min_range_nm      = 0.5    # [E]
+max_speed_kts     = 2350.0 # [D] ~M 4 dash, widely published
+motor_burn_time_s = 10.0   # [D] Mk 58 boost-sustain class
+max_g             = 25.0   # [E]
+
+[warhead]
+blast_radius_ft = 40.0     # [D] WDU-27/B 88 lb blast-fragmentation
+damage          = 90.0     # [E] gameplay: one Sparrow badly hurts a fighter, two kill it
+
+[countermeasures]
+flare_susceptibility = 0.0   # radar seeker: flares mean nothing to it
+chaff_susceptibility = 0.5   # [E] 1980s pulse-doppler illumination vs chaff
+notch_susceptibility = 0.5   # [E] doppler notch is the classic Sparrow defeat
+
+[load]
+weight_lb   = 510.0        # [P] widely published launch weight
+drag_factor = 0.0030       # [E] UNCALIBRATED: no published with/without-Sparrow speed delta
+                           # exists for the F-16A (the F-5E's AIM-9 number is measured; this
+                           # one is a frontal-area scaling of it and says so)

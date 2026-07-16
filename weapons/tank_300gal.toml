@@ -1,0 +1,16 @@
+# 300 US gallon centerline drop tank — the pack's first WeaponType::Fuel store.
+#
+# INERT: it mounts, costs the airframe mass and drag, and never fires — the engine's Fuel
+# store path (#862), which no pack content exercised before this file. The engine does not
+# yet draw fuel FROM the tank (drop-tank fuel accounting is future work); today it is honest
+# mass and drag, which is most of what a tank does to performance anyway.
+
+[weapon]
+id       = "fl-base:tank_300gal"
+name     = "300 gal centerline tank"
+type     = "fuel"
+category = "air-to-ground"
+
+[load]
+weight_lb   = 2143.0       # [D] ~1,950 lb JP-4 (300 gal x 6.5 lb/gal) + ~190 lb empty tank
+drag_factor = 0.0028       # [E] centerline, area-ruled position; uncalibrated

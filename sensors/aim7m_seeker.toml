@@ -1,0 +1,31 @@
+# AIM-7M Sparrow seeker head — SEMI-ACTIVE radar receiver (fl-base-pack#23).
+#
+# `type = "radar"` with `emitter = false` is CORRECT and deliberate: a SARH seeker transmits
+# nothing — it homes on the LAUNCH AIRCRAFT'S illumination reflecting off the target. The
+# engine's own builtin:sarh-seeker is this exact shape (BuiltinSensors.h). validate-sensor
+# prints ONE warning here ("a radar track lobe requires emitter = true ... can never hold a
+# lock") — that rule is written for aircraft radars, a seeker def is consumed by the weapon
+# path instead, and warnings do not fail CI. Suppressing the false positive for seeker defs
+# is filed as an engine QoL issue.
+
+[sensor]
+id              = "fl-base:aim7m_seeker"
+name            = "AIM-7M SARH seeker"
+type            = "radar"
+omnidirectional = false
+emitter         = false    # receives reflections only; the fighter's radar does the shouting
+
+[search]
+az_half_angle_deg = 25.0   # [E] gimbal limits, acquisition basket
+el_half_angle_deg = 25.0
+min_range_nm      = 0.3
+max_range_nm      = 14.0   # [E] >= 0.25x the weapon's 20 nm employment range, with margin
+pod               = 0.50
+
+[track]
+az_half_angle_deg = 20.0
+el_half_angle_deg = 20.0
+min_range_nm      = 0.2
+max_range_nm      = 12.0   # track <= search in every axis (keeps the other validator rule quiet)
+pod               = 0.85
+lock_hold_s       = 1.5    # brief memory through an illumination fade, then the missile is lost

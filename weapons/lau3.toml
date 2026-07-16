@@ -1,0 +1,30 @@
+# LAU-3/A rocket pod — 19x 2.75-inch (70 mm) FFAR, the pack's FIRST rocket store.
+#
+# Cleared on the F-16A's underwing stations; the classic close-air-support fit. One pod is one
+# store: `rounds = 19` is the pod's magazine, and each round is an unguided fin-stabilised
+# rocket (no [seeker] — WeaponType::Rocket exercises the engine's rocket path end to end,
+# which no pack content did before this file).
+#
+# STORE, NOT ORDNANCE: no fire path until Epic fighters-legacy#583.
+
+[weapon]
+id       = "fl-base:lau3"
+name     = "LAU-3/A rocket pod (19x Hydra 70)"
+type     = "rocket"
+category = "air-to-ground"
+
+[performance]
+max_range_nm      = 3.0    # [D] practical employment range of the Mk 66 motor
+min_range_nm     = 0.2     # [E]
+max_speed_kts     = 1450.0 # [P] ~739 m/s burnout velocity class, Mk 66
+motor_burn_time_s = 1.1    # [P] Mk 66 burn time class
+max_g             = 0.0    # unguided: it goes where the airframe pointed it
+
+[warhead]
+blast_radius_ft = 30.0     # [D] M151 10 lb HE class, per rocket
+damage          = 12.0     # [E] per rocket; a ripple is the weapon
+
+[load]
+weight_lb   = 515.0        # [D] loaded pod: ~110 lb pod + 19 x ~21 lb rockets
+drag_factor = 0.0022       # [E] blunt open-front pod; uncalibrated, no published delta exists
+rounds      = 19           # [P] the pod's capacity
