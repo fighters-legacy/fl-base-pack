@@ -97,17 +97,11 @@ jobs:
 
   flight-model-validate:
     runs-on: ubuntu-latest
-    # SOFT, ON PURPOSE, AND NOT FOR LONG. The validator in the latest engine release (v0.3.1)
-    # predates fighters-legacy#823, which taught it that `aero.drag_polar.k = 0.0` is not merely
-    # legal but REQUIRED of an aircraft that authors a `cd_table`: the table is TOTAL clean drag,
-    # so a non-zero k would double-count the induced term. The F-5E is exactly such an aircraft,
-    # and v0.3.1's validator therefore rejects our only aeroplane for being correct. Engine main
-    # already has the fix.
-    #
-    # When an engine release ships a post-#823 validate-flight-model: delete this line and add
-    # `flight-model-validate` to the branch protection required checks. That is all that is left
-    # of #7 for this job.
-    continue-on-error: true
+    # HARD GATE (#7). Engine releases v0.3.2+ ship the post-#823 validate-flight-model, which knows
+    # that `aero.drag_polar.k = 0.0` is REQUIRED of an aircraft that authors a `cd_table` (the
+    # table is TOTAL clean drag; a non-zero k would double-count the induced term). The fetch below
+    # pulls the latest engine release, so this job gates for real and sits in the branch protection
+    # required checks alongside mission-validate.
     steps:
       - uses: actions/checkout@v4
         with:
