@@ -7,18 +7,23 @@
 # EVERY value is read from a primary source (T.O. 1F-5E-1). Nothing is fitted to make the gate pass
 # and nothing comes from a flight simulator. Provenance: SOURCES.md.
 #
-# ── WHAT THIS GATE CANNOT YET CHECK, AND WHY THAT MATTERS ────────────────────────────────────────
-# fm-trim's TrimPoint is {altitude_m, mass_kg}. It has no Mach and no load factor, and its
-# `sustained_turn_deg_s` is the turn MAXIMISED OVER SPEED. But every published F-5E turn number is
-# at a SPECIFIC Mach (9.9 deg/s at M0.75; 9.1 deg/s at M0.60), and neither is the maximum. There is
-# also no Ps metric.
+# ── ROW CONVENTIONS ──────────────────────────────────────────────────────────────────────────────
+# fm-trim grew `mach`, `load_factor`, `ps_mps`, `max_lift_g` and per-row `payload_kg`/`payload_cd0`
+# (engine #826), so the rows this file used to HOLD BACK are now real gates. Two conventions:
 #
-# So the four-point Ps ladder -- the single richest drag constraint this aircraft has, the data that
-# proved the parabolic polar could not work (engine #820), and the data that [aero.cd_table] is
-# FITTED TO -- cannot be expressed as a gate at all. It is checked offline by derive.py instead.
-# That is a real hole: the model's most load-bearing calibration is not the one CI protects.
-# Filed as an fm-trim follow-up. The full record is kept at the bottom of this file so that when
-# fm-trim grows `mach` and `load_factor`, the rows are ready to lift straight in.
+#   * `mass_kg` is the published GROSS for the chart's configuration; per-row payload mass ADDS on
+#     top (fm-trim: weight = mass_kg + payload_kg). So a chart flown at 6137 kg WITH tip missiles
+#     gets mass_kg = 6137 and payload_kg = 0 — but still needs the missiles' DRAG, because
+#     [aero.cd_table] is the CLEAN aircraft: the derive.py fit anchored cd0 at the published clean
+#     0.0200 and let the thrust level float, so the tips' constant dCD went into the free thrust
+#     term, not the table. payload_cd0 = 2 x 0.00048 (weapons/aim9p.toml) = 0.00096 carries it.
+#
+#   * `tolerance` is FRACTIONAL everywhere except ps_mps, where it is ABSOLUTE in m/s (Ps passes
+#     through zero at the sustained point — 5% of 0 is 0). The Ps tolerances below are set from
+#     source precision: the ladder is read off a T.O. chart to about +/-25 ft/s (7.6 m/s), plus a
+#     little for the trace of the 15,000 ft altitude line. They are not fitted to the model.
+
+# ── Stall speeds — flight test, idle thrust (T.O. 1F-5E-1 Fig. 6-1 nomogram, traced) ─────────────
 
 [[expect]]
 metric     = "stall_speed_1g_mps"
@@ -26,7 +31,6 @@ altitude_m = 0.0
 mass_kg    = 6123           # 13,500 lb, clean (0/0 flaps, gear up), 15% MAC
 expected   = 67.39          # 131 KIAS
 tolerance  = 2.1            # m/s -- the nomogram trace is +/-3 KIAS
-# T.O. 1F-5E-1 Fig. 6-1 (stall-speed nomogram; basis: flight test, idle thrust), traced.
 # Cross-validated three ways: back-solved CL_max is constant at 1.253/1.248/1.255 across three
 # gross weights (Vs ~ sqrt(W) falls OUT of the trace, it was not imposed); it agrees with the
 # CL_max = 1.255 derived independently from the max-lift TURN point, a different chart at a
@@ -41,6 +45,8 @@ tolerance  = 2.1
 # Two weights deliberately, not one: together they test that the model gets Vs ~ sqrt(W) right,
 # rather than hitting a single number by luck.
 
+# ── Max level Mach — the only supersonic data in the published record ────────────────────────────
+
 [[expect]]
 metric      = "max_level_mach"
 altitude_m  = 10973.0       # 36,000 ft
@@ -48,36 +54,130 @@ mass_kg     = 5829          # clean, "launcher rails only, no pylons", 1/2 inter
 afterburner = true
 expected    = 1.63
 tolerance   = 0.05
-# T.O. 1F-5E-1, "Effect of Pylons on Combat Performance". The ONLY supersonic data point in the
-# entire published record -- which is why cd_wave's shape above M ~0.9 is an estimate and should
-# not be trusted beyond this one anchor.
+# T.O. 1F-5E-1, "Effect of Pylons on Combat Performance". This one point is why cd_wave's shape
+# above M ~0.9 is an estimate and should not be trusted beyond this anchor.
 
-# ─────────────────────────────────────────────────────────────────────────────────────────────────
-# HELD BACK, awaiting an fm-trim that can express them. NOT deleted: these are the strongest
-# numbers we have, and losing them from the record would be worse than losing them from the gate.
-#
-# Ps ladder — 15,000 ft, M 0.60, max thrust, 6137 kg (2x AIM-9 + full ammo + 1/2 fuel).
-# This is what [aero.cd_table] is fitted to (see derive.py); it needs `mach` + `load_factor` + a
-# `ps_mps` metric.
-#     load factor 1.0  ->  Ps = +240 ft/s
-#     load factor 2.0  ->  Ps = +190 ft/s
-#     load factor 3.3  ->  Ps =    0 ft/s   (sustained -- and D = T exactly here, which is what
-#                                            lets the ladder pin CD(CL) with no thrust assumption)
-#     load factor 4.0  ->  Ps = -225 ft/s
-#     load factor 5.2  ->  Ps = -870 ft/s   (max lift -- this point pins CL_max = 1.255)
-#
-# Turn performance at a SPECIFIED Mach — needs `mach`.
-#     15,000 ft, M 0.75:  sustained 4.3 G / 9.9 deg/s / radius 4,700 ft
-#                         instantaneous at the 7.33 G limit: 17 deg/s / radius 2,700 ft
-#     15,000 ft, M 0.60:  sustained 3.3 G / 9.1 deg/s;  max lift 5.2 G / 14.8 deg/s
-#
-# Max level Mach with tip missiles — needs `stores` (or a --payload the gate can vary per row).
-#     36,000 ft, 2x AIM-9: M 1.57 (vs 1.63 clean). This is the ONLY published check on whether the
-#     store-drag path (hardpoints -> WeaponLoad.drag_factor -> PayloadEffect) is calibrated, and it
-#     is where weapons/aim9p.toml's drag_factor = 0.00105 comes from.
-#
-# Structural limits — published outright, no trim needed: +7.33 / -3.0 G (clean / tip rails).
-#
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 10973.0       # 36,000 ft
+mass_kg     = 5829          # the clean base above...
+payload_kg  = 172.0         # ...plus 2x AIM-9 (190 lb each)
+payload_cd0 = 0.00096       # 2x weapons/aim9p.toml drag_factor
+afterburner = true
+expected    = 1.57
+tolerance   = 0.05
+# Same chart, "with tip missiles". The ONLY published check on the store-drag path (hardpoints ->
+# WeaponLoad.drag_factor -> PayloadEffect): aim9p's drag_factor was solved against this delta, and
+# this row keeps that calibration honest in CI. If someone edits the missile's drag_factor or the
+# payload plumbing, this is the row that notices.
+
+# ── Ps ladder — 15,000 ft / M 0.60, max thrust, 6137 kg (2x AIM-9 + full ammo + 1/2 fuel) ────────
+# The single richest drag constraint this aircraft has: the data that proved the parabolic polar
+# could not work (engine #820), and the data [aero.cd_table] is FITTED to (see derive.py). At
+# n = 3.3 the manual says Ps = 0, which means D = T exactly — the ladder pins the shape of CD(CL)
+# with no thrust assumption at all. Five rows, one chart, one configuration.
+
+[[expect]]
+metric      = "ps_mps"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+load_factor = 1.0
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 73.15         # +240 ft/s
+tolerance   = 12.0          # m/s, absolute — chart read +/-25 ft/s plus altitude-line trace
+
+[[expect]]
+metric      = "ps_mps"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+load_factor = 2.0
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 57.91         # +190 ft/s
+tolerance   = 12.0
+
+[[expect]]
+metric      = "ps_mps"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+load_factor = 3.3
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 0.0           # sustained: D = T exactly, by the chart's own definition
+tolerance   = 12.0
+
+[[expect]]
+metric      = "ps_mps"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+load_factor = 4.0
+payload_cd0 = 0.00096
+afterburner = true
+expected    = -68.58        # -225 ft/s
+tolerance   = 12.0
+
+# The ladder's fifth point (n = 5.2, Ps = -870 ft/s) is deliberately NOT a ps_mps row: it sits
+# EXACTLY at the lift limit, and fm-trim reports "the wing cannot hold this n" the moment the
+# model's max-lift g lands a hair under 5.2 -- a numerically ill-posed gate that would flap with
+# every rounding change. The max_lift_g row below gates the same published point robustly.
+
+# ── Turn performance at a SPECIFIED Mach — T.O. combat charts, same configuration ────────────────
+
+[[expect]]
+metric      = "max_lift_g"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 5.2
+tolerance   = 0.05
+# The max-lift point that pins CL_max = 1.255 — pure lift, no drag or thrust assumption enters.
+
+[[expect]]
+metric      = "sustained_turn_deg_s"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.60
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 9.1
+tolerance   = 0.05
+
+[[expect]]
+metric      = "sustained_g"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.75
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 4.3
+tolerance   = 0.05
+# 15,000 ft, M 0.75: the T.O. prints "sustained 4.3 G / 9.9 deg/s / radius 4,700 ft" -- and those
+# three numbers are kinematically INCONSISTENT with each other by 2%: 4.3 g at M 0.75 gives
+# omega = g*sqrt(n^2-1)/V = 9.72 deg/s and radius 4,672 ft. The load factor and the radius agree;
+# the printed rate does not (chart-read scatter). So the gate is on sustained_g -- the quantity
+# the g and radius jointly support, and the one the drag table actually determines. Gating on the
+# 9.9 deg/s figure would demand the model reproduce the chart's own internal error.
+
+[[expect]]
+metric      = "instant_turn_deg_s"
+altitude_m  = 4572.0
+mass_kg     = 6137
+mach        = 0.75
+payload_cd0 = 0.00096
+afterburner = true
+expected    = 17.0
+tolerance   = 0.05
+# Instantaneous at the 7.33 G structural limit. Kinematic cross-check (no aero at all):
+# g*sqrt(7.33^2 - 1)/V at M 0.75 / 15,000 ft = 16.97 deg/s — the chart, the limit and the speed
+# are self-consistent, so this row mostly tests that the wing can REACH 7.33 g there.
+
 # ── NOT PUBLISHED AT ALL, so deliberately absent ────────────────────────────────────────────────
 # roll_rate       -- confirmed absent from the full T.O. chart inventory AND the whole NTRS F-5E
 #                    corpus. cl_p and cl_da are the only numbers in the model with nothing to check
