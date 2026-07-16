@@ -137,7 +137,7 @@ values = [0.000, 0.008, 0.022, 0.020, 0.018, 0.017]
 # (gross vs exposed tail area, which swings cm_alpha by 75%). Published roll-rate data would
 # constrain cl_p and cl_da -- that is an open research item.
 [aero.moments]
-cm_alpha = -1.013   # [D] statically stable, as the validator requires and the airframe is
+cm_alpha = 1.013    # [D] statically stable, as the validator requires and the airframe is
 cm_q     = -6.058   # [D]
 cm_de    = -1.261   # [D] all-moving stabilator, so control effectiveness tau = 1.0
 cl_beta  = -0.092   # [D]
