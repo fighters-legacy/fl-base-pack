@@ -9,13 +9,17 @@
 # the AI script, and the default loadout's mass and drag.
 #
 # WIN ON THE KILL: Epic fighters-legacy#583 landed the fire path, so the F-5E's gun and AIM-9P are
-# real ordnance and the bandit can be shot down. Success is `on: destroy(bandit1)`. (The mission
-# TRIGGER RUNTIME itself -- the loop that evaluates `on:` each tick -- arrives with #632; until then
-# this file is a correct, validated declaration that becomes live when that lands.)
+# real ordnance and the bandit can be shot down. Success is `on: destroy(bandit1)`, evaluated live
+# each tick by the mission trigger runtime (engine #632, shipped in v0.3.2).
 #
-# MAP: the pack has no terrain yet (#2 cube-sphere tiles, #9 global base). `earth` is the id the
-# terrain issues will ship; validate-mission checks structure, not asset existence, so this file
-# is valid today and becomes flyable when terrain lands. Same for the placeholder weather layer.
+# GROUND START: the player begins PARKED at the surface — idle throttle, zero airspeed, held stable
+# until rotation (engine #885). The pack has no terrain yet (#2 cube-sphere tiles, #9 global base),
+# so this is the interim sea-level ramp start: the jet sits on the placeholder surface, not a
+# runway. When a theater with an airfield lands, the mission moves to the runway proper (#47 stays
+# open for that).
+#
+# MAP: `earth` is the id the terrain issues will ship; validate-mission checks structure, not asset
+# existence, so this file is valid today. Same for the placeholder weather layer.
 
 name: "Tiger by the Tail"
 map: earth
@@ -36,18 +40,25 @@ objects:
   # and inherits its faction, spawn and aircraft. WITHOUT it, the human gets a default spawn and this
   # object spawns as a world entity — and since it has no `ai:`, the single-player lifecycle (#634)
   # auto-attaches the entity's default fighter.lua, so the intended player jet would fly itself.
+  #
+  # `start: ground` (engine #885) parks the jet at the surface, and no `alt:` on purpose: a ground
+  # start takes its height from the terrain, so an altitude stated here would be a lie.
   - type: fl-base:f5e
     id: player1
     side: blue
     pos: [0, 0, 0]
-    alt: 3000
     heading: 45
     player: true
+    start: ground
 
   # Adversary: same aircraft, AI-flown. No `ai:` on purpose — the #634 auto-detect attaches the
   # entity's own default script (entities/f5e.toml → ai/fighter.lua). It patrols its anchor until its
   # OWN sensors find the player — the APQ-159 cone or the eyeball, whichever gets there first. Nobody
   # in this mission gets ground truth.
+  #
+  # The bandit stays AIRBORNE: fighter.lua has no takeoff logic, and the #885 parking hold waits for
+  # a pilot to rotate. It spawns at cruise airspeed along its heading (the #883 default — no `speed:`
+  # needed), so the engagement develops while the player climbs out.
   - type: fl-base:f5e
     id: bandit1
     side: red
@@ -60,6 +71,7 @@ triggers:
   - on: destroy(bandit1)
     do: mission_success
 
-  # Losing your own aircraft still loses the fight.
+  # Losing your own aircraft still loses the fight. An UNOCCUPIED slot is not "destroyed"
+  # (engine #884), so this cannot fire before a pilot has even joined.
   - on: destroy(player1)
     do: mission_failure
