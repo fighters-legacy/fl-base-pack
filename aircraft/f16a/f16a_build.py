@@ -21,7 +21,9 @@ dimensions, and is tagged [E] accordingly. The published numbers close the planf
 c_root = 2S/(b(1+lambda)) = 5.03 m with the published 16.5 ft/3.5 ft chords, and the trapezoid
 MAC comes out 3.48 vs the published 3.45 (0.8%) — the wing, at least, cannot be very wrong.
 
-Axes: +X aft (nose at x=0), +Y port, +Z up. Blender's glTF exporter converts.
+Axes: the fuselage is laid out nose-at-origin extending +X (tidy for the parametric loft), then
+build_airframe applies a 180-deg yaw so the EXPORT matches the engine's convention: +X forward
+(nose), +Y up after Blender's exporter converts. See docs/modding/3d-models.md.
 """
 
 import argparse
@@ -31,7 +33,7 @@ from pathlib import Path
 
 import bpy       # must precede `import bmesh`: under the pip `bpy` wheel (what CI's determinism
 import bmesh     # job uses) bmesh only becomes importable once bpy has initialised Blender.
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "tools" / "meshlib" / "src"))
@@ -364,9 +366,24 @@ def build_airframe(name: str) -> bpy.types.Object:
 
     _nozzle(bm)
 
+    # ENGINE FORWARD IS +X (docs/modding/3d-models.md: "+X is forward, the aircraft nose").
+    # The fuselage above is laid out nose-at-origin extending +X, which is parametrically tidy
+    # but points the NOSE down -X -- so the aircraft would fly tail-first. A 180-deg yaw about Z
+    # turns it nose-first. This is a ROTATION, not a mirror, so face winding is preserved (no
+    # normal surgery); the airframe is laterally symmetric, so the only thing the yaw relabels is
+    # port<->starboard on the engine-ignored hardpoint markers (`_fwd` matches them to the body).
+    bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), verts=bm.verts,
+                     matrix=Matrix.Rotation(math.pi, 4, 'Z'))
+
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     return _commit(bm, name)
+
+
+def _fwd(loc):
+    """Match an empty's position to the airframe's nose-to-+X yaw (180 deg about Z): (x,y,z)->(-x,-y,z)."""
+    x, y, z = loc
+    return (-x, -y, z)
 
 
 def _commit(bm, name: str) -> bpy.types.Object:
@@ -384,13 +401,13 @@ def _hardpoint_markers(aid: str):
     marks = []
     # Slot 0 — the M61A1 sits in the left wing-root shoulder, gun port beside the canopy sill.
     marks.append(scene.empty("hardpoint_0",
-                             location=(0.40 * LENGTH, 0.62, 0.45),
+                             location=_fwd((0.40 * LENGTH, 0.62, 0.45)),
                              extras={"fl_marker": "hardpoint", "fl_slot": 0}))
     x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
     x_tip = x_c4_tip - 0.25 * TIP_CHORD + 0.35
     for slot, sgn in ((1, 1.0), (2, -1.0)):
         marks.append(scene.empty(f"hardpoint_{slot}",
-                                 location=(x_tip, sgn * SPAN / 2.0, WING_Z),
+                                 location=_fwd((x_tip, sgn * SPAN / 2.0, WING_Z)),
                                  extras={"fl_marker": "hardpoint", "fl_slot": slot}))
     # Underwing pylons at 45% local chord, below the wing. Span fractions: outboard/mid/inboard.
     for slot, sgn, s in ((3, 1.0, 0.76), (4, -1.0, 0.76),
@@ -400,11 +417,11 @@ def _hardpoint_markers(aid: str):
         x_le = WING_X_LE + yhalf * math.tan(math.radians(SWEEP_LE))
         chord = ROOT_CHORD + (TIP_CHORD - ROOT_CHORD) * s
         marks.append(scene.empty(f"hardpoint_{slot}",
-                                 location=(x_le + 0.45 * chord, sgn * yhalf, WING_Z - 0.28),
+                                 location=_fwd((x_le + 0.45 * chord, sgn * yhalf, WING_Z - 0.28)),
                                  extras={"fl_marker": "hardpoint", "fl_slot": slot}))
     # Slot 9 — centreline, behind the inlet.
     marks.append(scene.empty("hardpoint_9",
-                             location=(0.58 * LENGTH, 0.0, -1.15),
+                             location=_fwd((0.58 * LENGTH, 0.0, -1.15)),
                              extras={"fl_marker": "hardpoint", "fl_slot": 9}))
     return marks
 
@@ -442,9 +459,9 @@ def main() -> int:
     shadow = scene.convex_hull(body, f"{aid}_shadow")
     export.export_glb(out / f"{aid}_shadow.glb", [shadow])
 
-    anchor = scene.empty("camera_anchor", location=(
+    anchor = scene.empty("camera_anchor", location=_fwd((
         (CANOPY_SPAN[0] + 0.38 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0,
-        _fus_at(0.19)[0] - 0.30))
+        _fus_at(0.19)[0] - 0.30)))
     export.export_glb(out / f"{aid}_cockpit.glb", [anchor])
 
     if args.blend:
