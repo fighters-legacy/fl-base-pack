@@ -54,7 +54,7 @@ from pathlib import Path
 # modules. The Blender binary does not care about order; the wheel does.
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 # Shared procedural-mesh helpers. The library lives in the repo, not on Blender's Python path, so
 # add it from this file's location (aircraft/f5e/ -> repo root -> tools/meshlib/src). No install
@@ -504,9 +504,24 @@ def build_airframe(name: str) -> bpy.types.Object:
     # articulation), but built into the same bmesh, so the geometry is unchanged.
     _nozzles(bm)
 
+    # ENGINE FORWARD IS +X (docs/modding/3d-models.md: "+X is forward, the aircraft nose").
+    # The fuselage is laid out nose-at-origin extending +X for parametric convenience, which points
+    # the NOSE down -X -- so the aircraft would fly tail-first. A 180-deg yaw about Z turns it
+    # nose-first. It is a ROTATION, not a mirror, so winding is preserved (no normal surgery); the
+    # airframe is laterally symmetric, so the yaw only relabels port<->starboard on the
+    # engine-ignored hardpoint markers (`_fwd` matches them to the body).
+    bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), verts=bm.verts,
+                     matrix=Matrix.Rotation(math.pi, 4, 'Z'))
+
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)               # outward: CCW from outside
     return _commit(bm, name)
+
+
+def _fwd(loc):
+    """Match an empty's position to the airframe's nose-to-+X yaw (180 deg about Z): (x,y,z)->(-x,-y,z)."""
+    x, y, z = loc
+    return (-x, -y, z)
 
 
 def _commit(bm, name: str) -> bpy.types.Object:
@@ -528,20 +543,20 @@ def _hardpoint_markers(aid: str):
     """
     marks = []
     # Slot 0 — nose cannon (M39A2), centreline, just under the upper nose line.
-    marks.append(scene.empty(f"hardpoint_0", location=(0.14 * LENGTH, 0.0, _fus_at(0.14)[0] - 0.10),
+    marks.append(scene.empty(f"hardpoint_0", location=_fwd((0.14 * LENGTH, 0.0, _fus_at(0.14)[0] - 0.10)),
                              extras={"fl_marker": "hardpoint", "fl_slot": 0, "fl_type": "gun"}))
     # Slots 1,2 — wingtip missile rails (1 = left/port +Y, 2 = right/starboard -Y).
     x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
     x_tip = x_c4_tip - 0.25 * TIP_CHORD + 0.30
     for slot, sgn in ((1, 1.0), (2, -1.0)):
-        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_tip, sgn * SPAN / 2.0, 0.0),
+        marks.append(scene.empty(f"hardpoint_{slot}", location=_fwd((x_tip, sgn * SPAN / 2.0, 0.0)),
                                  extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "missile"}))
     # Slots 3-6 — underwing pylons (outboard/inboard each side), at 40% chord, below the wing.
     for slot, sgn, s in ((3, 1.0, 0.55), (4, 1.0, 0.32), (5, -1.0, 0.32), (6, -1.0, 0.55)):
         yhalf = s * SPAN / 2.0
         x_le = WING_X_LE + yhalf * math.tan(math.radians(SWEEP_C4))
         chord = ROOT_CHORD + (TIP_CHORD - ROOT_CHORD) * s
-        marks.append(scene.empty(f"hardpoint_{slot}", location=(x_le + 0.40 * chord, sgn * yhalf, WING_Z - 0.25),
+        marks.append(scene.empty(f"hardpoint_{slot}", location=_fwd((x_le + 0.40 * chord, sgn * yhalf, WING_Z - 0.25)),
                                  extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "bomb"}))
     return marks
 
@@ -585,8 +600,8 @@ def main() -> int:
     export.export_glb(out / f"{aid}_shadow.glb", [shadow])
 
     # Cockpit: must contain a node named exactly `camera_anchor` -- the renderer looks for it by name.
-    anchor = scene.empty("camera_anchor", location=(
-        (CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25))
+    anchor = scene.empty("camera_anchor", location=_fwd((
+        (CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25)))
     export.export_glb(out / f"{aid}_cockpit.glb", [anchor])
 
     if args.blend:
