@@ -1,0 +1,80 @@
+# T-38A Talon — published performance gate.
+#
+# Consumed by `fm-trim --expect aircraft/t38a/t38a.expect.toml`. This is the mechanised form of
+# fighters-legacy#54's Phase-4 acceptance criterion for the trainer: the flight model must reproduce
+# the performance its flight manual publishes.
+#
+# THE T-38 PUBLISHES A DIFFERENT SET THAN THE F-5E (see derive.py / SOURCES.md). It is a TRAINER
+# manual: it gives a rate-of-climb, stall speeds and a max Mach, but NO specific-excess-power ladder
+# and NO turn charts. So this file gates climb + stalls + max Mach, and the turn/Ps rows the F-5E
+# gates are DELIBERATELY ABSENT (documented at the bottom) rather than invented.
+#
+# Provenance: SOURCES.md. [P] published, [D] derived from published values, [E] estimate.
+
+# ── Max level Mach — the two published supersonic anchors ────────────────────────────────────────
+# The strongest T-38 performance data: M1.08 at sea level and M1.3 at 30,000 ft (both [P], USAF).
+# Jointly they pin the thrust deck LEVEL and the cd_wave shape (a low plateau through ~M1.1 so SL
+# reaches 1.08, a steep rise so altitude caps at 1.3). Flown light (about half internal fuel + crew).
+
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 0.0
+mass_kg     = 4540          # ~10,000 lb, light
+afterburner = true
+expected    = 1.08
+tolerance   = 0.05
+# [P] max level speed at sea level. In practice also bounded by the 710 KEAS airframe placard
+# (~M1.07 at SL), so this is a thrust-AND-placard limit; the model trims a hair above it.
+
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 9144.0        # 30,000 ft
+mass_kg     = 4540          # ~10,000 lb, light
+afterburner = true
+expected    = 1.30
+tolerance   = 0.05
+# [P] max level Mach at altitude — the T-38's headline number.
+
+# ── Sea-level rate of climb — the drag-LEVEL anchor (the datum the F-5E lacked) ───────────────────
+# The T-38 T.O. publishes a MIL-thrust climb of SL -> 15,000 ft in 2.0 min. fm-trim gates an
+# instantaneous rate, so this row states the SL MIL climb rate consistent with that 2.0-min schedule
+# (~46 m/s / ~9,000 ft/min at the best-climb Mach). It is [D] from the published time-to-climb, not a
+# directly published instantaneous figure — the widely-quoted 33,600 ft/min is a peak/zoom number
+# (Wikipedia itself flags it as probably incorrect) and is deliberately NOT used.
+[[expect]]
+metric      = "roc_mps"
+altitude_m  = 0.0
+mass_kg     = 4990          # ~11,000 lb
+mach        = 0.55
+afterburner = false         # MIL thrust — the published climb is a MIL climb
+expected    = 46.0
+tolerance   = 6.0           # generous: this is [D] from the 2.0-min time-to-climb, not published ROC
+
+# ── Stall speeds — 1g, clean, gear up ─────────────────────────────────────────────────────────────
+# [D]: the T.O. numeric stall table is a chart image and the AFFTC performance report (AD0425650) was
+# not machine-retrievable, so Vs is derived from the published takeoff speed (154 KIAS at 11,800 lb,
+# ~1.15-1.2 Vs). Two weights test Vs ~ sqrt(W). CL_max = 1.19 is back-solved from the heavier row, so
+# these are a consistency check on the lift table rather than an independent published gate.
+[[expect]]
+metric     = "stall_speed_1g_mps"
+altitude_m = 0.0
+mass_kg    = 5352          # 11,800 lb, clean
+expected   = 67.5          # ~131 KIAS
+tolerance  = 3.5           # m/s — the stall itself is [D], so the band is wide and honest
+
+[[expect]]
+metric     = "stall_speed_1g_mps"
+altitude_m = 0.0
+mass_kg    = 4536          # 10,000 lb, clean
+expected   = 62.2          # scales as sqrt(W) from the row above
+tolerance  = 3.5
+
+# ── NOT PUBLISHED AT ALL, so deliberately absent ────────────────────────────────────────────────
+# ps_mps / sustained_g / sustained_turn_deg_s / instant_turn_deg_s / max_lift_g
+#     -- the T-38A is a TRAINER: T.O. 1T-38A-1 Appendix I contains only takeoff, climb, cruise/range,
+#        endurance, descent and landing charts. There is NO energy-maneuverability appendix, NO Ps
+#        ladder and NO turn chart in the entire published record (verified against the chart
+#        inventory; the 1961 AFFTC reports predate Boyd EM methodology). Gating any of these would
+#        require inventing numbers, so they are omitted. The F-5E gates them because the F-5E fighter
+#        manual publishes them; the T-38 trainer manual does not.
+# roll_rate  -- no public T-38 roll-rate data; cl_p and cl_da are unconstrained (as on the F-5E).

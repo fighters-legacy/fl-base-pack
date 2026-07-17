@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'tools/meshlib/**'
+      - 'tools/aircraftlib/**'
       - 'aircraft/**/*_build.py'
       - '.github/workflows/meshlib.yml'
 
