@@ -34,9 +34,11 @@ with a generic aggressor-grey scheme, applied via external .ktx2 textures, never
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 CONVENTIONS (docs/modding/3d-models.md — get these wrong and validate-mesh rejects the file)
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
-  * Engine axes: +X forward (nose), +Y up, +Z starboard, metres.
-    Blender's glTF exporter maps Blender +X -> glTF +X, Blender +Z -> glTF +Y, Blender -Y -> glTF +Z.
-    So we build with NOSE ALONG BLENDER +X, UP = +Z, STARBOARD = -Y. Do not "fix" this.
+  * Engine BODY axes: +X forward (nose), +Y up, +Z starboard, metres. But content is AUTHORED in the
+    standard glTF convention (nose along glTF +Z) and the engine rotates it +Z -> +X on import
+    (engine#906). Blender's glTF exporter maps Blender +X -> glTF +X, Blender +Z -> glTF +Y,
+    Blender -Y -> glTF +Z. The parametric loft is nose-along-Blender-+X; build_airframe applies a
+    +90-deg yaw so the nose ends at Blender -Y == glTF +Z. Do not "fix" this.
   * Winding CCW from outside, normals outward. The opaque pipeline is single-sided; an inside-out
     face is invisible from the outside and validate-mesh errors on it.
   * Node and material names: lowercase with underscores. No hyphens, no spaces, no uppercase.
@@ -504,14 +506,14 @@ def build_airframe(name: str) -> bpy.types.Object:
     # articulation), but built into the same bmesh, so the geometry is unchanged.
     _nozzles(bm)
 
-    # ENGINE FORWARD IS +X (docs/modding/3d-models.md: "+X is forward, the aircraft nose").
-    # The fuselage is laid out nose-at-origin extending +X for parametric convenience, which points
-    # the NOSE down -X -- so the aircraft would fly tail-first. A 180-deg yaw about Z turns it
-    # nose-first. It is a ROTATION, not a mirror, so winding is preserved (no normal surgery); the
-    # airframe is laterally symmetric, so the yaw only relabels port<->starboard on the
-    # engine-ignored hardpoint markers (`_fwd` matches them to the body).
+    # AUTHORING FORWARD IS glTF +Z (engine#906): a content mesh is authored in the standard
+    # glTF/Blender convention (nose along Blender's forward, -Y, which the exporter emits as +Z),
+    # and the engine rotates it +Z -> +X into its body frame on import. The fuselage is laid out
+    # nose-at-origin extending +X (parametric convenience), which points the NOSE down -X, so a
+    # +90-deg yaw about Blender Z turns the nose to Blender -Y == glTF +Z. It is a ROTATION, not a
+    # mirror, so winding is preserved. (Was a 180-deg yaw to glTF +X before engine#906.)
     bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), verts=bm.verts,
-                     matrix=Matrix.Rotation(math.pi, 4, 'Z'))
+                     matrix=Matrix.Rotation(math.pi / 2.0, 4, 'Z'))
 
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)               # outward: CCW from outside
@@ -519,9 +521,10 @@ def build_airframe(name: str) -> bpy.types.Object:
 
 
 def _fwd(loc):
-    """Match an empty's position to the airframe's nose-to-+X yaw (180 deg about Z): (x,y,z)->(-x,-y,z)."""
+    """Match an empty's position to the airframe's nose-to-glTF-+Z yaw (+90 deg about Z, engine#906):
+    (x,y,z)->(-y, x, z)."""
     x, y, z = loc
-    return (-x, -y, z)
+    return (-y, x, z)
 
 
 def _commit(bm, name: str) -> bpy.types.Object:

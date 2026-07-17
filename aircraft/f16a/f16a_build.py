@@ -22,8 +22,9 @@ c_root = 2S/(b(1+lambda)) = 5.03 m with the published 16.5 ft/3.5 ft chords, and
 MAC comes out 3.48 vs the published 3.45 (0.8%) — the wing, at least, cannot be very wrong.
 
 Axes: the fuselage is laid out nose-at-origin extending +X (tidy for the parametric loft), then
-build_airframe applies a 180-deg yaw so the EXPORT matches the engine's convention: +X forward
-(nose), +Y up after Blender's exporter converts. See docs/modding/3d-models.md.
+build_airframe applies a +90-deg yaw so the EXPORT is in the standard glTF content convention (nose
+along glTF +Z); the engine rotates that +Z -> +X into its body frame on import (engine#906). +Y is
+up after Blender's exporter converts. See docs/modding/3d-models.md.
 """
 
 import argparse
@@ -366,14 +367,15 @@ def build_airframe(name: str) -> bpy.types.Object:
 
     _nozzle(bm)
 
-    # ENGINE FORWARD IS +X (docs/modding/3d-models.md: "+X is forward, the aircraft nose").
-    # The fuselage above is laid out nose-at-origin extending +X, which is parametrically tidy
-    # but points the NOSE down -X -- so the aircraft would fly tail-first. A 180-deg yaw about Z
-    # turns it nose-first. This is a ROTATION, not a mirror, so face winding is preserved (no
-    # normal surgery); the airframe is laterally symmetric, so the only thing the yaw relabels is
-    # port<->starboard on the engine-ignored hardpoint markers (`_fwd` matches them to the body).
+    # AUTHORING FORWARD IS glTF +Z (engine#906): a content mesh is authored in the standard
+    # glTF/Blender convention (nose along Blender's forward, -Y, which the glTF exporter emits as
+    # +Z), and the engine rotates it +Z -> +X into its body frame on import. The fuselage above is
+    # laid out nose-at-origin extending +X (parametrically tidy), which points the NOSE down -X, so
+    # a +90-deg yaw about Blender Z turns the nose to Blender -Y == glTF +Z. This is a ROTATION, not
+    # a mirror, so winding is preserved. (Was a 180-deg yaw to glTF +X before engine#906 added the
+    # content->body import mapping.)
     bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), verts=bm.verts,
-                     matrix=Matrix.Rotation(math.pi, 4, 'Z'))
+                     matrix=Matrix.Rotation(math.pi / 2.0, 4, 'Z'))
 
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
@@ -381,9 +383,10 @@ def build_airframe(name: str) -> bpy.types.Object:
 
 
 def _fwd(loc):
-    """Match an empty's position to the airframe's nose-to-+X yaw (180 deg about Z): (x,y,z)->(-x,-y,z)."""
+    """Match an empty's position to the airframe's nose-to-glTF-+Z yaw (+90 deg about Z, engine#906):
+    (x,y,z)->(-y, x, z)."""
     x, y, z = loc
-    return (-x, -y, z)
+    return (-y, x, z)
 
 
 def _commit(bm, name: str) -> bpy.types.Object:
