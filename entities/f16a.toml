@@ -128,13 +128,17 @@ control_factor   = 0.50
 avionics_failure = true
 
 # ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────
-# NO engine_left/engine_right pools, DELIBERATELY. The subsystem vocabulary is twin-shaped: a
-# failed engine pool means HALF thrust plus a yaw moment toward the dead side
-# (FixedWingForceModel), which is a lie about a single-F100 jet — an F-16 engine kill is all
-# the thrust and no asymmetry. Until the vocabulary grows a centreline `engine` entry (engine
-# issue filed from #19), engine damage rides the tier thrust_factors above, which is at least
-# honest. The F-16 is instead the pack's first user of the `hydraulics` pool: the FLCS actuators
-# ride the hydraulic systems, so hydraulic failure IS control failure on this jet.
+# Single-engine `engine` pool (engine#901): the F-16 has ONE F100, so an engine kill is TOTAL
+# thrust loss with NO yaw asymmetry — distinct from the twin-shaped engine_left/engine_right
+# pools (half thrust + a yaw moment toward the dead side), which would be a lie about this jet.
+# engine#901 added the centreline `engine` entry for exactly this case, so the deck no longer has
+# to drop engine damage onto the tier thrust_factors. The F-16 is also the pack's first user of
+# the `hydraulics` pool: the FLCS actuators ride the hydraulic systems, so hydraulic failure IS
+# control failure on this jet.
+[damage.subsystems.engine]
+hp     = 45.0
+weight = 2.0
+
 [damage.subsystems.controls]
 hp     = 25.0
 weight = 1.5
