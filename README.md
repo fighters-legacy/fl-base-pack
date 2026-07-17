@@ -1,6 +1,6 @@
 # fl-base-pack
 
-Community content for [Fighters Legacy](https://github.com/jomkz/fighters-legacy) — a free,
+Community content for [Fighters Legacy](https://github.com/fighters-legacy/fighters-legacy) — a free,
 open-licensed collection of aircraft, terrain, missions, audio, and AI scripts playable with no
 proprietary content required.
 
@@ -28,7 +28,7 @@ DCO sign-off.
 install fl-base-pack automatically.
 
 **Manual:** Download the latest release archive from the
-[Releases](https://github.com/jomkz/fl-base-pack/releases) page and extract it into your
+[Releases](https://github.com/fighters-legacy/fl-base-pack/releases) page and extract it into your
 `mods/` directory so the result is `mods/fl-base-pack/manifest.toml`.
 
 ---
