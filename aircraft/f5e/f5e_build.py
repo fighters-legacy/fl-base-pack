@@ -12,6 +12,13 @@ Emits, per docs/modding/3d-models.md:
     f5e_cockpit.glb  contains the node `camera_anchor`
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+This file is DATA ONLY. The geometry ALGORITHM lives in fl_aircraftlib.n156 (the shared Northrop
+N-156 airframe-family builder); the F-5E is the same airframe family as the T-38A (see
+aircraft/t38a/t38a_build.py), so they share one authored loft and differ only in the config below.
+The shared module was extracted from this script's original monolithic form and produces
+byte-identical output.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 PROVENANCE — read this before changing a single number.
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 This airframe is generated ENTIRELY FROM PUBLISHED DIMENSIONS. Nothing here is traced from, derived
@@ -31,599 +38,111 @@ consumes comes from here.
 NO MARKINGS. Policy §4: no unit insignia, squadron badges, nose art or operator liveries. Bare metal
 with a generic aggressor-grey scheme, applied via external .ktx2 textures, never baked geometry.
 
-═══════════════════════════════════════════════════════════════════════════════════════════════════
-CONVENTIONS (docs/modding/3d-models.md — get these wrong and validate-mesh rejects the file)
-═══════════════════════════════════════════════════════════════════════════════════════════════════
-  * Engine BODY axes: +X forward (nose), +Y up, +Z starboard, metres. But content is AUTHORED in the
-    standard glTF convention (nose along glTF +Z) and the engine rotates it +Z -> +X on import
-    (engine#906). Blender's glTF exporter maps Blender +X -> glTF +X, Blender +Z -> glTF +Y,
-    Blender -Y -> glTF +Z. The parametric loft is nose-along-Blender-+X; build_airframe applies a
-    +90-deg yaw so the nose ends at Blender -Y == glTF +Z. Do not "fix" this.
-  * Winding CCW from outside, normals outward. The opaque pipeline is single-sided; an inside-out
-    face is invisible from the outside and validate-mesh errors on it.
-  * Node and material names: lowercase with underscores. No hyphens, no spaces, no uppercase.
-  * NO EMBEDDED IMAGE DATA. Textures are external .ktx2 URIs, pre-wired here so the references exist
-    before tex-compress has ever run.
+The FUSELAGE STATIONS below were traced from NASA Figure 1 (the published 3-view): a column scan of
+the page ink, scale anchored to the printed 73.15 cm overall length and cross-checked against the
+printed 12.88 cm fin height and the printed MAC bar (12.27 cm = 2.454 m vs the published 2.456).
+Method and verification overlays: the f5e_trace work recorded in SOURCES.md. Each station is
+(x/L, z_upper, z_lower, y_half), metres full scale, z from the fuselage reference line.
 """
 
-import argparse
-import math
 import sys
 from pathlib import Path
 
-# bpy must be imported before bmesh/mathutils: under the pip `bpy` wheel (used by the determinism
-# CI job) importing bmesh first raises ModuleNotFoundError, because bpy's init registers the sibling
-# modules. The Blender binary does not care about order; the wheel does.
-import bpy
-import bmesh
-from mathutils import Matrix, Vector
-
-# Shared procedural-mesh helpers. The library lives in the repo, not on Blender's Python path, so
-# add it from this file's location (aircraft/f5e/ -> repo root -> tools/meshlib/src). No install
-# step; works under `blender --background`.
+# The shared N-156 builder and the generic mesh library both live in the repo, not on Blender's
+# Python path; add them from this file's location (aircraft/f5e/ -> repo root).
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "tools" / "meshlib" / "src"))
-from fl_meshlib import export, loft, scene, uvatlas  # noqa: E402
-from fl_meshlib.curves import smoothstep as _smoothstep  # noqa: E402
-from fl_meshlib.damage import battle_damage  # noqa: E402
-from fl_meshlib.stations import interp_table  # noqa: E402
-
-# ═══ PUBLISHED GEOMETRY — NASA spin-tunnel report (NTRS 19980227417), Table I ═══════════════ [P] ═
-LENGTH        = 14.68     # m   overall
-SPAN          = 8.13      # m   wing span, without tip missiles
-WING_AREA     = 17.30     # m^2 (checked: the trapezoid below reproduces this to 0.04%)
-ROOT_CHORD    = 3.5735    # m
-TIP_CHORD     = 0.6840    # m
-SWEEP_C4      = 24.0      # deg wing quarter-chord sweep
-THICKNESS     = 0.048     # NACA 65A004.8 — symmetric, 4.8% thick
-
-HT_SPAN       = 4.30      # m   horizontal tail, tip to tip
-HT_TIP_CHORD  = 0.508     # m
-HT_TAPER      = 0.33
-HT_SWEEP_C4   = 25.0      # deg
-HT_DIHEDRAL   = -4.0      # deg — ANHEDRAL. The F-5's tailplane droops; it is not a typo.
-
-VT_TIP_CHORD  = 0.7112    # m   vertical tail
-VT_TAPER      = 0.25
-VT_SWEEP_C4   = 25.0      # deg
-VT_AREA       = 3.85      # m^2 exposed
-VT_AR         = 1.22      # on the exposed span
-
-# ═══ FUSELAGE STATIONS — traced from NASA Figure 1 (the published 3-view) ══════════ [P/D] ═
-#
-# NASA's spin-tunnel report includes Figure 1, a dimensioned three-view of the F-5E (1/20 scale,
-# dimensions in cm). docs/legal/aircraft-likeness.md explicitly permits declassified 3-views as
-# references. The side-view contour below was SAMPLED OFF THAT DRAWING programmatically (column
-# scan of the page ink; scale anchored to the printed 73.15 cm overall length and cross-checked
-# against the printed 12.88 cm fin height and the printed MAC bar, 12.27 cm = 2.454 m vs the
-# published 2.456). Method and verification overlays: the f5e_trace work recorded in SOURCES.md.
-#
-# Each station: (x/L, z_upper, z_lower, y_half), metres full scale, z from the fuselage reference
-# line (= the drawing's own datum; the nose tip sits on it).
-#   z_upper  [P] traced. In the canopy span it is the CANOPY top; under the fin (x/L > 0.78,
-#            where the fin occludes the spine) and at two dimension-line-polluted stations it is
-#            interpolated [D], marked below.
-#   z_lower  [P] traced (the belly, including the aft boat-tail).
-#   y_half   nose region [P] traced; mid/aft [D] from the twin-J85 packaging and NASA's own
-#            tail-span arithmetic: exposed h-tail span 2.97 = 4.30 tip-to-tip - 2*0.665, so the
-#            fuselage half-width AT THE TAILPLANE IS 0.665 -- published numbers, one subtraction.
-#            The planform confirms the aft body stays broad to the nozzles (two engines abreast).
-STATIONS_FUS = [
-    # x/L    z_up    z_lo   y_half
-    (0.000,  0.015, -0.015, 0.038),   # radome tip, on the reference line
-    (0.030,  0.008, -0.307, 0.060),
-    (0.060, -0.008, -0.369, 0.161),   # slight nose droop -- traced, it is real
-    (0.100,  0.077, -0.438, 0.315),
-    (0.140,  0.192, -0.499, 0.438),
-    (0.190,  0.323, -0.553, 0.530),
-    (0.240,  0.453, -0.584, 0.580),   # windshield base
-    (0.290,  0.950, -0.561, 0.590),   # [D] canopy rise (dim-line polluted; interp of neighbours)
-    (0.340,  1.020, -0.538, 0.590),   # [D] canopy peak (same)
-    (0.400,  1.007, -0.523, 0.590),   # aft canopy fairing [P]
-    (0.460,  0.937, -0.499, 0.645),   # intake fairing region, widest
-    (0.520,  0.853, -0.469, 0.620),   # area-rule waist begins
-    (0.580,  0.780, -0.553, 0.600),   # [D] (dimension-stem mask; interp)
-    (0.640,  0.707, -0.561, 0.600),
-    (0.700,  0.638, -0.561, 0.620),
-    (0.760,  0.791, -0.553, 0.640),   # spine kick-up at the fin fillet
-    (0.815,  0.700, -0.530, 0.665),   # [D] under the fin: spine interp; width = tail-span arith
-    (0.860,  0.580, -0.499, 0.660),   # [D]
-    (0.910,  0.460, -0.553, 0.630),   # [D]
-    (0.960,  0.340, -0.400, 0.580),   # [D] boat-tail
-    (1.000,  0.280, -0.200, 0.520),   # nozzle station
-]
-CANOPY_SPAN  = (0.245, 0.435)  # x/L range where z_up is canopy glass, not fuselage spine
-CANOPY_HALFW = 0.34            # m [E] canopy width from the planform outline
-NOZZLE_R     = 0.28            # m [D] from the front view; two, side by side
-PITOT_LEN    = 0.55            # m [P] visible on the 3-view
-NOSE_BLEND_T = 0.16            # x/L [E] radome (circular) -> traced forebody. See _nose_section.
-SILL_EASE    = 2.2             # [E] cockpit-sill ease-in exponent. See _spine_top: 1.0 (linear)
-                               #     is what made the canopy a flat ridge instead of a bubble.
-WINDSCREEN_F = 0.14            # [E] fraction of the canopy span the windscreen occupies
-
-# ═══ LATERAL AIR INTAKES ═══════════════════════════════════════════════════════════════════ [E] ═
-#
-# The F-5E's signature feature, and until now entirely absent: the loft ran smooth past the intake
-# station and the aircraft read as a blob with wings.
-#
-# NASA Table I does not dimension the inlets, and the 3-view's own planform outline ALREADY INCLUDES
-# the intake fairing -- the traced y_half peaks at 0.645 m at x/L 0.46, which is exactly the "intake
-# fairing region, widest" note in STATIONS_FUS. So the body is already as wide as it should be;
-# adding a nacelle on top of that would double-count the width. What the traced outline CANNOT carry
-# is the sharp-edged detail: the cowl lip, and the dark recessed aperture behind it.
-#
-# These are therefore [E] -- judgement calls, shaped to the published outline and cross-checked
-# against public-domain photography (Northrop assembly-line shots and CC0 museum walk-arounds; see
-# SOURCES.md). Like the canopy and the fuselage cross-section, they are VISUAL ONLY: the flight model
-# reads nothing from this file.
-#
-# Modelled as a closed solid overlapping the fuselage loft, not a boolean cut: both are closed and
-# outward-facing, so the buried inboard faces are simply never seen.
-INTAKE_X0     = 0.415   # x/L  cowl lip. Just aft of the canopy, ahead of the wing root.
-INTAKE_X1     = 0.660   # x/L  where the fairing has faded back into the flank.
-INTAKE_ZC     = 0.28    # m    aperture centre, above the fuselage reference line
-INTAKE_HZ     = 0.33    # m    aperture half-height
-INTAKE_HY     = 0.20    # m    cowl half-width; the inboard half stays buried in the fuselage
-INTAKE_PROUD  = 0.13    # m    how far the cowl lip stands proud of the traced flank
-INTAKE_DEPTH  = 0.26    # m    how far the inlet face is recessed behind the lip -- this is what
-                        #      makes the aperture read as a hole rather than a painted-on panel
-# The boundary-layer splitter gap between cowl and fuselage is NOT modelled: it is a few centimetres
-# across and vanishes at any gameplay range. The lip and the recess are what make the jet readable.
-
-# Surface placement stations (planform work, unchanged from the validated planform build)
-WING_X_LE     = 5.95      # m   wing leading-edge root station
-WING_Z        = -0.12     # m   low-mid wing
-HT_X_C4       = 13.10     # m   horizontal tail quarter-chord station
-VT_X_C4       = 11.90     # m   vertical tail quarter-chord station
-TIP_RAIL_LEN  = 2.10      # m   wingtip AIM-9 rail (part of the airframe; see SOURCES.md)
-
-TEX_DIFFUSE   = "../../textures/f5e_diffuse.ktx2"
-TEX_ORM       = "../../textures/f5e_orm.ktx2"
-
-
-# ─── Fuselage station lookup ────────────────────────────────────────────────────────────────────
-def _fus_at(t):
-    """Interpolate the traced station table at x/L = t. Returns (z_up, z_lo, y_half)."""
-    return interp_table(STATIONS_FUS, t)
-
-
-def _spine_top(t):
-    """The fuselage TOP at x/L = t, i.e. z_up with the canopy glass excluded.
-
-    Inside the canopy span the traced z_up is the glass, not the skin; the skin is the smooth
-    line between the windshield base and the aft fairing, so blend linearly across the span.
-    The canopy bubble is then built separately, exactly as tall as the difference.
-    """
-    c0, c1 = CANOPY_SPAN
-    z_up, _, _ = _fus_at(t)
-    if t <= c0 or t >= c1:
-        return z_up
-    a = _fus_at(c0)[0]
-    b = _fus_at(c1)[0]
-
-    # NOT linear. A straight ramp from the windshield base (0.50 m) to the aft fairing (0.97 m)
-    # climbs at the same rate as the glass above it, so the canopy never stands proud -- the loft
-    # produced one long flat-topped ridge merging into the spine, with no bubble and no windscreen.
-    # The real skin stays low along the cockpit sill and only rises BEHIND the cockpit, into the
-    # dorsal decking ahead of the intakes (USAF 74-00513, a clean side view). Ease-in does that:
-    # slow under the canopy, steep at the aft end, and it still meets the traced skin exactly at
-    # both ends -- so no traced value is overridden, only the curve BETWEEN them.
-    return a + (b - a) * ((t - c0) / (c1 - c0)) ** SILL_EASE
-
-
-def _nose_section(t, top, lo, w):
-    """Section centre and half-height at x/L = t, with the RADOME treated as a body of revolution.
-
-    The raw trace disagrees with itself at the nose. At x/L 0.03 it gives a section 0.12 m wide and
-    0.315 m TALL -- a vertical blade -- because the plan-view half-width and the side-view contour
-    were sampled independently and do not agree that close to the tip, where both are a few pixels of
-    ink. Lofted, that produced a nose whose belly plunged into a hanging chin within the first half
-    metre while the spine stayed flat. Public-domain photography (USAF 73-02896, and the CC0
-    walk-arounds) shows the opposite: a slender, near-conical radome with only a gentle droop.
-
-    A radome CANNOT be a blade -- it is a fairing over a circular radar antenna, so its sections are
-    circular. That is a physical fact, not a styling choice, and it is the constraint used here: in
-    the radome region the half-height is taken from the traced PLAN half-width (the more trustworthy
-    of the two near the tip, since the planform is what NASA's Table I closes against), and the
-    section centre rides a smooth droop line from the tip. By NOSE_BLEND_T the fuselage is deep and
-    genuinely non-circular -- gun bay, nose-gear well, cockpit floor -- and the trace is trusted
-    fully again. Between the two, blend.
-    """
-    cz_tr = (top + lo) / 2.0
-    hh_tr = max((top - lo) / 2.0, 0.02)
-    if t >= NOSE_BLEND_T:
-        return cz_tr, hh_tr
-
-    top_b = _spine_top(NOSE_BLEND_T)
-    lo_b = _fus_at(NOSE_BLEND_T)[1]
-    cz_rd = ((top_b + lo_b) / 2.0) * (t / NOSE_BLEND_T)   # droop: 0 at the tip -> traced centreline
-    hh_rd = max(w, 0.02)                                  # circular: half-height = half-width
-
-    u = _smoothstep(t / NOSE_BLEND_T)
-    return cz_rd + (cz_tr - cz_rd) * u, hh_rd + (hh_tr - hh_rd) * u
-
-
-def _fuselage(bm, sections=44):
-    """Loft the traced NASA Figure 1 stations. See STATIONS_FUS for provenance.
-
-    Cross-section: superellipse spanning [z_lo, spine_top] with the traced half-width. The
-    section is asymmetric top-to-bottom exactly as the drawing is -- centreline and half-height
-    fall out of the traced upper/lower contours; nothing here is shaped by eye any more except
-    the superellipse roundness itself.
-    """
-    rings = []
-    for i in range(sections + 1):
-        t = i / sections
-        x = t * LENGTH
-        top = _spine_top(t)
-        _, lo, w = _fus_at(t)
-        w = max(w, 0.02)
-        cz, hh = _nose_section(t, top, lo, w)
-        n = 2.05 + 0.4 * _smoothstep(t / 0.25)          # round nose, flatter-sided body
-        ring = []
-        steps = 16
-        for j in range(steps):
-            th = 2.0 * math.pi * j / steps
-            c, sn = math.cos(th), math.sin(th)
-            y = w * math.copysign(abs(c) ** (2.0 / n), c)
-            z = hh * math.copysign(abs(sn) ** (2.0 / n), sn)
-            ring.append(bm.verts.new(Vector((x, y, cz + z))))
-        rings.append(ring)
-
-    for i in range(sections):
-        a, b = rings[i], rings[i + 1]
-        m = len(a)
-        for j in range(m):
-            k = (j + 1) % m
-            try:
-                bm.faces.new((a[j], a[k], b[k], b[j]))
-            except ValueError:
-                pass
-    try:
-        bm.faces.new(list(reversed(rings[0])))
-    except ValueError:
-        pass
-
-    # Pitot boom -- visible on the 3-view, part of the silhouette.
-    pb = []
-    for i in range(2):
-        x = -PITOT_LEN + i * PITOT_LEN
-        r = 0.016 if i == 0 else 0.028
-        pb.append([bm.verts.new(Vector((x, r * math.cos(2 * math.pi * j / 6),
-                                        r * math.sin(2 * math.pi * j / 6))))
-                   for j in range(6)])
-    for j in range(6):
-        k = (j + 1) % 6
-        try:
-            bm.faces.new((pb[0][j], pb[0][k], pb[1][k], pb[1][j]))
-        except ValueError:
-            pass
-
-
-def _nozzles(bm):
-    """Twin J85 nozzles, from the front view: two abreast at the tail.
-
-    Built into their own face group so they can carry the dark burnt-metal material slot, separate
-    from the skin. The vertices are exactly those the fuselage loft used to emit — moving them here
-    changes no geometry, only which material they answer to.
-    """
-    for side in (1.0, -1.0):
-        y0 = -side * 0.30
-        prev = None
-        for i in range(4):
-            f = i / 3.0
-            x = LENGTH - 0.30 + f * 0.30
-            r = NOZZLE_R * (1.0 - 0.15 * f)
-            ring = [bm.verts.new(Vector((x, y0 + r * math.cos(2 * math.pi * j / 10),
-                                         0.04 + r * math.sin(2 * math.pi * j / 10))))
-                    for j in range(10)]
-            if prev:
-                for j in range(10):
-                    k = (j + 1) % 10
-                    try:
-                        f4 = (prev[j], prev[k], ring[k], ring[j]) if side > 0 else \
-                             (prev[j], ring[j], ring[k], prev[k])
-                        bm.faces.new(f4)
-                    except ValueError:
-                        pass
-            prev = ring
-
-
-def _intake_section(t, steps=12):
-    """Cross-section of the intake cowl at x/L = t: (centre_y, centre_z, half_y, half_z, ring_uv).
-
-    The cowl hugs the flank. Its OUTER surface sits `INTAKE_PROUD` beyond the traced half-width at
-    the lip and fades back to flush by INTAKE_X1; its inboard half is buried inside the fuselage.
-    """
-    w = _fus_at(t)[2]                                        # traced fuselage half-width here
-    fade = 1.0 - _smoothstep((t - INTAKE_X0) / (INTAKE_X1 - INTAKE_X0))
-    outer = w + INTAKE_PROUD * fade
-    hy = INTAKE_HY
-    hz = INTAKE_HZ * (0.35 + 0.65 * fade)                    # tall at the lip, faded into the flank aft
-    return outer - hy, INTAKE_ZC, hy, max(hz, 0.02)
-
-
-def _intake_ring(bm, t, side, scale=1.0, dx=0.0, steps=12):
-    """One rounded-rectangle ring of the cowl, on `side` (+1 port, -1 starboard in Blender -Y)."""
-    cy, cz, hy, hz = _intake_section(t)
-    x = t * LENGTH + dx
-    ring = []
-    for j in range(steps):
-        th = 2.0 * math.pi * j / steps
-        c, sn = math.cos(th), math.sin(th)
-        n = 3.2                                              # rounded rectangle, like the real lip
-        y = hy * scale * math.copysign(abs(c) ** (2.0 / n), c)
-        z = hz * scale * math.copysign(abs(sn) ** (2.0 / n), sn)
-        ring.append(bm.verts.new(Vector((x, side * (cy + y), cz + z))))
-    return ring
-
-
-def _intakes(bm, stations=7):
-    """Lateral inlets: a cowl lofted along the flank, with a recessed aperture behind a sharp lip.
-
-    Built per side as a closed solid that overlaps the fuselage. Two pieces meet at the lip ring:
-      * the OUTER shell, lofted aft from the lip until it is buried in the flank at INTAKE_X1;
-      * the RECESS, stepping inward and aft from that same lip ring to a capped throat -- the dark
-        hole. Without it the lip is just a raised panel line and the jet still reads wrong.
-    """
-    for side in (1.0, -1.0):
-        flip = side < 0.0                                    # mirrored side needs reversed winding
-        lip = _intake_ring(bm, INTAKE_X0, side)
-
-        # Outer shell: lip -> aft, fading into the flank.
-        prev = lip
-        for i in range(1, stations + 1):
-            t = INTAKE_X0 + (INTAKE_X1 - INTAKE_X0) * (i / stations)
-            ring = _intake_ring(bm, t, side)
-            loft.bridge(bm, prev, ring, flip)
-            prev = ring
-        try:                                                 # aft cap: buried in the fuselage, unseen
-            bm.faces.new(prev if not flip else list(reversed(prev)))
-        except ValueError:
-            pass
-
-        # Recess: the same lip ring, stepped in and aft to a throat, then capped. Winding is the
-        # opposite of the outer shell -- these faces are seen from IN FRONT, looking into the duct.
-        throat = _intake_ring(bm, INTAKE_X0, side, scale=0.72, dx=INTAKE_DEPTH)
-        loft.bridge(bm, lip, throat, not flip)
-        try:
-            bm.faces.new(list(reversed(throat)) if not flip else throat)
-        except ValueError:
-            pass
-
-
-def _tip_rails(bm):
-    """Wingtip AIM-9 launch rails. Part of the AIRFRAME, not a store.
-
-    This matters for more than art: the T.O. quotes max level Mach 1.63 for "launcher rails only"
-    and 1.57 "with tip missiles", so the rails are present in BOTH published conditions. They belong
-    to the aeroplane. The missiles themselves are stores and are not modelled here.
-    """
-    y_tip = SPAN / 2.0
-    x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
-    x0 = x_c4_tip - 0.25 * TIP_CHORD - 0.55
-    for side in (1.0, -1.0):
-        y = -side * y_tip
-        rings = []
-        for i in range(7):
-            f = i / 6.0
-            x = x0 + f * TIP_RAIL_LEN
-            r = 0.085 * (1.0 - 0.55 * abs(2.0 * f - 1.0) ** 3)   # tapered nose and tail
-            ring = []
-            for j in range(8):
-                th = 2.0 * math.pi * j / 8
-                ring.append(bm.verts.new(Vector((x, y + r * math.cos(th), r * math.sin(th)))))
-            rings.append(ring)
-        for i in range(6):
-            a, b = rings[i], rings[i + 1]
-            for j in range(8):
-                k = (j + 1) % 8
-                try:
-                    f = (a[j], a[k], b[k], b[j]) if side > 0 else (a[j], b[j], b[k], a[k])
-                    bm.faces.new(f)
-                except ValueError:
-                    pass
-
-
-def _canopy(bm):
-    """Canopy glass: exactly the bump the trace measured -- z_up minus the blended spine.
-
-    Width is the one [E] left in the canopy: the planform outline reads ~0.34 m half-width.
-    """
-    c0, c1 = CANOPY_SPAN
-    rings = []
-    steps = 14
-    for i in range(steps + 1):
-        f = i / steps
-        t = c0 + f * (c1 - c0)
-        x = t * LENGTH
-        z_glass = _fus_at(t)[0]
-        z_skin = _spine_top(t)
-        h = max(z_glass - z_skin, 0.0) + 0.02
-        # Plan shape. The old sin(f*pi)^0.5 was a symmetric lens: zero width at BOTH ends, so the
-        # canopy came to a point at the front and there was no windscreen at all. A windscreen base
-        # is nearly as wide as the canopy itself -- it is a screen, not a spike. So: come up to full
-        # width fast over the windscreen, hold it through the glass, then taper into the long aft
-        # fairing (which does not reach zero -- it fairs into the spine).
-        w = CANOPY_HALFW * _smoothstep(f / WINDSCREEN_F) * (1.0 - 0.80 * _smoothstep((f - 0.70) / 0.30))
-        ring = []
-        for j in range(10):
-            th = math.pi * j / 9.0
-            ring.append(bm.verts.new(Vector((x, w * math.cos(th), z_skin - 0.05 + h * math.sin(th)))))
-        rings.append(ring)
-    for i in range(steps):
-        a, b = rings[i], rings[i + 1]
-        for j in range(9):
-            try:
-                bm.faces.new((a[j], a[j + 1], b[j + 1], b[j]))
-            except ValueError:
-                pass
-
-
-# ─── Assembly ─────────────────────────────────────────────────────────────────────────────────────
-# The single airframe material. Named `f5e_skin` (not `f5e_airframe`) so it is already the liverable
-# slot name a livery will override (fighters-legacy#845) once the engine can consume materials.
-#
-# ONE material, ONE primitive — DELIBERATELY. glTF splits a mesh into one primitive per material, and
-# the engine loads only `meshes[0].primitives[0]` (VkResources.cpp:519) until the node-aware loader
-# lands (fighters-legacy#839). A canopy/nozzle material split would move that geometry into
-# primitive[1]/[2] and the current engine would simply drop it -- the aircraft would fly with no
-# canopy and no nozzles. So the skin/canopy/nozzle split waits behind #839, exactly as the articulated
-# build waits behind the same loader. The capability is ready in fl_meshlib (scene.material_slots,
-# uvatlas.atlas_uvs); the shipped mesh stays single-primitive.
-MAT_SKIN      = "f5e_skin"
-
-
-def build_airframe(name: str) -> bpy.types.Object:
-    bm = bmesh.new()
-
-    _fuselage(bm)
-    _intakes(bm)
-    _canopy(bm)
-
-    # Wing — positioned by its published quarter-chord line.
-    loft.panel(bm, WING_X_LE + 0.25 * ROOT_CHORD, SPAN / 2.0, ROOT_CHORD, TIP_CHORD,
-               SWEEP_C4, THICKNESS, dihedral=0.0, z0=WING_Z)
-    _tip_rails(bm)
-
-    # Horizontal tail — all-moving, and it droops 4 degrees.
-    ht_exposed_span = math.sqrt(2.88 * 3.07)                       # 2.97 m, from NASA's exposed AR
-    ht_root = HT_TIP_CHORD / HT_TAPER                              # 1.539 m at the fuselage side
-    # Extrapolate the taper line inboard to the centreline so the surface meets the fuselage.
-    w_tail = _fus_at(HT_X_C4 / LENGTH)[2]          # 0.665 -- NASA tail-span arithmetic
-    f_side = w_tail / (HT_SPAN / 2.0)
-    ht_c0 = (ht_root - HT_TIP_CHORD * f_side) / (1.0 - f_side)
-    loft.panel(bm, HT_X_C4, HT_SPAN / 2.0, ht_c0, HT_TIP_CHORD, HT_SWEEP_C4, 0.04,
-               dihedral=HT_DIHEDRAL, z0=0.10)
-
-    # Vertical tail — exposed AR 1.22 on exposed area 3.85 m^2.
-    vt_height = math.sqrt(VT_AR * VT_AREA)                          # 2.167 m
-    vt_root = VT_TIP_CHORD / VT_TAPER                               # 2.845 m
-    loft.panel(bm, VT_X_C4, vt_height, vt_root, VT_TIP_CHORD, VT_SWEEP_C4, 0.04,
-               vertical=True, z0=0.55)
-
-    # Twin J85 nozzles: their own function now (a group for the future material split and PR-6
-    # articulation), but built into the same bmesh, so the geometry is unchanged.
-    _nozzles(bm)
-
-    # AUTHORING FORWARD IS glTF +Z (engine#906): a content mesh is authored in the standard
-    # glTF/Blender convention (nose along Blender's forward, -Y, which the exporter emits as +Z),
-    # and the engine rotates it +Z -> +X into its body frame on import. The fuselage is laid out
-    # nose-at-origin extending +X (parametric convenience), which points the NOSE down -X, so a
-    # +90-deg yaw about Blender Z turns the nose to Blender -Y == glTF +Z. It is a ROTATION, not a
-    # mirror, so winding is preserved. (Was a 180-deg yaw to glTF +X before engine#906.)
-    bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), verts=bm.verts,
-                     matrix=Matrix.Rotation(math.pi / 2.0, 4, 'Z'))
-
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)               # outward: CCW from outside
-    return _commit(bm, name)
-
-
-def _fwd(loc):
-    """Match an empty's position to the airframe's nose-to-glTF-+Z yaw (+90 deg about Z, engine#906):
-    (x,y,z)->(-y, x, z)."""
-    x, y, z = loc
-    return (-y, x, z)
-
-
-def _commit(bm, name: str) -> bpy.types.Object:
-    """Finish the airframe bmesh into an object with the single skin material and placeholder UVs."""
-    obj = scene.finish_mesh(bm, name)
-    scene.principled_material(obj, MAT_SKIN, (0.42, 0.44, 0.47, 1.0), 0.15, 0.55)
-    uvatlas.planar_uvs(obj, LENGTH, SPAN)
-    return obj
-
-
-def _hardpoint_markers(aid: str):
-    """Marker empties for the 7 hardpoints, positioned FROM the airframe geometry (not by eye).
-
-    Exported as glTF nodes with `extras`; the engine ignores them today (fighters-legacy#844). They
-    are forward-compatible metadata: a starting point for a future hardpoint-position system, and a
-    guide for anyone opening the .blend. Positions are derived from the same wing/nose constants that
-    build the aircraft, so they track the geometry rather than floating free of it. Port is +Y,
-    starboard is -Y (see the header's axis note).
-    """
-    marks = []
-    # Slot 0 — nose cannon (M39A2), centreline, just under the upper nose line.
-    marks.append(scene.empty(f"hardpoint_0", location=_fwd((0.14 * LENGTH, 0.0, _fus_at(0.14)[0] - 0.10)),
-                             extras={"fl_marker": "hardpoint", "fl_slot": 0, "fl_type": "gun"}))
-    # Slots 1,2 — wingtip missile rails (1 = left/port +Y, 2 = right/starboard -Y).
-    x_c4_tip = WING_X_LE + 0.25 * ROOT_CHORD + (SPAN / 2.0) * math.tan(math.radians(SWEEP_C4))
-    x_tip = x_c4_tip - 0.25 * TIP_CHORD + 0.30
-    for slot, sgn in ((1, 1.0), (2, -1.0)):
-        marks.append(scene.empty(f"hardpoint_{slot}", location=_fwd((x_tip, sgn * SPAN / 2.0, 0.0)),
-                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "missile"}))
-    # Slots 3-6 — underwing pylons (outboard/inboard each side), at 40% chord, below the wing.
-    for slot, sgn, s in ((3, 1.0, 0.55), (4, 1.0, 0.32), (5, -1.0, 0.32), (6, -1.0, 0.55)):
-        yhalf = s * SPAN / 2.0
-        x_le = WING_X_LE + yhalf * math.tan(math.radians(SWEEP_C4))
-        chord = ROOT_CHORD + (TIP_CHORD - ROOT_CHORD) * s
-        marks.append(scene.empty(f"hardpoint_{slot}", location=_fwd((x_le + 0.40 * chord, sgn * yhalf, WING_Z - 0.25)),
-                                 extras={"fl_marker": "hardpoint", "fl_slot": slot, "fl_type": "bomb"}))
-    return marks
-
-
-def main() -> int:
-    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="aircraft/f5e")
-    ap.add_argument("--id", default="f5e")
-    ap.add_argument("--blend", metavar="PATH",
-                    help="also save a Blender project for artist polish (never committed for a "
-                         "generated aircraft; not byte-stable). Open it to unwrap UVs, repaint, or "
-                         "sculpt, then re-export per docs/CONTRIBUTING.")
-    args = ap.parse_args(argv)
-
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    aid = args.id
-
-    scene.clear_scene()
-    body = build_airframe(aid)
-    tris = len(body.data.polygons)
-
-    # Base mesh + its damage state + hardpoint markers, in ONE file. The `_b` node MUST ship beside
-    # its base; the marker empties are metadata nodes the engine currently ignores.
-    dmg = battle_damage(body)                       # inherit the airframe's skin/canopy/nozzle slots
-    markers = _hardpoint_markers(aid)
-    export.export_glb(out / f"{aid}.glb", [body, dmg, *markers])
-    export.patch_textures(out / f"{aid}.glb", TEX_DIFFUSE, TEX_ORM)
-    bpy.data.objects.remove(dmg)
-
-    # LODs are separate FILES, not nodes. (fl-base-pack's CONTRIBUTING.md said nodes; it was wrong.)
-    for i, ratio in enumerate((0.50, 0.20, 0.05)):
-        lod = export.decimate(body, ratio, f"{aid}_lod{i}")
-        export.export_glb(out / f"{aid}_lod{i}.glb", [lod])
-        export.patch_textures(out / f"{aid}_lod{i}.glb", TEX_DIFFUSE, TEX_ORM)
-        bpy.data.objects.remove(lod)
-
-    # Shadow proxy: convex hull, NO materials.
-    shadow = scene.convex_hull(body, f"{aid}_shadow")
-    export.export_glb(out / f"{aid}_shadow.glb", [shadow])
-
-    # Cockpit: must contain a node named exactly `camera_anchor` -- the renderer looks for it by name.
-    anchor = scene.empty("camera_anchor", location=_fwd((
-        (CANOPY_SPAN[0] + 0.35 * (CANOPY_SPAN[1] - CANOPY_SPAN[0])) * LENGTH, 0.0, _fus_at(0.30)[0] - 0.25)))
-    export.export_glb(out / f"{aid}_cockpit.glb", [anchor])
-
-    if args.blend:
-        # Artist handoff: the airframe (three named material slots), its markers, the shadow proxy
-        # and the camera anchor, in an editable project. Not committed for a generated aircraft.
-        bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.blend).resolve()))
-        print(f"  wrote Blender project -> {args.blend}")
-
-    print(f"\n  {aid}: {tris} faces")
-    print(f"  wrote {aid}.glb (+ _b, +7 hardpoint markers), _lod0/1/2, _shadow, _cockpit -> {out}")
-    return 0
+sys.path.insert(0, str(_REPO_ROOT / "tools" / "aircraftlib" / "src"))
+from fl_aircraftlib.n156 import N156Config, fighter_hardpoint_markers, run_cli  # noqa: E402
+
+# ═══ THE F-5E TIGER II — published dimensions. [P] published, [D] derived, [E] estimate. ═══════════
+# Geometry: NASA spin-tunnel report (NTRS 19980227417), Table I, unless tagged otherwise.
+F5E = N156Config(
+    aircraft_id="f5e",
+    mat_skin="f5e_skin",                     # liverable slot name (fighters-legacy#845)
+    tex_diffuse="../../textures/f5e_diffuse.ktx2",
+    tex_orm="../../textures/f5e_orm.ktx2",
+
+    length=14.68,                            # [P] m overall
+    span=8.13,                               # [P] m wing span, without tip missiles
+    wing_area=17.30,                         # [P] m^2 (the trapezoid reproduces this to 0.04%)
+
+    root_chord=3.5735,                       # [P] m
+    tip_chord=0.6840,                        # [P] m
+    sweep_c4=24.0,                           # [P] deg quarter-chord sweep
+    thickness=0.048,                         # [P] NACA 65A004.8 — symmetric, 4.8% thick
+    wing_x_le=5.95,                          # m wing leading-edge root station
+    wing_z=-0.12,                            # m low-mid wing
+
+    ht_span=4.30,                            # [P] m horizontal tail, tip to tip
+    ht_tip_chord=0.508,                      # [P] m
+    ht_taper=0.33,                           # [P]
+    ht_sweep_c4=25.0,                        # [P] deg
+    ht_dihedral=-4.0,                        # [P] deg ANHEDRAL. The F-5's tailplane droops.
+    ht_x_c4=13.10,                           # m horizontal tail quarter-chord station
+    ht_z0=0.10,
+
+    vt_tip_chord=0.7112,                     # [P] m vertical tail
+    vt_taper=0.25,                           # [P]
+    vt_sweep_c4=25.0,                        # [P] deg
+    vt_area=3.85,                            # [P] m^2 exposed
+    vt_ar=1.22,                              # [P] on the exposed span
+    vt_x_c4=11.90,                           # m vertical tail quarter-chord station
+    vt_z0=0.55,
+
+    # Fuselage side-view trace. z_up [P] traced (CANOPY top inside the canopy span; interpolated [D]
+    # under the fin x/L > 0.78 and at two dimension-line-polluted stations). z_lo [P] traced. y_half
+    # nose [P] traced; mid/aft [D] from twin-J85 packaging and NASA's tail-span arithmetic (exposed
+    # h-tail span 2.97 = 4.30 - 2*0.665, so fuselage half-width at the tailplane is 0.665).
+    stations_fus=[
+        # x/L    z_up    z_lo   y_half
+        (0.000,  0.015, -0.015, 0.038),   # radome tip, on the reference line
+        (0.030,  0.008, -0.307, 0.060),
+        (0.060, -0.008, -0.369, 0.161),   # slight nose droop -- traced, it is real
+        (0.100,  0.077, -0.438, 0.315),
+        (0.140,  0.192, -0.499, 0.438),
+        (0.190,  0.323, -0.553, 0.530),
+        (0.240,  0.453, -0.584, 0.580),   # windshield base
+        (0.290,  0.950, -0.561, 0.590),   # [D] canopy rise (dim-line polluted; interp of neighbours)
+        (0.340,  1.020, -0.538, 0.590),   # [D] canopy peak (same)
+        (0.400,  1.007, -0.523, 0.590),   # aft canopy fairing [P]
+        (0.460,  0.937, -0.499, 0.645),   # intake fairing region, widest
+        (0.520,  0.853, -0.469, 0.620),   # area-rule waist begins
+        (0.580,  0.780, -0.553, 0.600),   # [D] (dimension-stem mask; interp)
+        (0.640,  0.707, -0.561, 0.600),
+        (0.700,  0.638, -0.561, 0.620),
+        (0.760,  0.791, -0.553, 0.640),   # spine kick-up at the fin fillet
+        (0.815,  0.700, -0.530, 0.665),   # [D] under the fin: spine interp; width = tail-span arith
+        (0.860,  0.580, -0.499, 0.660),   # [D]
+        (0.910,  0.460, -0.553, 0.630),   # [D]
+        (0.960,  0.340, -0.400, 0.580),   # [D] boat-tail
+        (1.000,  0.280, -0.200, 0.520),   # nozzle station
+    ],
+    nose_blend_t=0.16,                       # x/L [E] radome (circular) -> traced forebody
+    sill_ease=2.2,                           # [E] cockpit-sill ease-in exponent
+    fus_n0=2.05, fus_dn=0.4, fus_n_ramp=0.25,  # forebody superellipse ramp
+    pitot_len=0.55,                          # [P] m visible on the 3-view
+    nozzle_r=0.28,                           # [D] m from the front view; two, side by side
+
+    canopy_span=(0.245, 0.435),              # x/L range where z_up is canopy glass, not spine
+    canopy_halfw=0.34,                       # [E] m canopy width from the planform outline
+    windscreen_f=0.14,                       # [E] fraction of the canopy span the windscreen occupies
+
+    # Lateral air intakes [E] — shaped to the published outline, cross-checked against PD photography.
+    intake_x0=0.415,                         # x/L cowl lip, just aft of the canopy, ahead of the wing
+    intake_x1=0.660,                         # x/L where the fairing has faded into the flank
+    intake_zc=0.28,                          # m aperture centre above the reference line
+    intake_hz=0.33,                          # m aperture half-height
+    intake_hy=0.20,                          # m cowl half-width; the inboard half stays buried
+    intake_proud=0.13,                       # m how far the cowl lip stands proud of the flank
+    intake_depth=0.26,                       # m how far the inlet face is recessed behind the lip
+
+    tip_rails=True,
+    tip_rail_len=2.10,                       # m wingtip AIM-9 rail (part of the airframe)
+
+    hardpoint_markers=fighter_hardpoint_markers,   # gun + 2 wingtip + 4 pylon (F-5E is armed)
+)
 
 
 if __name__ == "__main__":
-    rc = main()
-    if bpy.app.background:
-        sys.exit(rc)          # headless (CI / --background): exit code matters
-    # GUI attached: stay open so the scene can be inspected. Tidy it for viewing --
-    # the shadow hull otherwise sits on top of the airframe.
-    for o in bpy.context.scene.objects:
-        if o.name.endswith("_shadow") or o.name == "camera_anchor":
-            o.hide_set(True)
+    run_cli(F5E)
