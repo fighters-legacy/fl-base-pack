@@ -29,8 +29,8 @@ import math
 import sys
 from pathlib import Path
 
-import bmesh
-import bpy
+import bpy       # must precede `import bmesh`: under the pip `bpy` wheel (what CI's determinism
+import bmesh     # job uses) bmesh only becomes importable once bpy has initialised Blender.
 from mathutils import Vector
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
