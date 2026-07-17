@@ -1,0 +1,33 @@
+# M61A1 Vulcan — 20 mm six-barrel rotary cannon, internal, left wing-root shoulder.
+#
+# The F-16A's gun. Same 20 mm calibre as the F-5E's M39A2 but a different weapon entirely:
+# six rotating barrels at 6,000 rounds per minute against the M39's single barrel at 1,700.
+#
+# STORE, NOT ORDNANCE: loads, registers, costs mass. Fire path is Epic fighters-legacy#583.
+
+[weapon]
+id       = "fl-base:m61a1"
+name     = "M61A1 Vulcan 20 mm cannon"
+type     = "gun"
+category = "air-to-air"
+
+[performance]
+max_range_nm     = 1.0     # [D] effective air-to-air gun range, same basis as the M39A2 entry
+min_range_nm     = 0.0
+max_speed_kts    = 2000.0  # [P] ~1,050 m/s muzzle velocity, M50/PGU-series
+motor_burn_time_s = 0.0
+max_g            = 0.0
+rate_of_fire_rpm = 6000.0  # [P] the M61's defining number
+
+[warhead]
+blast_radius_ft = 5.0      # [E] 20 mm HEI, point effect
+damage          = 4.0      # [E] per round; the rate of fire is the weapon
+
+[load]
+# Ammunition only — the gun body is part of the airframe's empty weight, same convention as
+# the F-5E's m39a2 (coordinate with aircraft/f16a/f16a.toml mass_kg; no double-count).
+# 511 rounds x ~0.58 lb per linked 20 mm round.
+weight_lb   = 296.0        # [D]
+drag_factor = 0.0          # internal
+rounds      = 511          # [P] the F-16A's drum capacity. EXPLICIT: the parser defaults guns
+                           # to 500, and a silent default is a wrong number that looks right.

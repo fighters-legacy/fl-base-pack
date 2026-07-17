@@ -1,0 +1,30 @@
+# AN/APG-66(V)1 — the F-16A ADF's fire-control radar (fl-base-pack#19 / #23, coordinate #17).
+#
+# The pack's second fire-control radar and the first that can support a radar-guided missile:
+# the (V)1 upgrade added the continuous-wave illumination that lets the ADF employ AIM-7.
+# Detection RANGE IS NOT PUBLISHED for any fire-control radar — the values below are [E],
+# ordered sanely against the pack (APG-66 > APQ-159 in every axis, both < a future SAM radar)
+# per #17's placeholder-grade tuning rule. The apq159.toml caveat applies verbatim: display
+# scale is not detection range, and no open source will ever settle these numbers.
+
+[sensor]
+id              = "fl-base:apg66"
+name            = "AN/APG-66(V)1 fire-control radar"
+type            = "radar"
+omnidirectional = false
+emitter         = true     # it shouts. The RWR seam (engine #526/#529) will hear it someday.
+
+[search]
+az_half_angle_deg = 60.0   # [P]-class: +/-60 deg scan is widely published for the APG-66
+el_half_angle_deg = 30.0   # [E] multi-bar elevation coverage, generously lumped
+min_range_nm      = 0.5
+max_range_nm      = 30.0   # [E] look-up, fighter-size target
+pod               = 0.35   # per 10 Hz check; ~4 s median time-to-find at mid-range
+
+[track]
+az_half_angle_deg = 55.0
+el_half_angle_deg = 25.0
+min_range_nm      = 0.3
+max_range_nm      = 22.0   # [E] track < search, as the validator expects
+pod               = 0.70
+lock_hold_s       = 4.0    # pulse-doppler track-while-scan holds a file briefly through fades

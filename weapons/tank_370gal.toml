@@ -1,0 +1,14 @@
+# 370 US gallon underwing drop tank — the F-16's wet-station tank (stations 4 and 6).
+#
+# INERT Fuel store, same notes as tank_300gal. The wing tanks are what the mixed-type
+# hardpoint schema exists for: the same wet pylon carries a bomb, a rocket pod, or this.
+
+[weapon]
+id       = "fl-base:tank_370gal"
+name     = "370 gal wing tank"
+type     = "fuel"
+category = "air-to-ground"
+
+[load]
+weight_lb   = 2620.0       # [D] ~2,405 lb JP-4 (370 gal x 6.5 lb/gal) + ~215 lb empty tank
+drag_factor = 0.0036       # [E] underwing carriage; uncalibrated

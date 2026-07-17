@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# The pack's second mission, and the first where red air is flown by the aircraft that really
+# flew it: the F-5E was THE USAF aggressor — the MiG-21 surrogate the F-16 community trained
+# against — so an F-16A intercepting an F-5E is the one pairing this pack can field today that
+# actually happened, weekly, for a decade at Nellis and Clark.
+#
+# Same validated shape as f5e_intercept.yaml: player starts PARKED ON THE GROUND (engine #885),
+# the bandit patrols airborne with honest spawn airspeed (#883). Triggers use destroy() — real
+# now that the mission runtime binds them (#884), even though the fire path itself is still
+# Epic fighters-legacy#583 territory.
+#
+# Flyability caveat, stated rather than hidden: sustained flight of PACK aero decks is gated by
+# engine#891 (flight-solver divergence) at the time this file lands. The mission validates,
+# loads, and spawns correctly; the fight becomes comfortable when #891 does.
+
+name: "Falcon and the Aggressor"
+map: earth
+layer: earth_clear
+time: { hour: 8, minute: 15 }
+wind: { heading: 270, speed: 5 }
+weather:
+  preset: clear
+time_scale: 1.0
+sides: [blue, red]
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    heading: 90
+    player: true
+    start: ground              # parked, idle, ready for the takeoff roll (#885)
+  - type: fl-base:f5e
+    id: bandit1
+    side: red
+    pos: [26000, 0, 14000]
+    alt: 4000
+    heading: 250               # no `ai:` — the entity's default fighter.lua attaches (#634)
+triggers:
+  - on: destroy(bandit1)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure

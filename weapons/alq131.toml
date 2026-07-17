@@ -1,0 +1,17 @@
+# AN/ALQ-131 ECM pod — the pack's first WeaponType::Pod store.
+#
+# INERT: mounts, costs mass and drag, never fires (#862). THERE IS NO ECM EFFECT IN THE
+# ENGINE — no jamming, no RWR, no emitter interplay (those seams are fighters-legacy#526/#529
+# territory). This file is the honest store the F-16A hangs on its centerline when the
+# mission calls for it, and the first content through the engine's Pod path; the electronic
+# warfare it implies arrives when the engine grows one.
+
+[weapon]
+id       = "fl-base:alq131"
+name     = "AN/ALQ-131 ECM pod"
+type     = "pod"
+category = "air-to-ground"
+
+[load]
+weight_lb   = 570.0        # [D] shallow (Block I) configuration class
+drag_factor = 0.0018       # [E] slender centerline pod; uncalibrated

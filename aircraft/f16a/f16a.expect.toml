@@ -1,0 +1,54 @@
+# F-16A Fighting Falcon — published performance gate.
+#
+# Consumed by `fm-trim --expect aircraft/f16a/f16a.expect.toml`.
+#
+# THE GATE'S JOB IS INVERTED ON THIS AIRCRAFT (fl-base-pack#19). The aero tables are NASA
+# TP-1538's published wind-tunnel data, transcribed — so a miss here impeaches the ENGINE's
+# aerodynamic implementation before it impeaches the content. It already has, twice: activating
+# the F-16A surfaced fm-trim's negative-trim-alpha sentinel bug (a cambered wing "could not fly"
+# above the alpha = 0 crossing), and before that the F-5E gate work exposed the coarse-grid
+# interpolation tax. That is this aircraft doing exactly what it was added to do.
+#
+# EVERY value is read from a primary-class source. Nothing is fitted to make the gate pass and
+# nothing comes from a flight simulator. Provenance: SOURCES.md.
+
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 12192.0       # 40,000 ft
+mass_kg     = 8748          # operating-empty-class + 1/2 internal fuel
+payload_kg  = 172.0         # 2x AIM-9 (the configuration the capability is quoted with)
+payload_cd0 = 0.0010
+afterburner = true
+expected    = 2.05
+tolerance   = 0.05
+# The F-16A's placarded/published maximum level Mach, quoted with wingtip Sidewinders. The one
+# supersonic anchor — which is why cd_wave's LEVEL is set by it (its shape stays [E]) and why
+# the thrust deck's M > 1 extension was frozen BEFORE this row was tuned: one published point,
+# spent once. T.O. 1F-16A-1 (Blocks 10/15) carries the corresponding airspeed limits.
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# HELD BACK — awaiting primary-source performance charts (the hunt, so far):
+#
+#   T.O. 1F-16A-1 (Blocks 10/15) is public (archive.org, declassified) and is in the reference
+#   stash — but it is the FLIGHT manual: limits, systems, procedures. The PERFORMANCE appendix
+#   lives in T.O. 1F-16A-1-1, which has not been located in the public record yet. Until it or
+#   the SAC/EM charts land, the following cannot be gated honestly:
+#
+#   sustained_g / ps_mps    The engine-validation centerpiece rows (the F-5E's ladder pattern).
+#                           TP-1538's subsonic drag is published data and needs no calibration;
+#                           these rows would test the ENGINE's trim math against EM charts.
+#   roc_mps                 Tertiary sources say "50,000 ft/min class" at light weight. The
+#                           F-5E precedent refuses to gate on Wikipedia/Jane's climb figures,
+#                           and so does this file. (For the record: the model gives 238 m/s
+#                           (46,900 ft/min) AB at sea level at FULL gross — the right league.)
+#   specific_range          Needs the -1-1 cruise charts.
+#
+# ── DELIBERATELY ABSENT, and why ────────────────────────────────────────────────────────────
+#   stall_speed_1g_mps      The F-16's published minimum speeds are FLCS ANGLE-OF-ATTACK
+#                           LIMITER speeds (the 25.5-deg limiter, TP-1538 App. A) — not
+#                           aerodynamic stall speeds. This model's stall is the wing's own
+#                           CL peak at alpha 35 (the engine has no AoA limiter), so a "stall"
+#                           row would compare two different physical quantities by
+#                           construction. Recorded instead: the model's 1-g aero minimum at
+#                           sea level, full gross, is 56 m/s (109 kt) — BELOW any published
+#                           limiter speed, as it must be.
