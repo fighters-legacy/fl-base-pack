@@ -185,6 +185,7 @@ Near-misses, recorded so nobody re-runs this search:
 | Field | Value | Source |
 |---|---|---|
 | `CL_max` @ M 0.60 | **1.255** | **D** — from the TO's published max-lift point (5.2 G at 15,000 ft / M 0.60). Pure lift; no drag or thrust assumption. **Independently confirmed — see below.** |
+| `CL_max` @ M 0.75 | **1.21** | **D** — pinned jointly by the TO's two M 0.75 turn points: the instantaneous turn is quoted *at the 7.33 G structural limit* (15,000 ft, 13,530 lb), which requires CL_max(0.75) ≥ 7.33·W/qS = **1.133**; and the sustained 4.3 G point, under the ladder-fitted drag shape, implies ≈ 1.20–1.22. A plateau to ~M 0.75 then shock-stall collapse toward M 0.9 is also the expected shape for a thin 4.8% section. Replaces the earlier straight-line **E** interpolation (≈1.08), which failed both published M 0.75 gates. |
 | `alpha_stall_deg` | **17** | **D** — CL_max ÷ the lift-curve slope *at M 0.60* (4.247 /rad, Helmbold + Prandtl-Glauert) = 16.9°. It must use the compressible slope: the calibration point is at M 0.60, and the incompressible slope would put the stall ~2° too high. |
 | `cd0` | 0.0200 | **P?** SP-468 App. A Table V — **cited via WIKI, unverified at source** (NASA's host is dead). The one drag number with a NASA lineage. Treat with caution. |
 | max L/D | 10.0 | **P?** SP-468, same caveat |
@@ -315,9 +316,30 @@ drag exists), but monotonic-rising is the only defensible shape and monotonic-fa
 ### Validation against the published top speed
 
 Scanning the full envelope at 36,000 ft, clean, afterburner: the model reaches **M 1.619** against the
-T.O.'s published **1.63** — **0.7%**. (`fm-trim` currently reports this as "cannot hold level flight"
-because of engine bug #825, which stops its speed search at the back side of the power curve. The
-model is right; the tool is not, and the fix is filed.)
+T.O.'s published **1.63** — **0.7%**. (Originally checked offline because of engine bug #825, which
+stopped fm-trim's speed search at the back side of the power curve; #825 is fixed and this number is
+now a live `max_level_mach` gate row, together with the **M 1.57 with tip missiles** point that
+calibrates the store-drag path.)
+
+### The full chart record is now the CI gate (fm-trim #826)
+
+When fm-trim grew `mach`, `load_factor`, `ps_mps`, `max_lift_g` and per-row payload, the rows this
+file's charts support went live in `f5e.expect.toml`: the complete Ps ladder, the M 0.60 and M 0.75
+turn points, the max-lift point, and both max-level-Mach configurations — 12 rows. Activating them
+surfaced two grid-resolution artifacts, both fixed by regenerating the tables from `derive.py`:
+
+- **The alpha axis now runs in 2.5° steps through the attached range (0–17°).** CD(α) is convex, so
+  bilinear interpolation across the old 5° cells overstated drag *between* nodes by up to ~25% of CD
+  at exactly the trim alphas the published Ps/turn points sit at (9–19 m/s of Ps). The published
+  values were fine; the sampling was too coarse to reproduce the model's own fitted curve.
+- **The Mach axis gained a 0.75 column** with the CL_max(0.75) = 1.21 **D** entry above; the previous
+  linear 0.6→0.9 interpolation understated CL_max and overstated separation drag at the exact Mach
+  the T.O. quotes its turn data at.
+
+One chart-read error was also found: the T.O.'s M 0.75 line prints *4.3 G / 9.9°/s / 4,700 ft*, but
+those three numbers disagree with each other — 4.3 G at M 0.75 gives 9.72°/s and 4,672 ft
+(`verify_targets.py`; the g and radius agree, the rate does not). The gate row therefore checks
+`sustained_g = 4.3`, not the internally inconsistent rate figure.
 
 ---
 

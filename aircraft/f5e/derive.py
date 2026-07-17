@@ -141,8 +141,18 @@ BOUNDS = {
     "cn_beta":  (0.05, 0.30),   "cn_r":   (-0.60, -0.08), "cn_dr":  (-0.20, -0.02),
 }
 
-ALPHA = [-10, -5, 0, 5, 10, 15, 17, 22, 30]     # peak at alpha_stall (see below)
-MACH  = [0.2, 0.6, 0.9, 1.2, 1.6]
+ALPHA = [-10, -5, 0, 2.5, 5, 7.5, 10, 12.5, 15, 17, 22, 30]   # peak at alpha_stall (see below)
+# 2.5-deg steps through the attached range (0..17) since the fm-trim #826 gate rows went live:
+# CD(alpha) is CONVEX, so bilinear interpolation across the old 5-deg cells systematically
+# OVERSTATED drag between nodes -- by up to ~25% of CD at the trim alphas of the published
+# Ps-ladder and turn points (9-19 m/s of Ps; 0.5 g of sustained turn at M 0.75). The model was
+# failing gates against the very chart its drag table is fitted to, purely through grid
+# resolution. The negative range stays coarse: the polar is symmetric and nothing calibrates it.
+MACH  = [0.2, 0.6, 0.75, 0.9, 1.2, 1.6]
+# 0.75 added for the same reason: the T.O. quotes turn performance AT M 0.75, and a linear
+# 0.6 -> 0.9 interpolation drags CL_max(0.75) down toward the shock-stall column (~1.08) --
+# understating the published instantaneous turn (which reaches the 7.33 g structural limit
+# there, requiring CL_max >= 1.133) and paying M 0.9 separation drag at M 0.75.
 
 # CL_max envelope vs Mach.
 #
@@ -158,6 +168,15 @@ MACH  = [0.2, 0.6, 0.9, 1.2, 1.6]
 CLMAX_VS_MACH = {
     0.2: 1.20,    # [E] thin 4.8% symmetric section, no flaps -- modest
     0.6: 1.255,   # [D] the published anchor. The only honest number in this row.
+    0.75: 1.21,   # [D] pinned by the T.O.'s two M 0.75 turn points, jointly:
+                  #     * instantaneous turn is quoted AT the 7.33 g structural limit
+                  #       (15,000 ft, 6137 kg), which requires CL_max(0.75) >= 7.33*W/(q*S) = 1.133
+                  #     * sustained 4.3 g requires the separation-drag term (keyed to CL/CL_max)
+                  #       to leave <= T - D at CL 0.664, which with the ladder-fitted k1/k2
+                  #       implies CL_max(0.75) ~= 1.20-1.22
+                  #     A plateau to ~M 0.75 followed by shock-stall collapse toward 0.9 is also
+                  #     the physically expected shape for a thin 4.8% section; the previous
+                  #     straight line to 1.10 was the [E] guess this data replaces.
     0.9: 1.10,    # [E] shock stall
     1.2: 0.85,    # [E]
     1.6: 0.70,    # [E]
