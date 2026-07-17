@@ -57,7 +57,9 @@ itself is consistent.
 | `wing_area_m2` | 27.87 | **[P]** TP-1538 Table I (300 ft²) |
 | `wingspan_m` | 9.144 | **[P]** Table I (30 ft, clean); Fig. 2's 9.45 m includes the tip rails |
 | `mac_m` | 3.45 | **[P]** Table I (11.32 ft) |
-| `ixx/iyy/izz_kg_m2` | 12 875 / 75 674 / 85 552 | **[P]** Table I, at the 20,500 lb simulation weight. Fixed inertia is an engine limitation (the F-5E records the same one). Ixz = 1,331 kg·m² is also published; the schema has no slot — dropped, reported. |
+| `ixx/iyy/izz_kg_m2` | 12 875 / 75 674 / 85 552 | **[P]** Table I, at the 20,500 lb simulation weight. Fixed inertia is an engine limitation (the F-5E records the same one). |
+| `ixz_kg_m2` | 1 331 | **[P]** 982 slug·ft², Table I — roll/yaw inertial coupling, now carried (engine#899). |
+| `engine_ang_momentum` | 216.9 | **[P]** He, p. 40 — the F100 rotor's gyroscopic coupling (engine#899). |
 | `mass_kg` | 7 167 | **[E]** 15,800 lb operating-empty-class. TP-1538 publishes only its 20,500 lb sim weight; 15,800 + ~55–65 % internal fuel is consistent with it. **Pending the SAC/T.O. weights hunt** — the honest current state. |
 | `fuel_kg` | 3 162 | **[P]-class** 6,972 lb internal JP-4, widely published for the A/B |
 
@@ -107,7 +109,8 @@ printed line. Typed cells were spot-checked against the S&L reprint (errata chec
 | `cn_r` | **[P]** Cnr(α) p. 81 + scheduled ΔCnr,lef: −0.397 |
 | `cl_da` | **[P]** ΔCl(δa=20°) p. 87: 0.142/rad. TP-1538's positive aileron gives negative Cl; the engine's normalized right-roll command takes the magnitude (sign mapping documented in transcribe.py). |
 | `cn_dr` | **[P]** ΔCn(δr=30°) p. 80: −0.085/rad |
-| `alpha_stall_deg` | **[P]** 35° — the transcribed table's own CL peak (1.894). NOT the FLCS's 25.5° limiter (App. A): the engine has no AoA limiter, and the aero data genuinely peaks at 35. |
+| `alpha_stall_deg` | **[P]** 35° — the transcribed table's own CL peak (1.894): the AERODYNAMIC stall. Distinct from `alpha_limit_deg` below — this is where the wing actually stalls. |
+| `alpha_limit_deg` | **[P]** 25.5° — the FLCS AoA cap (App. A). engine#900 makes `has_fbw` enforce it, so the model no longer flies past the real jet's computer-limited AoA. |
 | `max_g_structural` / `min_g` | **[P]** +9.0/−3.0, the F-16's design limits (TO-1 Sec. V class) |
 | `max_mach` | **[P]** 2.05 placard |
 | `[aero.controls]` | **[P]** Table I deflection limits: δh ±25° **symmetric** (no `max_elevator_neg_deg` — that absence is data), flaperons ±21.5°, rudder ±30°. The differential tail (±5.375° at 4:1) has no schema slot. |
@@ -152,29 +155,41 @@ SL: Vs(1g aero) 56 m/s, max M 1.16, ROC(AB) 238 m/s, sustained 7.6 g;
 
 ## Known limits — stated rather than hidden
 
-1. **The FLCS is not modelled.** The real jet is unstable at 0.35 c̄ and stabilised by its
-   analog FBW; this model gets stability from its forward CG instead (see the CG chapter), so
-   pitch feel is stiffer than the real aircraft's. `has_fbw` buys only the #816 G-limiter.
-2. **No AoA limiter** (real: 25.5°, App. A), no roll-rate command shaping (308°/s), no
-   high-α rudder fadeout, no negative-g limiter (the engine limiter acts on positive
-   commands only). The sim F-16A can visit alphas the real jet's computer forbids.
-3. **Mach synthesis above 0.6** — TP-1538 is low-speed; the high-M columns are [D/E].
-4. **Scalar dampers**: cm_q/cl_p/cn_r are α-band means of the report's α-dependent tables;
-   the post-stall damping story (this is the *deep-stall study*, after all) is lost. CXq, CZq,
-   CYp, CYr, Clr, Cnp are published and dropped — no schema slots.
-5. **No Cm₀ slot**: the −0.019 offset at the model CG is dropped (≈ −3.3° zero-elevator trim
-   shift, quantified in `--check`).
-6. **No Ixz** (published 1,331 kg·m²), **no engine angular momentum** (published 216.9
-   kg·m²/s) — both in the report's EOM, neither in the engine's.
-7. **Adverse yaw** (cn_da = −0.027) and **rudder roll** (cl_dr = +0.027) computed from the
-   published increments and dropped — no schema slots.
-8. **Deep stall not represented**: the pack table ends at 45° and edge-clamps; the report's
-   own subject matter (the ~60° deep-stall trim) is out of scope for a 60 Hz game solver.
-9. **Speed-brake pitch/lift increments** (ΔCm,sb, ΔCZ,sb — published) dropped; the schema
-   carries drag only.
-10. **Fixed inertia** at the 20,500 lb loading; `mass_kg` is [E] pending the weights hunt.
+Engine **#907** (v0.3.5) closed most of the gaps this deck had to drop through v0.3.4; the list
+below is split into what is now modelled and what is still out.
 
-Items 4–7 and 9 are consolidated in an engine schema-gap issue filed from #19.
+**Now modelled (engine#899/#900/#901), un-dropped from the published data:**
+
+- **FLCS AoA cap** — `alpha_limit_deg = 25.5` (App. A). `has_fbw` now holds the jet to it, plus a
+  **negative-g limiter** against `min_g_structural` (#900). The sim F-16A no longer visits the
+  25–35° range the real flight-control computer forbids.
+- **α-dependent dampers** — cm_q/cl_p/cn_r now ship as the report's α **tables** (which override
+  the scalars), so the α-dependence is carried, not band-averaged away (#899).
+- **Cm₀** (−0.019 at the model CG, ≈ −3.3° zero-elevator trim shift), **Ixz** (1,331 kg·m²),
+  **engine angular momentum He** (216.9 kg·m²/s), **adverse yaw** cn_da (−0.027) and **rudder
+  roll** cl_dr (+0.027) — all now have schema slots and are authored (#899).
+- **Single-engine damage** — `[damage.subsystems.engine]`: one F100, total thrust loss, no yaw
+  (#901), replacing the tier-thrust-factor stopgap.
+
+**Still out:**
+
+1. **The FLCS itself is not modelled.** The real jet is unstable at 0.35 c̄ and stabilised by its
+   analog FBW; this model gets stability from its forward CG instead (see the CG chapter), so
+   pitch feel is stiffer than the real aircraft's. The envelope protections above are now real,
+   but roll-rate command shaping (308°/s) and high-α rudder fadeout are not.
+2. **Mach synthesis above 0.6** — TP-1538 is low-speed; the high-M columns are [D/E].
+3. **Secondary dampers dropped** — CXq, CZq, CYp, CYr, Clr, Cnp are published but have no schema
+   slots (axial and cross-axis rate damping).
+4. **Speed-brake pitch/lift increments** (ΔCm,sb, ΔCZ,sb) not authored — only the drag increment
+   (dCX_SB) is typed, and it is already carried by `speedbrake_cd`. #907 added `speedbrake_cl` /
+   `cm_speedbrake` slots, but the lift/pitch α-tables are not yet reduced to honest scalars here.
+5. **Idle-thrust deck** — Table VI publishes it (incl. negative ram-drag cells) and #898 added the
+   `[engine.idle_thrust]` slot, but the idle row is **not yet typed** in `transcribe.py` (the PDF
+   is reference-only, not vendored). Authoring the idle row is the one remaining un-drop; until
+   then part-throttle rides the linear `throttle × mil` path.
+6. **Deep stall not represented**: the table ends at 45° and edge-clamps — and with the 25.5° AoA
+   cap now enforced, the jet does not reach the report's own ~60° deep-stall subject anyway.
+7. **Fixed inertia** at the 20,500 lb loading; `mass_kg` is [E] pending the weights hunt.
 
 ## Mesh — `f16a_build.py`
 
@@ -218,5 +233,8 @@ any image used for a future mesh iteration gets a MANIFEST row before it is used
    Every symmetric-table aircraft was blind to it.
 2. **Kind-typed hardpoints could not describe this airframe** (fighters-legacy#895): the wet
    stations carry bombs OR rocket pods OR tanks; stations are now allowed-driven.
-3. **Idle-thrust deck, α-dependent dampers, Ixz, adverse-yaw/rudder-roll slots, Cm₀** —
-   schema gaps surfaced by transcription, filed as engine enhancements.
+3. **Idle-thrust deck, α-dependent dampers, Ixz, engine angular momentum, adverse-yaw/rudder-roll
+   slots, Cm₀, FLCS AoA + negative-g limiting, single-engine damage** — schema gaps surfaced by
+   transcription, filed as engine enhancements and **all closed in engine#907** (v0.3.5). This
+   deck now authors every one of them except the idle row (published, not yet typed) and the
+   speed-brake lift/pitch increments (published as α-tables, not yet reduced to scalars).
