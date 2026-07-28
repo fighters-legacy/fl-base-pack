@@ -1,6 +1,6 @@
 # fl-base-pack
 
-Community content for [Fighters Legacy](https://github.com/jomkz/fighters-legacy) — a free,
+Community content for [Fighters Legacy](https://github.com/fighters-legacy/fighters-legacy) — a free,
 open-licensed collection of aircraft, terrain, missions, audio, and AI scripts playable with no
 proprietary content required.
 
