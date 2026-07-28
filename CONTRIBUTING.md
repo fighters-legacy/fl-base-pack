@@ -75,11 +75,12 @@ The entity definition, sensors and weapons live in the top-level `entities/`, `s
 - glTF 2.0 binary (`.glb`). No embedded image data — textures are external `.ktx2` URIs.
 - Node/material names lowercase with underscores; winding CCW from outside.
 - Damage-state node `<name>_b` in the same file as its base node.
-- **One material, one primitive, for now.** The engine loads only `meshes[0].primitives[0]` until
-  its node-aware loader lands
-  ([fighters-legacy#839](https://github.com/fighters-legacy/fighters-legacy/issues/839)); a
-  multi-material split would push geometry into primitives the engine drops. Multiple parts and
-  material slots come with that engine work, not before it.
+- Multiple nodes, primitives and material slots are all supported — the node-aware loader shipped
+  with [fighters-legacy#839](https://github.com/fighters-legacy/fighters-legacy/issues/839).
+- Animation channels (gear, flaps, speedbrake, hook, canopy, control surfaces and the rest) are a
+  fixed registry enforced by `validate-mesh`. See
+  [3d-models.md](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/3d-models.md) for the channel names — a clip
+  targeting a channel outside the registry is rejected.
 - Run [`validate-mesh`] locally, and preview with `tools/gltf-inspect/` (a stopgap browser viewer)
   — but note it is **not** the game renderer.
 
@@ -123,9 +124,15 @@ terrain/
       ...
 ```
 
-- **Chunk naming**: `chunk_<x>_<y>.png` with 4-digit zero-padded coordinates
-- **Terrain ID**: `"world"` is the canonical global terrain; theater packs override individual chunks at higher mod priority via `IContentPack::resolveTerrainChunk()`
-- **Surface class map**: companion JSON at `terrain/<id>/surface.json` — maps pixel brightness ranges to surface class IDs (grass, water, urban, etc.) with associated `*.ktx2` textures
+- **Terrain ID**: `"world"` is the canonical global terrain; theater packs override individual tiles
+  at higher mod priority.
+- **Tile naming and layout** are specified in the engine's
+  [terrain format reference](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/formats.md) — cube-sphere quadtree
+  tiles, `terrain/<id>/f<face>/l<level>/tile_<i>_<j>.png`, plain unpadded integers.
+
+  The planar `chunk_<x>_<y>.png` grid described in older revisions of this file, and its
+  `surface.json` companion, are **not read by the engine** and never were under that name. Generate
+  tiles with `tools/gen_terrain_tiles.py`, not `gen_terrain_chunks.py`.
 
 See [terrain format documentation](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/formats.md#terrain) for full chunk format spec and the `tools/gen_terrain_chunks.py` tool for converting GeoTIFF/DEM sources.
 
@@ -165,22 +172,17 @@ Lua 5.4 AI behaviour scripts. The engine AI API is documented in
   aircraft's `SOURCES.md`; **scale plans and cutaway drawings are copyrighted even when labelled
   "for reference"** — do not use them.
 
-## What the engine renders today (so you are not surprised)
+## Check it in the game, not just in the validator
 
-The engine is mid-build. An aircraft that validates and loads will still, right now:
+A green validator proves the file parses; it does not prove the aircraft renders. Preview geometry
+with `tools/gltf-inspect/`, then confirm it actually loads by booting `fl-server` against a real
+`mods/` tree.
 
-- render in **flat grey** — there is no mesh-texture pipeline yet
-  ([#833](https://github.com/fighters-legacy/fighters-legacy/issues/833)); your `.ktx2` references
-  are correct and dormant.
-- show only its **first primitive** — keep to one material (above).
-- **not move** — landing gear, flaps and control surfaces are not animated yet
-  ([#837](https://github.com/fighters-legacy/fighters-legacy/issues/837)).
-
-None of these are defects in your asset; author to the documented conventions and the aircraft
-lights up as the engine catches up. Preview geometry with `tools/gltf-inspect/`; confirm it actually
-loads by booting `fl-server` against a real `mods/` tree (a green validator is not proof it renders).
-
----
+This section previously listed engine limitations — flat-grey rendering, single-primitive meshes,
+unanimated control surfaces. **All of them are gone**, and the text outlived them by a release,
+which is why capability claims no longer live in this file. The engine's own
+[modding documentation](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/modding/) is the single source of truth for
+what it can render; if something here disagrees with it, that page is right.
 
 ## PR workflow
 
