@@ -31,6 +31,10 @@ install fl-base-pack automatically.
 [Releases](https://github.com/fighters-legacy/fl-base-pack/releases) page and extract it into your
 `mods/` directory so the result is `mods/fl-base-pack/manifest.toml`.
 
+New to the game? The engine's
+[installation guide](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/user-guide/installation.md)
+covers system requirements and first run.
+
 ---
 
 ## Building audio
