@@ -238,3 +238,9 @@ any image used for a future mesh iteration gets a MANIFEST row before it is used
    transcription, filed as engine enhancements and **all closed in engine#907** (v0.3.5). This
    deck now authors every one of them except the idle row (published, not yet typed) and the
    speed-brake lift/pitch increments (published as α-tables, not yet reduced to scalars).
+
+## Countermeasures — `chaff_count = 60`, `flare_count = 30`
+
+**Provenance: `estimated` [E].** AN/ALE-40(V)-4: four dispenser magazines under the aft fuselage,
+each 30 chaff OR 15 flares; the modelled load is the usual two-and-two mix (60 chaff + 30 flares).
+The per-dispenser capacities are hardware numbers; the mix is the estimate.

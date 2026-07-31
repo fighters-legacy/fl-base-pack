@@ -7,8 +7,10 @@
 # (`requires_designator` is the laser/GPS spot-holding flag and does NOT apply; `pitbull_nm`
 # is active-radar-only and would be a parse error here.)
 #
-# STORE, NOT ORDNANCE: no fire path, no guidance loop, no chaff/notch modelling until Epic
-# fighters-legacy#583. The [countermeasures] fields are authored now so the data is ready.
+# LIVE ORDNANCE since Epic fighters-legacy#583: the SARH fire/guidance path is real — the
+# missile flies only while the shooter's contact on the target stays Locked (a support drop
+# coasts the seeker's lock_hold_s, then it goes dumb), and [countermeasures] is consumed:
+# chaff can seduce the illumination return per chaff_susceptibility.
 
 [weapon]
 id       = "fl-base:aim7m"

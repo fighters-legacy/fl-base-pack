@@ -541,3 +541,13 @@ Livery and markings remain **absent** (§4); a real aggressor scheme is future a
 The UV map is `fl_meshlib.uvatlas.planar_uvs` — an honest top-down planar projection (adequate while
 a proper per-part unwrap waits on the texture-work follow-up), so top and bottom surfaces share the
 map. Texel density is not uniform; art quality iterates without touching any other layer.
+
+## Countermeasures — `chaff_count = 30`, `flare_count = 15`
+
+**Provenance: `estimated` [E].** The F-5E's AN/ALE-40(V) fit is an operator retrofit, not a
+universal T.O. configuration: two aft-fuselage dispensers, each loadable with 30 chaff cartridges
+OR 15 flares. The entity models the common one-of-each mix (30 chaff + 15 flares). No primary
+document states a standard F-5E expendables load, so the counts are the dispenser capacities
+themselves; the fit decision (dispensers present at all) is the modelling call, made so the jet
+participates in the engine's countermeasure loop (fighters-legacy#529) against the pack's own
+chaff/flare-susceptible missiles.

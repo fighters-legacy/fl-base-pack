@@ -30,6 +30,13 @@ ai_script    = "fighter"      # -> ai/fighter.lua
 # only what its sensors give it. Night degrades it hard -- see sensors/eyeball_night.toml.
 sensors = ["fl-base:apq159", "fl-base:eyeball_day", "fl-base:eyeball_night"]
 
+# Expendables magazine (engine #529): `E` dispenses one chaff + one flare. AN/ALE-40(V) is an
+# operator retrofit — two aft-fuselage dispensers, each 30 chaff OR 15 flares; modelled as the
+# common one-of-each mix [E], SOURCES.md carries the fit decision. Without these keys the jet
+# has no dispenser at all while both pack missiles are chaff/flare-susceptible.
+chaff_count = 30
+flare_count = 15
+
 # ── Signatures ────────────────────────────────────────────────────────────────────────────────
 # Unitless multipliers against a baseline fighter (1.0). Sensor max_range scales by sqrt(rcs) for
 # radar, and LINEARLY for ir/visual/laser.
