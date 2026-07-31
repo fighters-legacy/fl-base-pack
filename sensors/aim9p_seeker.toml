@@ -15,6 +15,7 @@
 id              = "fl-base:aim9p_seeker"
 name            = "AIM-9P IR seeker"
 type            = "ir"
+role            = "seeker"      # weapon-path sensor (engine #902): not an aircraft radar to the validator
 omnidirectional = false
 emitter         = false
 

@@ -25,6 +25,11 @@ ai_script    = "fighter"          # shared ai/fighter.lua; gun station 0 + missi
                                   # match its expectations, so no script fork
 sensors = ["fl-base:apg66", "fl-base:eyeball_day", "fl-base:eyeball_night"]
 
+# Expendables magazine (engine #529): AN/ALE-40(V)-4 — four aft-fuselage dispensers, each
+# 30 chaff OR 15 flares, modelled as the usual two-and-two mix [E]; see SOURCES.md.
+chaff_count = 60
+flare_count = 30
+
 # ── Signatures ────────────────────────────────────────────────────────────────────────────────
 # Unitless multipliers vs a baseline fighter (1.0); radar range scales sqrt(rcs), ir/visual
 # linearly. All [E] — signature data is not public and never will be — but reasoned: the F-16 is
