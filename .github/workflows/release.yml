@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Manual dispatch dry-runs the build steps (toktx install, texture compress, archives)
+  # without publishing -- the Publish step is tag-gated. NOTE: workflow_dispatch always runs
+  # the DEFAULT branch's copy of this file, so the dry-run only exists after this merges.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,11 +24,26 @@ jobs:
         with:
           require: tex-compress
 
+      - name: Install toktx (KTX-Software)
+        if: hashFiles('aircraft/*/textures-src/*.png') != ''
+        run: |
+          set -euo pipefail
+          # tex-compress emits Basis Universal KTX2 by shelling out to the Khronos `toktx`
+          # binary (fighters-legacy#846) -- without it on PATH the compress step exits 1 on the
+          # first texture, and ubuntu-latest ships no toktx. Not reliably an apt package;
+          # install from the pinned KTX-Software release, the same recipe the engine's own CI
+          # uses for its Basis encode gate.
+          KTXVER=4.4.2
+          curl -sSL -o /tmp/ktx.tar.bz2 \
+            "https://github.com/KhronosGroup/KTX-Software/releases/download/v${KTXVER}/KTX-Software-${KTXVER}-Linux-x86_64.tar.bz2"
+          mkdir -p /tmp/ktx && tar xjf /tmp/ktx.tar.bz2 -C /tmp/ktx --strip-components=1
+
       - name: Compress textures
         if: hashFiles('aircraft/*/textures-src/*.png') != ''
         shell: bash
         run: |
           set -euo pipefail
+          export LD_LIBRARY_PATH="/tmp/ktx/lib:${LD_LIBRARY_PATH:-}"
           # PNG masters are the source and live in the repo; .ktx2 is a build artifact and is
           # gitignored (fighters-legacy#846). Compression happens HERE, once, rather than on every
           # contributor's machine -- an author must not need toktx installed to change a texture.
@@ -42,7 +61,7 @@ jobs:
               *)         type=diffuse ;;
             esac
             echo "tex-compress --type $type $png -> textures/${stem}.ktx2"
-            tex-compress --type "$type" "$png" "textures/${stem}.ktx2"
+            tex-compress --toktx /tmp/ktx/bin/toktx --type "$type" "$png" "textures/${stem}.ktx2"
           done
 
       - name: Build mod archives
@@ -96,6 +115,8 @@ jobs:
           tar -tzf "fl-base-pack-${{ github.ref_name }}.tar.gz" | sort
 
       - name: Publish GitHub Release
+        # Tag pushes only -- a workflow_dispatch dry-run builds everything and publishes nothing.
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           VERSION="${{ github.ref_name }}"
           gh release create "$VERSION" \
