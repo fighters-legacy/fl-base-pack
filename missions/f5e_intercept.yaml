@@ -12,18 +12,21 @@
 # real ordnance and the bandit can be shot down. Success is `on: destroy(bandit1)`, evaluated live
 # each tick by the mission trigger runtime (engine #632, shipped in v0.3.2).
 #
-# GROUND START: the player begins PARKED at the surface — idle throttle, zero airspeed, held stable
-# until rotation (engine #885). The pack has no terrain yet (#2 cube-sphere tiles, #9 global base),
-# so this is the interim sea-level ramp start: the jet sits on the placeholder surface, not a
-# runway. When a theater with an airfield lands, the mission moves to the runway proper (#47 stays
-# open for that).
+# RUNWAY START: the player begins PARKED on the builtin airfield's runway (engine #699/#486, in
+# v0.3.8) — idle throttle, zero airspeed, held stable until rotation (engine #885). The runway
+# needs NO pack terrain: `builtin:airfield` is compiled into the engine (2500 x 45 m asphalt,
+# heading 090, field elevation FIXED at 550 m) and the terrain is flattened under it on both the
+# physics floor and the visible mesh. Pack terrain (#2/#9) adds a real theater later; a pack
+# airfield is #18.
 #
-# MAP: `earth` is the id the terrain issues will ship; validate-mission checks structure, not asset
-# existence, so this file is valid today. Same for the placeholder weather layer.
+# MAP: `world` is the canonical terrain id — a theater pack overrides individual tiles at higher
+# mod priority, it never replaces the world (a `terrain/earth` tree would resolve to NOTHING).
+# `map:` is parsed but not yet consumed engine-side; validate-mission checks structure, not asset
+# existence.
 
 name: "Tiger by the Tail"
-map: earth
-layer: earth_clear
+map: world
+layer: world_clear
 time: { hour: 9, minute: 30 }
 wind: { heading: 250, speed: 6 }
 weather:
@@ -41,13 +44,19 @@ objects:
   # object spawns as a world entity — and since it has no `ai:`, the single-player lifecycle (#634)
   # auto-attaches the entity's default fighter.lua, so the intended player jet would fly itself.
   #
-  # `start: ground` (engine #885) parks the jet at the surface, and no `alt:` on purpose: a ground
+  # `start: ground` (engine #885) parks the jet on the surface, and no `alt:` on purpose: a ground
   # start takes its height from the terrain, so an altitude stated here would be a lie.
+  #
+  # The spawn is the builtin airfield's runway threshold: the field sits at worldXZ (4000, 0)
+  # (BuiltinAirport.h), where local east — runway heading 090 — points along world -Z, so the
+  # 2500 m runway runs z = +1250 .. -1250 at x = 4000. Parking at z = 1200 leaves 2450 m of
+  # asphalt ahead, and heading 90 faces down the centerline (the engine's demo-atc-scramble
+  # mission traces the same geometry).
   - type: fl-base:f5e
     id: player1
     side: blue
-    pos: [0, 0, 0]
-    heading: 45
+    pos: [4000, 0, 1200]
+    heading: 90
     player: true
     start: ground
 
