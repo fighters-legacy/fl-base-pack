@@ -18,6 +18,17 @@
 -- The IR AIM-9P is boresight/uncaged, so the missile shot needs only aspect + range, not a radar
 -- lock -- its own seeker does the acquiring after launch.
 --
+-- BVR (fl-base-pack#6): the AIM-7M rides the SHOOTER's radar. There is still no lock COMMAND in
+-- the Lua API, but none is needed: a contact whose `state == "locked"` IS the radar track (TWS
+-- soft lock), an AI launch designates along the NOSE, and mid-course SARH support only needs that
+-- contact held Locked on the shooter's own table (engine #628/#526). So the Sparrow shot is: fire
+-- with a locked contact on the nose, then HOLD the nose on it through time of flight -- a support
+-- drop coasts the missile seeker's lock_hold_s, then it flies dumb. Because there is no ammo
+-- query, an airframe with nothing on the radar-missile station (the F-5E) still enters the
+-- support hold after a "launch" that no-opped server-side: it flies pure pursuit instead of lead
+-- pursuit for up to the TOF window, which still closes the fight and still employs IR/guns the
+-- moment parameters appear. That is the price of honest no-introspection, and it is small.
+--
 -- Tuning note: gains below are deliberately conservative for the F-5E — it has no G limiter
 -- (has_fbw = false) and the engine will hand out over-G damage (fighters-legacy#816), so the
 -- script must fly within the airframe's limits on its own.
@@ -43,6 +54,28 @@ local GUN_CONE_COS    = 0.9962            -- cos(5 deg): guns want a tight track
 local MSL_RANGE_M     = 9260              -- 5 nm: the seeker's search-lobe reach (aim9p_seeker.toml)
 local MSL_MIN_M       = 560               -- ~0.3 nm: inside the missile's own min arming range
 local MSL_CONE_COS    = 0.9397            -- cos(20 deg): the uncaged seeker acquisition basket
+
+-- ── BVR employment (fl-base-pack#6). Station 5 = radar missile: the F-16A's mid-wing AIM-7M
+-- pair (entities/f16a.toml). On the F-5E slot 5 is an EMPTY bomb station, and a release intent
+-- on an empty station is a server no-op, so the shared script stays safe. New defs that follow
+-- 0 = gun / 1 = IR missile / 5 = radar missile reuse this script unforked (#41/#43).
+local SARH_STATION  = 5
+local SARH_RANGE_M  = 28000               -- ~15 nm launch window: inside the aim7m's 20 nm
+                                          -- employment reach and the APG-66's 22 nm track lobe
+local SARH_MIN_M    = 3500                -- inside this the Sparrow is the wrong tool; save the rail
+local SARH_CONE_COS = 0.9659              -- cos(15 deg): AI launch designation is along the NOSE
+local SARH_TOF_MPS  = 700                 -- coarse shot closing speed (boost ~M4, then coast) for
+                                          -- the support-hold deadline
+local SARH_REFIRE_TICKS = 900             -- 15 s between launch attempts. A lock that flickers at
+                                          -- the track-lobe edge would otherwise open a fresh fire
+                                          -- window every second or two (observed: 33 attempts in
+                                          -- one duel) and dump both rails into the first flicker.
+local SARH_STEER_AGG = 2.5                -- bank aggressiveness for launch alignment + support:
+                                          -- full MAX_BANK from ~24 deg of heading error, so the
+                                          -- nose actually converges onto a crossing target
+local sarh_support_until = nil            -- tick deadline while supporting a Sparrow in flight
+local sarh_target_idx    = nil            -- the supported contact's entity idx
+local sarh_last_fire     = -1e9           -- tick of the last launch attempt
 
 local function len2(x, z) return math.sqrt(x * x + z * z) end
 
@@ -91,14 +124,21 @@ local function pick_target(state)
 end
 
 -- Steer toward a world point at a given altitude; the shared inner loop of every state.
-local function steer(state, tx, tz, talt, throttle, ab)
+-- `agg` (optional, default 1) scales the bank the heading error commands. The default P-map
+-- reaches MAX_BANK only at 90 deg of error, and a ~40 deg error commands a ~28 deg bank whose
+-- turn rate can exactly match a crossing target's bearing drift — a stable pursuit-curve
+-- equilibrium that holds the nose off the target forever (observed: herr pinned at 42-50 deg
+-- through a whole 14->5 km conversion). The BVR phases pass agg > 1 to break it; every
+-- pre-existing call keeps the #53-tuned default.
+local function steer(state, tx, tz, talt, throttle, ab, agg)
     local herr = guidance.heading_error(state.quat, state.pos, { x = tx, y = state.pos.y, z = tz })
     -- Close the roll loop on BANK, not on heading (#53). bank_to_turn_aileron maps heading error
     -- straight to aileron, but aileron commands roll RATE on this airframe — fed raw, a sustained
     -- heading error (any orbit is one) integrates the bank past knife-edge and the jet rolls
     -- inverted. Use the helper's shaped/saturated output as the TARGET bank fraction instead,
     -- and fly the aileron to that bank.
-    local tbank = guidance.bank_to_turn_aileron(herr) * MAX_BANK
+    local tbank = clamp(guidance.bank_to_turn_aileron(herr) * MAX_BANK * (agg or 1.0),
+                        -MAX_BANK, MAX_BANK)
     local ail   = clamp(ROLL_GAIN * (tbank - bank_of(state)), -1, 1)
     -- NB: pitch_error_from_alt takes (quat, own_pos, alt_error). docs/modding/ai.md documents a
     -- 2-arg form and its own example uses it; both are wrong. own_pos is needed because "up" is
@@ -133,6 +173,39 @@ function compute_control(state, tick, dt)
         return out
     end
 
+    -- ── SARH SUPPORT HOLD (fl-base-pack#6). A Sparrow is in the air: keep the illuminating
+    -- track alive by holding the nose on the SUPPORTED contact until the time-of-flight window
+    -- closes. Support rides this aircraft's own contact table, so the one thing that matters is
+    -- that contact staying "locked" -- and the APG-66's 55/25 deg track lobe forgives normal
+    -- maneuvering, so flying AT the contact is more than enough pointing. On support loss the
+    -- missile coasts its seeker's lock_hold_s and goes dumb; nothing to do then but fight on.
+    if sarh_support_until then
+        if tick >= sarh_support_until then
+            sarh_support_until, sarh_target_idx = nil, nil   -- shot resolved, either way
+        else
+            local sup = nil
+            for _, c in ipairs(detected_contacts()) do
+                if c.idx == sarh_target_idx then sup = c break end
+            end
+            if not (sup and sup.state == "locked") then
+                sarh_support_until, sarh_target_idx = nil, nil   -- lock gone; the shot is on its own
+            else
+                local out = steer(state, sup.pos.x, sup.pos.z,
+                                  math.max(sup.pos.y, FLOOR + 200), 1.0, false, SARH_STEER_AGG)
+                -- The hold points us at the target anyway -- take the shot if one appears.
+                local cosang, rng = boresight(state, sup.pos)
+                if cosang >= GUN_CONE_COS and rng <= GUN_RANGE_M then
+                    out.weapon_station = GUN_STATION
+                    out.trigger        = true
+                elseif cosang >= MSL_CONE_COS and rng >= MSL_MIN_M and rng <= MSL_RANGE_M then
+                    out.weapon_station = MISSILE_STATION
+                    out.release        = true
+                end
+                return out
+            end
+        end
+    end
+
     local tgt, dist = pick_target(state)
 
     if tgt then
@@ -142,6 +215,35 @@ function compute_control(state, tick, dt)
         local vc     = ((state.vel.x - tgt.vel.x) * dx + (state.vel.z - tgt.vel.z) * dz) / d
 
         if dist > ENGAGE_M then
+            -- ── EMPLOY, BVR: when a Sparrow shot is AVAILABLE (locked contact, launch window,
+            -- rail cooled down), abandon the lead point and put the nose ON the contact — the
+            -- launch designator picks the contact along the nose and the support hold wants the
+            -- same geometry; the missile pulls its own lead. Lead-pursuit intercept keeps a
+            -- standing lead angle on any crossing target (observed ~35 deg through a whole
+            -- stern conversion), so gating the shot on nose-on WITHOUT steering nose-on means
+            -- the window never opens. Fire on alignment; the release edge means one store.
+            local cosang, rng = boresight(state, tgt.pos)
+            -- Kinematic launch quality: the Sparrow's 20 nm employment figure is a HEAD-ON
+            -- number. Scale the accepted launch range with closure so a tail-chase does not
+            -- waste both rails at gate range (observed: two shots at 21 and 18 km on a
+            -- receding target, both hopeless): ~35 s of closure contribution over a 9 km
+            -- floor, capped at the employment gate.
+            local rmax = clamp(9000 + vc * 35, 6000, SARH_RANGE_M)
+            if tgt.state == "locked"
+               and rng >= SARH_MIN_M and rng <= rmax
+               and tick - sarh_last_fire >= SARH_REFIRE_TICKS then
+                local out = steer(state, tgt.pos.x, tgt.pos.z,
+                                  math.max(tgt.pos.y, FLOOR + 200), 1.0, vc < 120, SARH_STEER_AGG)
+                if cosang >= SARH_CONE_COS then
+                    out.weapon_station = SARH_STATION
+                    out.release        = true
+                    sarh_last_fire     = tick
+                    sarh_target_idx    = tgt.idx
+                    sarh_support_until = tick + math.floor(clamp(rng / SARH_TOF_MPS, 6, 30) * 60)
+                end
+                return out
+            end
+
             -- INTERCEPT: lead pursuit on the last-known state. Aim where it will be, not where
             -- it was — and the older the contact, the less lead we trust.
             local lead = math.min(dist / math.max(vc, 100), 12) * (tgt.age_s < 1 and 1 or 0.4)

@@ -21,8 +21,9 @@ collision_radius_m = 9.0          # span 9.45 m over the rails; the 8 m air defa
 mesh         = "f16a/f16a"        # -> aircraft/f16a/f16a.glb
 cockpit      = "f16a/f16a_cockpit"
 flight_model = "f16a/f16a"        # -> aircraft/f16a/f16a.toml
-ai_script    = "fighter"          # shared ai/fighter.lua; gun station 0 + missile station 1
-                                  # match its expectations, so no script fork
+ai_script    = "fighter"          # shared ai/fighter.lua; gun station 0 + IR station 1 + radar-
+                                  # missile station 5 match its expectations, so no script fork
+                                  # (#6 BVR employs the mid-wing AIM-7s from this convention)
 sensors = ["fl-base:apg66", "fl-base:eyeball_day", "fl-base:eyeball_night"]
 
 # Expendables magazine (engine #529): AN/ALE-40(V)-4 — four aft-fuselage dispensers, each
