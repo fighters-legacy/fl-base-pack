@@ -1,0 +1,45 @@
+# AN/APQ-164 — the B-1B's offensive radar (fl-base-pack#66, coordinate #17).
+#
+# NOT A FIGHTER RADAR, and the numbers below say so. The APQ-164 is a passive electronically scanned
+# array derived from the F-16's APG-66, mounted BEHIND A FIXED, OFFSET RADOME and pointed slightly
+# down: its job is terrain following, ground mapping and weapon delivery, not air intercept. It
+# gives the B-1B honest situational awareness and a reason for the offensive systems officer to
+# exist; it does not make a bomber into an interceptor, and an author reaching for an air-to-air
+# lobe should reach for apg66.toml instead.
+#
+# Detection RANGE IS NOT PUBLISHED for any fire-control radar, and the apq159/apg66 caveat applies
+# verbatim: display scale is not detection range, and no open source will ever settle these numbers.
+# They are [E], ordered sanely against the pack per #17's placeholder-grade tuning rule —
+# APG-66 > APQ-164 in every AIR-TO-AIR axis, because that is the real difference in role.
+
+[sensor]
+id              = "fl-base:apq164"
+name            = "AN/APQ-164 offensive radar"
+type            = "radar"
+omnidirectional = false
+emitter         = true     # it shouts, and on a penetrating bomber that matters: the real crew
+                           # ran it in short bursts for exactly this reason.
+
+# ECCM: the APQ-164 was built to work in a jammed environment — frequency agility and a
+# low-sidelobe array were part of the point of a PESA on a penetrator. Authored INSIDE [sensor],
+# which is where the parser reads it (engine #1119; a root-level key is now a hard error), and it
+# is meaningful here because this radar has a [track] lobe for something to apply it to.
+eccm = 0.55   # [E]
+
+[search]
+# The array is fixed and offset; electronic steering covers a sector, not a hemisphere. Narrower in
+# azimuth than the APG-66's ±60° and biased downward, because it is looking at the ground.
+az_half_angle_deg = 45.0   # [E]
+el_half_angle_deg = 20.0   # [E]
+min_range_nm      = 0.5
+max_range_nm      = 20.0   # [E] deliberately BELOW the APG-66's 30: an air contact is incidental
+                           #     to this radar, not its purpose
+pod               = 0.25   # per 10 Hz check; slower to find an air target than a fighter radar
+
+[track]
+az_half_angle_deg = 40.0
+el_half_angle_deg = 18.0
+min_range_nm      = 0.3
+max_range_nm      = 15.0   # [E] track < search, as the validator expects
+pod               = 0.60
+lock_hold_s       = 3.0    # [E]
