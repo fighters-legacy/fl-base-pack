@@ -407,7 +407,12 @@ def main(cfg, argv=None):
     for i, ratio in enumerate((0.50, 0.20, 0.05)):
         lod_parts = [export.decimate(body, ratio, f"{ident}_lod{i}")]
         lod_parts += [export.decimate(w, ratio, f"{w.name}_lod{i}") for w in wings]
-        export.export_glb(out / f"{ident}_lod{i}.glb", lod_parts)
+        # animations=True for the LODs TOO, and not as a nicety. Without it the exporter falls back
+        # to its default ACTIONS mode and names each clip after the action — `b1b_wing_l_sweep`
+        # rather than `sweep` — which validate-mesh flags as "not a known articulation channel; it
+        # will never play". A distant B-1 would then fly with its wings frozen while the near one
+        # swept.
+        export.export_glb(out / f"{ident}_lod{i}.glb", lod_parts, animations=True)
         export.patch_textures(out / f"{ident}_lod{i}.glb", f"../../textures/{ident}_diffuse.ktx2",
                               f"../../textures/{ident}_orm.ktx2")
         for p in lod_parts:

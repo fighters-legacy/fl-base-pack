@@ -1,0 +1,183 @@
+# Rockwell B-1B Lancer — entity definition.
+#
+# THE PACK'S FIRST BOMBER, its first multi-crew aircraft, and its first internal weapons carriage.
+# It is the host airframe for `ai/bomber.lua` (fl-base-pack#6), which is why it exists.
+#
+# EntityDef owns all asset wiring (engine #813). `mesh`/`cockpit`/`flight_model` are ASSET NAMES, and
+# FolderContentPack prepends the TYPE's directory (`aircraft/`) but NOT the asset's own subdirectory,
+# so an asset at aircraft/b1b/b1b.toml is named "b1b/b1b", not "b1b". By contrast `sensors` and
+# `hardpoints.allowed` are DEF IDS — namespaced, never filenames. The two vocabularies are not
+# interchangeable (engine #810).
+
+[entity]
+id           = "fl-base:b1b"
+name         = "B-1B Lancer"
+category     = "air_vehicle"
+max_hp       = 400.0
+# The air-vehicle default is 8 m, sized for a fighter. This aircraft is 44.5 m long with a 41.8 m
+# span — leaving the default would let missiles and terrain pass through most of the airframe.
+collision_radius_m = 22.0
+mesh         = "b1b/b1b"          # -> aircraft/b1b/b1b.glb
+cockpit      = "b1b/b1b_cockpit"  # -> aircraft/b1b/b1b_cockpit.glb  (engine #813)
+flight_model = "b1b/b1b"          # -> aircraft/b1b/b1b.toml
+ai_script    = "bomber"           # -> ai/bomber.lua
+
+# Countermeasures: the B-1B's defensive suite is substantial, and unlike the F-5E's optional ALE-40
+# fit this is not a judgement call — a penetrating bomber carries a lot of both.
+chaff_count  = 120   # [E]
+flare_count  = 120   # [E]
+
+# The offensive radar, plus the day eyeball every crewed aircraft gets. NO air-to-air radar: the
+# APQ-164 is a terrain-following and ground-mapping set (see sensors/apq164.toml), which is the
+# honest sensor fit for this aircraft and deliberately weaker in the air than the F-16A's APG-66.
+sensors = ["fl-base:apq164", "fl-base:eyeball_day"]
+
+# ── Crew (engine #966/#968) ─────────────────────────────────────────────────────────────────────
+# FOUR SEATS, and the first `[[crew]]` block in this pack — every other aircraft here is an implicit
+# single pilot. The real B-1B crew is aircraft commander, pilot, offensive systems officer and
+# defensive systems officer, which is exactly the split below.
+#
+# NOTE WHAT IS ABSENT: there is no turret. The engine's `builtin:bomber` demo entity carries a
+# defensive tail gun, and it would have been easy to copy — but the B-1B has never had one. Its
+# defence is the ALQ-161 electronic suite and the countermeasures above, and the DSO seat is where
+# that lives. Modelling a gun this aircraft does not have would be a lie for the sake of a feature.
+#
+# ⚠ CAPABILITIES ARE A PARTITION, NOT TAGS, and it constrains the crew harder than it first looks:
+# `fly` must be on EXACTLY one seat, and `radar`, `countermeasures` and `command` on AT MOST one
+# each, while every seat must declare at least one. With four seats and five capabilities that
+# leaves very little freedom, and the split below is the result of the engine's rule rather than a
+# claim that only one crewman ever touches each system.
+#
+# Two consequences worth stating plainly, because the obvious authoring is rejected:
+#   * The right-hand pilot does NOT get `fly`. The real B-1B has dual controls and either pilot can
+#     fly it; the engine models WHO IS FLYING as a single seat, and two Fly seats fail validation.
+#   * `radar` sits with the PILOT rather than the offensive systems officer. That is not arbitrary:
+#     the APQ-164's terrain-following mode is a pilot-facing instrument on this aircraft, and it is
+#     the mode a penetrating bomber actually flies on. The OSO still owns weapon release, which is
+#     what `fire` and the station list below express.
+#
+# The stations partition deliberately: the OSO fires the bays, and nobody else does.
+
+[[crew]]
+role         = "aircraft commander"
+capabilities = ["fly", "command"]
+seat_pos     = [-5.1, 1.35, -0.55]   # [E] left front
+bot          = "lua:bomber"
+
+[[crew]]
+role         = "pilot"
+capabilities = ["radar"]             # the terrain-following display — see the note above
+seat_pos     = [-5.1, 1.35, 0.55]    # [E] right front
+empty        = true
+
+[[crew]]
+role         = "offensive systems officer"
+capabilities = ["fire"]
+stations     = [0, 1, 2]             # the three bays — the ONLY seat that releases weapons
+seat_pos     = [-7.4, 1.30, -0.55]   # [E] left rear
+empty        = true
+
+[[crew]]
+role         = "defensive systems officer"
+capabilities = ["countermeasures"]
+seat_pos     = [-7.4, 1.30, 0.55]    # [E] right rear
+empty        = true
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers against a baseline fighter (1.0). Sensor max_range scales by sqrt(rcs) for
+# radar and LINEARLY for ir/visual/laser.
+#
+# All [E], and the radar figure is the interesting one. The B-1B is a very large aircraft — 44.5 m
+# long, 216 t at maximum takeoff weight — which would ordinarily put its RCS far above a fighter's.
+# But reducing radar cross-section was the defining change from the B-1A: serpentine intake ducts
+# hiding the compressor faces, radar-absorbent material, and the fixed inlets this pack's flight
+# model already pays for in top speed (see b1b.toml's max_mach and SOURCES.md). Published estimates
+# put it around an order of magnitude below the B-52's despite similar size.
+#
+# So: well above a fighter, but nothing like its physical size implies. 3.5 is the compromise, and
+# it is a judgement call rather than a measurement — no B-1B RCS figure is public, and none will be.
+[signatures]
+rcs    = 3.5    # [E] large airframe, deliberately reduced — the B-1A/B distinction, in one number
+ir     = 6.0    # [E] four afterburning turbofans; nothing was done to hide them
+visual = 8.0    # [E] it is 44.5 m long and there is no hiding that
+laser  = 1.0    # [E] no basis to deviate from baseline
+
+[ai]
+skill    = 0.5  # a bomber crew flies the route; it does not dogfight
+reaction = 0.5
+
+# ── Hardpoints — THREE INTERNAL BAYS ────────────────────────────────────────────────────────────
+# The pack's first internal carriage, and the case `docs/modding/formats.md` uses as its own worked
+# example (`allowed = ["fl-base:mk82"]  # forward bomb bay`). Internal stations are ordinary
+# hardpoints: what makes them internal is that they cost no drag, which is the whole point of the
+# aircraft. The Mk 82's `[load] drag_factor` still applies as authored — the engine has no
+# internal-carriage flag, so this is a known simplification rather than an oversight, and it is
+# small: 0.0040 per store against an airframe whose cd0 is 0.0175.
+#
+# Station indices 0/1/2 are forward, intermediate and aft, in that order, and they are what the OSO
+# seat's `stations` list above refers to. The pack's station-index convention for FIGHTERS reserves
+# 0 for the gun and 1 for an IR missile; that convention does not apply here, because this aircraft
+# has neither, and the crew seat is the thing that reads these numbers.
+
+[[hardpoints]]
+slot    = 0
+allowed = ["fl-base:mk82"]
+default = "fl-base:mk82"          # forward bomb bay
+
+[[hardpoints]]
+slot    = 1
+allowed = ["fl-base:mk82"]
+default = "fl-base:mk82"          # intermediate bomb bay
+
+[[hardpoints]]
+slot    = 2
+allowed = ["fl-base:mk82"]
+default = "fl-base:mk82"          # aft bomb bay
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values, not physical ones. The tiers are gentler than a fighter's: a big airframe absorbs
+# damage that would down a light jet, and a bomber that loses a quarter of its structure should
+# still be flyable enough to turn for home — which is the interesting outcome, not an instant kill.
+[damage.light]
+hp_fraction    = 0.75
+visual_effect  = "smoke_light"
+thrust_factor  = 0.95
+control_factor = 1.0
+
+[damage.heavy]
+hp_fraction    = 0.40
+visual_effect  = "smoke_heavy"
+thrust_factor  = 0.70
+control_factor = 0.85
+
+[damage.critical]
+hp_fraction    = 0.15
+visual_effect  = "fire"
+thrust_factor  = 0.40
+control_factor = 0.55
+avionics_failure = true   # the offensive radar dies before the aircraft does
+
+# ── Per-subsystem damage (engine #675) ────────────────────────────────────────────────────────────
+# FOUR engines in two pairs, and the pools reflect that: the engine_left/engine_right vocabulary is
+# fixed, so each pool stands for a PAIR rather than a single engine. Losing one pool is a two-engine
+# loss down one side — asymmetric thrust on a 44.5 m airframe, which is a genuine handful without a
+# fly-by-wire limiter to help (has_fbw = false; see b1b.toml).
+[damage.subsystems.engine_left]
+hp     = 90.0
+weight = 2.0
+
+[damage.subsystems.engine_right]
+hp     = 90.0
+weight = 2.0
+
+[damage.subsystems.controls]
+hp     = 70.0
+weight = 1.5
+
+[damage.subsystems.fuel]
+hp     = 150.0   # 120 t of it, spread the length of the aircraft
+weight = 2.5
+
+[damage.subsystems.avionics]
+hp     = 45.0
+weight = 1.0
