@@ -155,20 +155,41 @@ regime this aircraft is built to fly** — the low-level penetration case. Recor
 
 ---
 
-## Gaps — everything below will be **D** or **E**, and is Stage 2 work
+## Gaps — what is **D** or **E**, and how each was resolved
 
-No public source gives these, and none is derivable from the rows above. Each will be tagged in
-`b1b.toml` where it lands:
+No public source gives any of these. All are produced by `derive.py`; the values below are what
+shipped in `b1b.toml`.
 
-| Quantity | Why it is missing | Plan |
+| Quantity | Why it is missing | How it was resolved |
 |---|---|---|
-| `ixx/iyy/izz` inertias | Never published for the B-1 in any public document | **E** — scale from the F-5E/F-16A method (mass × characteristic length²) with the method stated inline, exactly as the T-38A did |
-| `[aero.cl_table]` | No public CL(α, M) database exists for the B-1 — there is no B-1 equivalent of NASA TP-1538 | **D** — DATCOM-style build for a blended-body VG planform, calibrated so `fm-trim` reproduces the published performance anchors above |
-| `[aero.drag_polar]` / `cd0` | Not published | **D** — calibrated to the published max speeds at both altitudes and the published rate of climb |
-| `[wing_sweep.spread]` / `[.swept]` scales | Not published | **D** — from the 3.007 AR ratio above; `k_scale` tracks 1/AR, `cl_scale` from the lift-curve-slope change |
-| `mac_m` | Not published | **D** — from the planform geometry built in Stage 3 |
-| `cl_p`, `cl_da` (roll damping/authority) | No public roll-rate data | **E** — nothing checks these; state that plainly, as the F-5E and T-38A both do |
-| engine thrust vs Mach/altitude | Only the SL-static ratings are published | **D** — anchor on the published static ratings, lapse by a standard turbofan law, calibrate the level-flight points to the two published max speeds |
+| `ixx/iyy/izz` inertias | Never published for the B-1 in any public document | **E** — radii of gyration (0.34 / 0.38 / 0.44, airframe-class values) about span, length and their mean, at gross weight. 7.45e6 / 1.06e7 / 1.33e7 kg·m² |
+| `[aero.cl_table]` | No public CL(α, M) database — no B-1 equivalent of NASA TP-1538 | **D** — DATCOM/Helmbold swept-wing lift slope at the spread reference, capped at 5.80 /rad so the transonic columns do not imply an unphysical CL_max. Each Mach column peaks at the 13° stall by construction, because `validate-flight-model` requires the table peak within 2° of `alpha_stall_deg` |
+| `[aero.drag_polar]` `k` | Not published | **D** — 1/(π·AR·e) at the spread AR with an **E** Oswald efficiency of 0.80 → 0.0413 |
+| `cd0`, `[aero.cd_wave]` | Not published | **D** — the *only* fitted quantities, calibrated against the M1.25/50,000 ft anchor alone. cd0 0.0175; the wave curve peaks 0.0345 near M1.10 and holds 0.0380 at M1.25 |
+| `[wing_sweep]` scales | Not published | **D** — lift-slope and effective-AR ratios between the extremes, each blended through the share of lift the body and fixed glove carry regardless of sweep (**E**, 0.50) → cl_scale 0.666, k_scale 1.715. **Cross-checked** against the engine's F-14 example, whose spread/swept AR ratio is nearly identical (2.83 vs 3.01) and which uses 0.68 |
+| `mac_m` | Not published | **D** — 4.758 m, from the mean chord (S/b) and an **E** taper of 0.30 read off the PD planform photographs |
+| `cl_p`, `cl_da` (roll damping/authority) | No public roll-rate data | **E** — strip theory from geometry. Nothing checks these, exactly as on the F-5E and T-38A |
+| `[aero.moments]` generally | The B-1's tail areas, arms and fin height are not published at all | **E** inputs → **D** derivatives. Signs and magnitudes checked (cn_beta +0.154, cm_alpha −2.06, all damping negative). Widest error bars in the model; `b1b.expect.toml` constrains none of them |
+| engine thrust vs Mach/altitude | Only SL-static ratings are published | **D** — density lapse σ^0.85 × ram recovery, level fixed by the published static ratings. ⚑ The ram term **decays above M1.20** to model the B-1B's *fixed* inlet; left growing as M², the model reached M1.67 at 50,000 ft — B-1A installed thrust on a B-1B airframe |
+| `max_g_structural` | Not published for the B-1B | **E** — 2.50, the middle of the +2.0…+3.0 g bomber band. With `has_fbw = false` there is no limiter, so it is a real, breakable limit |
+
+### What the gate actually covers — and the one published number it cannot
+
+`b1b.expect.toml` gates three rows: max level Mach at 50,000 ft (the calibration anchor), sea-level
+MIL rate of climb, and the 60,000 ft ceiling expressed as "still climbing". The gate was **proved to
+fail** before it was believed — perturbing `cd0` or the supersonic wave drag each turns it red.
+
+⚠ **The published low-level limit (608 kn at 200–500 ft) is NOT gated, and the model is knowingly
+~11% fast there.** It is a dynamic-pressure placard, and `[aero.limits]` has no placard field — only
+`max_mach`. Drag cannot substitute: a `cd_wave` steep enough to hold M0.92 at sea level walls off
+the transonic climb at 50,000 ft and makes the M1.25 anchor unreachable, because one Mach-dependent
+term cannot serve both a sea-level q limit and a stratospheric thrust limit. Filed as
+**fighters-legacy#1181**; gate that row when a placard field exists. Full reasoning is in
+`b1b.expect.toml`'s "NOT GATED, and why" section.
+
+Also filed: **fighters-legacy#1182** — `validate-flight-model` applies no plausibility bands to
+non-fighter roles at all, so nothing in this file is range-checked and a unit error would pass
+silently.
 
 ## Reference imagery
 
