@@ -209,10 +209,20 @@ def _fuselage(cfg, bm):
 
 
 def _glove(cfg, bm):
-    """The FIXED inner wing. It does not move with sweep, which is why it is in the body mesh."""
-    x_le = cfg.pivot_x_frac * cfg.length - cfg.glove_root_c * 0.55
-    loft.panel(bm, x_le + 0.25 * cfg.glove_root_c, cfg.pivot_y + 0.35,
-               cfg.glove_root_c, cfg.panel_root_c, cfg.glove_sweep, cfg.glove_thick, z0=-0.35)
+    """The FIXED inner wing. It does not move with sweep, which is why it is in the body mesh.
+
+    Its TIP chord must COINCIDE with the outer panel's ROOT chord, or the two simply do not meet and
+    the aircraft carries a gap at the pivot — 5.3 m of it, when the glove was positioned from its own
+    leading edge instead. `panel()` positions by quarter-chord and the outer panel's root
+    quarter-chord sits exactly at the pivot, so the glove's root quarter-chord is worked BACK from
+    the pivot along the sweep line. Then the glove's tip chord is `panel_root_c` centred on the
+    pivot, which is the outer panel's root chord exactly, and the surfaces are continuous at every
+    sweep angle because the panel rotates about that shared chord.
+    """
+    semi = cfg.pivot_y + 0.35
+    x_c4_root = cfg.pivot_x_frac * cfg.length - semi * math.tan(math.radians(cfg.glove_sweep))
+    loft.panel(bm, x_c4_root, semi, cfg.glove_root_c, cfg.panel_root_c, cfg.glove_sweep,
+               cfg.glove_thick, z0=-0.35)
 
 
 def _nacelles(cfg, bm):
