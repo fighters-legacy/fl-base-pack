@@ -195,10 +195,12 @@ placard, quoted at the altitude where it binds. 1,300 km/h IAS ≈ **702 KEAS**;
 F-5E placards (710 KEAS) are near-identical, which is corroborating rather than coincidental —
 same class, same era.
 
-`mig21bis.toml` therefore declares `max_keas = 702.0`, with the same release-gating caveat the
-B-1B established: pack CI floats on the latest engine **release**, and the placard-aware fm-trim
-is not yet in one, so the corresponding expect row ships commented out until it is
-(see fighters-legacy#1181 and `b1b.expect.toml`'s "NOT GATED, and why" precedent).
+`mig21bis.toml` therefore declares `max_keas = 702.0` — but unlike the B-1B, **the sea-level row
+is gateable today**: the calibrated model trims to M1.04 at sea level on drag alone, because the
+bis sits at its placard and its transonic drag wall at almost the same speed (the B-1B was 11%
+apart; that is why its row waits on an engine release and this one does not). The
+`mig21bis.expect.toml` row gates M1.06 ±4% as a transonic-drag anchor now; when a release ships
+fighters-legacy#1181 the placard activates at the same speed and the row keeps passing unchanged.
 
 ### ❌ NOT USED: the Jane's range figures — 660 km "clean"
 
@@ -219,14 +221,20 @@ The model is not calibrated to any of the three; range is constrained indirectly
 (**P** R25-WIKI) and fuel mass, and no range row is gated. Recorded so nobody "fixes" cruise fuel
 burn to reproduce 660 km later.
 
-### What the expect gate will cover (Stage 2)
+### What the expect gate covers
 
-Planned rows, following the T-38A pattern (no invented EM data): `max_level_mach` at 13,000 m
-(the M2.05 anchor, the calibration target), `roc_mps` at the 235 m/s combat-loaded point (mass
-inferred and stated as such), ceiling-as-roc at 17,500 m, and — once an engine release ships
-fm-trim's placard support — the sea-level M1.06/702-KEAS row. Turn/Ps/specific-range rows
-deliberately absent: no public bis EM charts exist, exactly as the issue predicted. The
-**time-to-17,000 m = 8.5 min** figure serves as a non-gated cross-check on the climb integral.
+Four rows shipped (one more than the B-1B), following the T-38A pattern of no invented EM data:
+`max_level_mach` at 13,000 m (the M2.05 anchor, the calibration target), `max_level_mach` at sea
+level (M1.06 — gateable now, see above), `roc_mps` at the 235 m/s combat-loaded point (mass
+inferred at 7,200 kg and stated as such — at the published 8,725 kg gross the model gives
+193 m/s, so "combat-loaded" is evidently a part-fuel condition), and ceiling-as-roc at 17,500 m
+(which the model reaches at ~8,100 kg — near gross, the honest shape of a heavy delta's
+ceiling). Turn/Ps/specific-range rows deliberately absent: no public bis EM charts exist,
+exactly as the issue predicted. The **time-to-17,000 m = 8.5 min** figure serves as a non-gated
+cross-check on the climb integral. The gate was **proved to fail** before it was believed:
+cd0 +20% and a supersonic wave-drag bump each turn it red (the M2.05 trim is razor-sensitive to
+parasite drag — +20% cd0 collapses it to M1.51, because at M2 the thrust and drag curves run
+nearly parallel).
 
 ---
 
