@@ -8,13 +8,13 @@ jobs:
   license-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: fsfe/reuse-action@v4
 
   asset-naming:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check asset naming conventions
         shell: bash
         run: |
@@ -97,13 +97,13 @@ jobs:
 
   flight-model-validate:
     runs-on: ubuntu-latest
-    # HARD GATE (#7). Engine releases v0.3.2+ ship the post-#823 validate-flight-model, which knows
-    # that `aero.drag_polar.k = 0.0` is REQUIRED of an aircraft that authors a `cd_table` (the
-    # table is TOTAL clean drag; a non-zero k would double-count the induced term). The fetch below
-    # pulls the latest engine release, so this job gates for real and sits in the branch protection
-    # required checks alongside mission-validate.
+    # HARD GATE (#7). validate-flight-model (post-#823) knows that `aero.drag_polar.k = 0.0` is
+    # REQUIRED of an aircraft that authors a `cd_table` (the table is TOTAL clean drag; a non-zero
+    # k would double-count the induced term). The fetch below pulls the latest engine release, so
+    # this job gates for real and sits in the branch protection required checks alongside
+    # mission-validate.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Find changed flight models
@@ -134,13 +134,13 @@ jobs:
   # fm-trim --expect: the Phase-4 gate from #1/#54, mechanised. Where validate-flight-model checks a
   # model is well-formed, fm-trim derives its performance and fails when it stops reproducing the
   # numbers its flight manual publishes (stall speed, max Mach, ROC, sustained turn, fuel burn). It
-  # runs each changed model against its sibling `<name>.expect.toml`. Auto-activating like the other
-  # #583/#829 legs: fm-trim (#817) may predate the pinned engine release, so the fetch skips green
-  # (optional) until a release ships it, then gates for real -- see the engine-validators action.
+  # runs each changed model against its sibling `<name>.expect.toml`. Every engine release since
+  # v0.3.10 ships fm-trim, so this is a hard gate: a release that stopped shipping it would be a
+  # packaging regression worth failing on, not skipping past.
   fm-trim-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Find changed flight models
@@ -156,15 +156,13 @@ jobs:
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Flight models to fm-trim: ${FILES:-(none)}"
-      - name: Fetch fm-trim (skip if the engine release predates it)
-        id: fetch
+      - name: Fetch fm-trim
         if: steps.changed.outputs.files != ''
         uses: ./.github/actions/engine-validators
         with:
           require: fm-trim
-          optional: "true"
       - name: Run fm-trim --expect
-        if: steps.fetch.outputs.available == 'true'
+        if: steps.changed.outputs.files != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -183,7 +181,7 @@ jobs:
   mesh-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Find changed meshes
@@ -226,7 +224,7 @@ jobs:
   mission-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Find changed missions
@@ -246,21 +244,15 @@ jobs:
           require: validate-mission
       - name: Run mission validator
         if: steps.changed.outputs.files != ''
-        run: validate-mission ${{ steps.changed.outputs.files }}
+        # --pack cross-checks each mission object's crew: block against the referenced
+        # entity's declared [[crew]] seats -- load-bearing once Stage-4 missions carry crew.
+        run: validate-mission --pack . ${{ steps.changed.outputs.files }}
 
   # ── Weapons / sensors / entity legs (engine #583). ─────────────────────────────────────────────
-  # AUTO-ACTIVATING, not continue-on-error. The engine-validators action pulls from the LATEST
-  # engine RELEASE, and the current one (v0.3.1) predates the #583 weapons/damage merge -- it ships
-  # validate-flight-model/mesh/mission but NOT validate-entity/weapon/sensor. So each leg asks the
-  # action for its validator with `optional: true`: if the release lacks it, the fetch SKIPS green
-  # (available=false) and the run step is gated off; the moment a post-#583 release includes the
-  # binary, `available` flips to true and the leg becomes a real gate with no edit here. This is
-  # why the pack is validated against a LOCAL post-#583 engine build in the meantime -- and it is
-  # NOT the "|| true" soft landing the action exists to kill: a validator that IS present runs, and
-  # a real validation error still fails the job.
-  #
-  # Because these are honest green today (a skip is a pass) and gate for real later, they can be
-  # added to the branch-protection required checks now.
+  # HARD GATES. These legs were born `optional: true` because the engine release of the day
+  # (v0.3.1) predated the #583 validators; every release since v0.3.10 ships the full validator
+  # set, so the auto-activation hatch is retired -- a release missing a binary now fails the leg
+  # as the packaging regression it would be, instead of skipping green past it.
   #
   # validate-entity/validate-weapon run in `--pack` mode (they cross-check references across the
   # whole pack: hardpoint weapon ids, seeker sensor_id, every asset name), so they take the pack
@@ -268,7 +260,7 @@ jobs:
   entity-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect pack asset changes
@@ -282,21 +274,19 @@ jobs:
             -- entities sensors weapons aircraft ai | tr '\n' ' ')
           echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Pack asset changes: ${CHANGED:-(none)}"
-      - name: Fetch validator (skip if the engine release predates it)
-        id: fetch
+      - name: Fetch validator
         if: steps.changed.outputs.changed != ''
         uses: ./.github/actions/engine-validators
         with:
           require: validate-entity
-          optional: "true"
       - name: Run entity validator (whole pack)
-        if: steps.fetch.outputs.available == 'true'
+        if: steps.changed.outputs.changed != ''
         run: validate-entity --pack .
 
   weapon-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect weapon/sensor changes
@@ -310,21 +300,19 @@ jobs:
             -- weapons sensors | tr '\n' ' ')
           echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
           echo "Weapon/sensor changes: ${CHANGED:-(none)}"
-      - name: Fetch validator (skip if the engine release predates it)
-        id: fetch
+      - name: Fetch validator
         if: steps.changed.outputs.changed != ''
         uses: ./.github/actions/engine-validators
         with:
           require: validate-weapon
-          optional: "true"
       - name: Run weapon validator (whole pack)
-        if: steps.fetch.outputs.available == 'true'
+        if: steps.changed.outputs.changed != ''
         run: validate-weapon --pack .
 
   sensor-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Find changed sensors
@@ -338,13 +326,11 @@ jobs:
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Sensors to validate: ${FILES:-(none)}"
-      - name: Fetch validator (skip if the engine release predates it)
-        id: fetch
+      - name: Fetch validator
         if: steps.changed.outputs.files != ''
         uses: ./.github/actions/engine-validators
         with:
           require: validate-sensor
-          optional: "true"
       - name: Run sensor validator
-        if: steps.fetch.outputs.available == 'true'
+        if: steps.changed.outputs.files != ''
         run: validate-sensor ${{ steps.changed.outputs.files }}

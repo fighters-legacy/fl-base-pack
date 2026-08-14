@@ -140,9 +140,8 @@ local function steer(state, tx, tz, talt, throttle, ab, agg)
     local tbank = clamp(guidance.bank_to_turn_aileron(herr) * MAX_BANK * (agg or 1.0),
                         -MAX_BANK, MAX_BANK)
     local ail   = clamp(ROLL_GAIN * (tbank - bank_of(state)), -1, 1)
-    -- NB: pitch_error_from_alt takes (quat, own_pos, alt_error). docs/modding/ai.md documents a
-    -- 2-arg form and its own example uses it; both are wrong. own_pos is needed because "up" is
-    -- geodetic on a spherical Earth. Filed against the engine docs.
+    -- NB: pitch_error_from_alt takes (quat, own_pos, alt_error) — own_pos is needed because "up"
+    -- is geodetic on a spherical Earth.
     -- PD, not P: feed the helper the error at the PREDICTED altitude (pos.y + lead * climb rate).
     -- The vertical-speed term is the derivative half of the loop — a jet sinking at 100 m/s sees
     -- zero error 500 m above the target and starts its pull there, instead of porpoising through.
