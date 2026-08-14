@@ -75,9 +75,12 @@ class B1Config:
     sweep_max: float            # deg
 
     # Wing pivot: y offset from the centreline. [E] — not published; chosen at the glove/panel
-    # junction visible in the PD planform photographs. The panel length and its built-in span-axis
+    # junction visible in the PD planform photographs. It must sit OUTBOARD of the fuselage
+    # half-width at that station, or the glove is buried inside the body and the aircraft renders
+    # as a plain tube with wings — which is exactly what a pivot of 3.5 m against a 5.75 m body
+    # half-width produced. The panel length and its built-in span-axis
     # angle are then DERIVED from it so that BOTH published spans are reproduced (see _wing_solve).
-    pivot_y: float = 3.5
+    pivot_y: float = 6.0
     pivot_x_frac: float = 0.44  # [E] pivot station as a fraction of length
     panel_root_c: float = 6.2   # m  [E] outer-panel root chord
     panel_tip_c: float = 2.0    # m  [E] outer-panel tip chord
@@ -87,7 +90,7 @@ class B1Config:
     # geometrically free: _wing_solve has to account for it, or the swept span comes out wrong.
     panel_extra_sweep: float = 13.0   # deg [E]
 
-    glove_root_c: float = 17.0  # m  [E] fixed glove root chord
+    glove_root_c: float = 19.0  # m  [E] fixed glove root chord
     glove_sweep: float = 60.0   # deg [E] glove leading-edge sweep
     glove_thick: float = 0.10
 
@@ -105,7 +108,7 @@ class B1Config:
     tail_thick: float = 0.07
 
     # Nacelle pairs, under the glove. [E] from the PD planform and front-view photographs.
-    nac_y: float = 3.35         # m  centre of each pair, from the centreline
+    nac_y: float = 2.85         # m  centre of each pair, from the centreline
     nac_x0_frac: float = 0.46
     nac_len: float = 11.0
     nac_w: float = 3.60         # m  full width of a pair
@@ -123,13 +126,13 @@ class B1Config:
         (0.030, 0.70, -0.65, 0.75),
         (0.075, 1.25, -1.05, 1.40),
         (0.130, 1.70, -1.30, 1.95),
-        (0.200, 1.85, -1.50, 2.70),
-        (0.300, 1.95, -1.70, 3.90),
-        (0.400, 2.00, -1.85, 5.20),
-        (0.470, 2.00, -2.00, 5.75),
-        (0.550, 1.95, -2.05, 5.55),
-        (0.640, 1.85, -1.90, 4.30),
-        (0.730, 1.70, -1.65, 2.95),
+        (0.200, 1.85, -1.50, 2.30),
+        (0.300, 1.95, -1.70, 3.05),
+        (0.400, 2.00, -1.85, 3.70),
+        (0.470, 2.00, -2.00, 3.95),
+        (0.550, 1.95, -2.05, 3.90),
+        (0.640, 1.85, -1.90, 3.35),
+        (0.730, 1.70, -1.65, 2.55),
         (0.820, 1.60, -1.35, 1.95),
         (0.910, 1.45, -1.10, 1.35),
         (1.000, 1.00, -0.60, 0.35),
