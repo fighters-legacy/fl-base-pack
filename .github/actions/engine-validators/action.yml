@@ -17,12 +17,14 @@ inputs:
   optional:
     description: >
       "true" turns a MISSING validator from a hard failure into a green SKIP that sets the
-      `available` output to "false". Use this for a gate whose validator has not shipped in an
-      engine release yet (e.g. a post-#583 validator against the current v0.3.1): the leg reports
-      success today and starts running for real the moment a release includes the binary -- no
-      manual flip. It does NOT soften a validator that IS present: once fetched, the caller runs it
-      and a real validation error still fails. (A present-but-absent binary is the only thing this
-      relaxes; it never resurrects the "|| true" soft landing this action exists to kill.)
+      `available` output to "false". Use this ONLY for a gate whose validator has not shipped in
+      an engine release yet: the leg reports success today and starts running for real the moment
+      a release includes the binary -- no manual flip. Every #583/#829-era leg has retired the
+      flag (the full validator set ships in every release since v0.3.10); a NEW leg should reach
+      for it only against a genuinely unreleased tool. It does NOT soften a validator that IS
+      present: once fetched, the caller runs it and a real validation error still fails. (A
+      present-but-absent binary is the only thing this relaxes; it never resurrects the "|| true"
+      soft landing this action exists to kill.)
     required: false
     default: "false"
 
