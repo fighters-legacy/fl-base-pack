@@ -149,6 +149,18 @@ max_g_structural =  2.50  # [E] NOT published for the B-1B. Bomber-class airfram
                           #     is no limiter, so this is a real, breakable limit.
 min_g_structural = -1.00  # [E] bombers carry little negative-g capability
 max_mach         =  1.25  # [P] published maximum, at altitude
+# [P] 608 kn at 200-500 ft, the published low-level limit -- and a DYNAMIC-PRESSURE placard, not a
+# thrust limit: down there this airframe has roughly 655 kN of installed thrust against roughly
+# 276 kN of drag at M0.92, so nothing aerodynamic holds it. Until fighters-legacy#1181 there was no
+# way to say that, and this model trimmed to ~M1.02 -- about 11% fast in exactly the regime the
+# aircraft exists for. Drag cannot substitute: a cd_wave steep enough to hold M0.92 at sea level
+# walls off the transonic climb at 50,000 ft and makes the M1.25 anchor unreachable.
+#
+# ⚠ INERT ON ENGINE RELEASES UP TO v0.3.16, which is what pack CI fetches -- older parsers ignore
+# the key (verified against the released binaries: validate clean, no unknown-key complaint, and
+# the existing expectation rows still pass). It takes effect the moment a release ships #1181, and
+# b1b.expect.toml then gains the low-level row it currently documents as ungateable.
+max_keas         = 608.0
 
 [aero.controls]
 max_elevator_deg = 25.0   # [E] all-moving horizontal tail

@@ -63,23 +63,39 @@ tolerance   = 0.60
 
 # ── NOT GATED, and why — read before adding a row here ──────────────────────────────────────────
 #
-# max level speed at LOW LEVEL (608 kn at 200-500 ft = M0.919 at sea level) — [P] and published,
-#     but NOT EXPRESSIBLE. It is a dynamic-pressure placard, not a thrust limit: at sea level this
-#     airframe has roughly 655 kN of installed afterburning thrust against roughly 276 kN of drag at
-#     M0.92, so nothing aerodynamic holds it there — the real aircraft is held by a q limit
-#     (608 kn at sea level is ~59.2 kPa, ~1,236 lb/ft^2). The engine's [aero.limits] has
-#     `max_mach` but no KEAS/dynamic-pressure placard, so the model trims to ~M1.02 down low.
+# max level speed at LOW LEVEL (608 kn at 200-500 ft = M0.919 at sea level) — [P], published, and
+#     now MODELLED but not yet GATEABLE. It is a dynamic-pressure placard, not a thrust limit: at sea
+#     level this airframe has roughly 655 kN of installed afterburning thrust against roughly 276 kN
+#     of drag at M0.92, so nothing aerodynamic holds it there — the real aircraft is held by a q
+#     limit (608 kn at sea level is ~59.2 kPa, ~1,236 lb/ft^2).
 #
 #     It CANNOT be fixed with drag. Making cd_wave steep enough to stop the aircraft at M0.92 at sea
 #     level was tried and it walls off the transonic climb: the same curve then prevents the aircraft
 #     from accelerating through M1.0 at 50,000 ft, where dynamic pressure is 4.7x lower, and the
 #     M1.25 anchor above becomes unreachable. One Mach-dependent drag term cannot serve both a
-#     sea-level q limit and a stratospheric thrust limit. Filed against the engine
-#     (fighters-legacy#1181); gate this row when a placard field exists.
+#     sea-level q limit and a stratospheric thrust limit.
+#
+#     ✅ The engine gained the field: fighters-legacy#1181 added `[aero.limits] max_keas`, and
+#     b1b.toml now declares `max_keas = 608.0`. Against an engine built from main the model trims to
+#     M0.92 down low — the published number, reproduced.
+#
+#     ⏳ THE ROW BELOW STAYS COMMENTED OUT UNTIL AN ENGINE RELEASE SHIPS #1181. Pack CI fetches its
+#     validators from the LATEST RELEASE, which is v0.3.16 and predates the placard; that fm-trim
+#     ignores the key and still computes ~M1.02, so gating 0.919 now would fail CI on a model that
+#     is correct. Verified directly against the released v0.3.16 binaries rather than assumed.
+#     When a release ships it, delete this paragraph and uncomment:
+#
+# [[expect]]
+# metric      = "max_level_mach"
+# altitude_m  = 107.0        # mid of the published 200-500 ft band
+# mass_kg     = 140000
+# afterburner = true
+# expected    = 0.919        # [P] 608 kn at sea level, checked against ISA
+# tolerance   = 0.03
 #
 #     NOTE this is the same class of problem the T-38A documents ("710 KEAS placard ... the model
 #     trims a hair above it") — but a hair there and 11% here, because the B-1B's placard bites far
-#     lower relative to its thrust.
+#     lower relative to its thrust. Both aircraft can carry `max_keas` once the release lands.
 #
 # stall_speed_1g_mps — no published B-1 stall speed exists. `alpha_stall_deg` and the cl_table peak
 #     are [E]/[D] from geometry, so gating a stall speed would be gating this model against itself.

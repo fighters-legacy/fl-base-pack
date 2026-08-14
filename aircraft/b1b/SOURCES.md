@@ -179,12 +179,19 @@ shipped in `b1b.toml`.
 MIL rate of climb, and the 60,000 ft ceiling expressed as "still climbing". The gate was **proved to
 fail** before it was believed — perturbing `cd0` or the supersonic wave drag each turns it red.
 
-⚠ **The published low-level limit (608 kn at 200–500 ft) is NOT gated, and the model is knowingly
-~11% fast there.** It is a dynamic-pressure placard, and `[aero.limits]` has no placard field — only
-`max_mach`. Drag cannot substitute: a `cd_wave` steep enough to hold M0.92 at sea level walls off
-the transonic climb at 50,000 ft and makes the M1.25 anchor unreachable, because one Mach-dependent
-term cannot serve both a sea-level q limit and a stratospheric thrust limit. Filed as
-**fighters-legacy#1181**; gate that row when a placard field exists. Full reasoning is in
+✅ **The published low-level limit (608 kn at 200–500 ft) is now MODELLED.** It is a
+dynamic-pressure placard rather than a thrust limit, and `[aero.limits]` had no way to say so — only
+`max_mach` — so this model was knowingly ~11% fast down low. Drag could not substitute: a `cd_wave`
+steep enough to hold M0.92 at sea level walls off the transonic climb at 50,000 ft and makes the
+M1.25 anchor unreachable, because one Mach-dependent term cannot serve both a sea-level q limit and
+a stratospheric thrust limit.
+
+**fighters-legacy#1181** added `max_keas`, and `b1b.toml` declares `max_keas = 608.0`. Against an
+engine built from main the model trims to **M0.92** down low — the published figure, reproduced.
+The corresponding `b1b.expect.toml` row is written but commented out until an engine **release**
+ships the field: pack CI fetches its validators from the latest release (v0.3.16), whose fm-trim
+ignores the key and still computes ~M1.02. Verified against those released binaries rather than
+assumed. Full reasoning is in
 `b1b.expect.toml`'s "NOT GATED, and why" section.
 
 Also filed: **fighters-legacy#1182** — `validate-flight-model` applies no plausibility bands to
