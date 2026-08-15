@@ -1,0 +1,28 @@
+# GSh-23L 23 mm twin-barrel cannon — internal, ventral. MiG-21bis gun armament.
+#
+# A Gast-principle twin barrel: one barrel's recoil cycles the other, giving a rotary-class
+# burst rate with no external power (SOURCES.md, GSH-WIKI). Semi-conformal ventral fit with 200
+# rounds on the bis (JAWA via WIKI).
+#
+# WEIGHT IS AMMUNITION ONLY, NOT THE GUN — same rule as the M39A2: the 50 kg gun body is part
+# of the airframe's empty weight; this store is the 200 rounds of 23x115.
+[weapon]
+id       = "fl-base:gsh23l"
+name     = "GSh-23L 23 mm cannon"
+type     = "gun"
+category = "air-to-air"
+
+[performance]
+max_range_nm      = 0.55     # [E] effective air-to-air range, ~1,000 m
+min_range_nm      = 0.0
+max_speed_kts     = 1390.0   # [P] 715 m/s muzzle velocity (GSH-WIKI)
+motor_burn_time_s = 0.0      # unpowered
+max_g             = 0.0
+
+[warhead]
+blast_radius_ft = 3.5        # [E] 23 mm HEI — a little more shell than the M39's 20 mm
+damage          = 10.0       # per round; gameplay value, above the M39A2's 8 for the same reason
+
+[load]
+weight_lb   = 143.0   # [D] 200 rounds of 23x115 at ~0.325 kg linked
+drag_factor = 0.0     # internal / semi-conformal. No external drag.

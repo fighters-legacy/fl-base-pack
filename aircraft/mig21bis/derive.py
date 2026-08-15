@@ -93,7 +93,13 @@ TAU_R = 0.45        #       rudder flap effectiveness                           
 TAU_E = 1.00        #       slab-tail effectiveness                              [P]
 CN_FUS = -0.10      # /rad  fuselage yaw destabilisation -- a long nose over a
                     #       7 m span normalises to a big number                  [E]
-AC = 0.25           # x/c   wing aerodynamic centre, subsonic thin-wing standard
+AC = 0.33           # x/c   wing aerodynamic centre. NOT the thin-airfoil 0.25: a slender
+                    #       57-deg delta carries its lift centroid well aft — slender-wing
+                    #       theory puts the subsonic AC near a third of the MAC, moving
+                    #       further aft transonically. 0.25 here derived cm_alpha ~ -0.01,
+                    #       an aircraft with no pitch stiffness at all: the headless probe
+                    #       flew it into the ground on the FIRST spawn while every
+                    #       validator and all four expect rows stayed green.        [D]
 
 # ─── CALIBRATION — the ONLY fitted numbers in this file ──────────────────────────
 # Fitted against the published anchors in mig21bis.expect.toml:

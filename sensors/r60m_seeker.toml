@@ -1,0 +1,34 @@
+# R-60M seeker head — nitrogen-cooled IR, limited all-aspect.
+#
+# THE SEEKER IS A SENSOR (engine RFC #676); doctrine about the SHOT lives on weapons/r60m.toml.
+# PASSIVE IR: radiates nothing, `emitter = false`.
+#
+# The one PUBLISHED number here is the gimbal: the R-60M's cooled seeker has an expanded view
+# angle of +/-20 deg (SOURCES.md, R60-WIKI citing Mladenov). Ranges are [E] for a cooled
+# mid-70s seeker with LIMITED all-aspect capability: better acquisition than the pack's
+# uncooled-era AIM-9P against a baseline tailpipe, but still short-legged — the practical
+# engagement range Russian sources give for the family is ~4 km against the 8 km brochure
+# figure, and the seeker, not the motor, is why. Scales linearly with target [signatures] ir.
+[sensor]
+id              = "fl-base:r60m_seeker"
+name            = "R-60M IR seeker"
+type            = "ir"
+role            = "seeker"      # weapon-path sensor (engine #902)
+omnidirectional = false
+emitter         = false
+
+[search]
+az_half_angle_deg = 20.0        # [P] the expanded R-60M gimbal
+el_half_angle_deg = 20.0        # [P]
+min_range_nm      = 0.0
+max_range_nm      = 3.2         # [E] cooled seeker; a bit better than the AIM-9P's 5 nm claim
+                                #     relative to its kinematics (see weapon max_range 4.3)
+pod               = 0.60        # [E] cooled PbS, quicker uncaged acquisition than the 9P
+
+[track]
+az_half_angle_deg = 18.0        # [E] <= search
+el_half_angle_deg = 18.0        # [E]
+min_range_nm      = 0.0
+max_range_nm      = 2.8         # [E] <= search max
+pod               = 0.90        # [E]
+lock_hold_s       = 1.0         # [E] brief coast through a flare blink
