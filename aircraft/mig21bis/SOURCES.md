@@ -101,25 +101,25 @@ noted); fuselage dimensions are bis-specific.
 | main tyres | 800×200 mm | **P** WIKI design text (bis-family; only F variants used 660×200) |
 | `length_m` (excl. pitot boom) | **see the conflict below** | — |
 
-### ⚠ OPEN CONFLICT: fuselage length — 14.7 m vs 14.10 m
+### ✅ RESOLVED: fuselage length is **14.10 m** excluding pitot — by datum-consistency
 
-The two bis sources disagree by 0.6 m and the primary source is for the wrong variant:
+The two bis sources disagreed by 0.6 m:
 
 - **JAWA via WIKI**: 14.7 m "excluding pitot boom".
 - **MIG21DE**: 14.10 m "without pitot tube".
-- **F13-TD** (F-13): **13.46 m** without pitot, 15.76 m with.
+- **F13-TD** (F-13, primary): **13.46 m** without pitot, 15.76 m with.
 
-The F-13→bis fuselage change is the lengthened radar nose introduced with the PF generation.
-14.10 m implies that nose added ~0.64 m over the F-13 — plausible for the visibly longer
-forebody. 14.7 m implies +1.24 m, which is hard to reconcile with the same photographs; it is
-also suspiciously close to what you get by folding part of the fixed boom base into the datum.
-Neither source states its datum precisely.
+**The test that settled it (Stage 3):** MIG21DE's per-generation table lists the F-13 at
+**13.46 m — the CIA manual's exact published figure, to the centimetre.** That proves the site's
+length datum is the same one the primary source uses, and in that same datum it lists every
+PF-generation-onward fuselage (PFM, MF, bis) at **14.10 m** — the radar nose added ~0.64 m,
+consistent with the photographs. Jane's 14.7 m has no stated datum and no anchor that can be
+checked against the primary; it is the outlier and is not used. Corroborating detail: the
+Chinese J-7 rows in the same table follow the identical pattern (J-7 I, the F-13 airframe,
+13.46 m; J-7 III, the MF-class airframe, 14.10 m).
 
-**Resolution (Stage 3, mesh):** measure the length/span ratio on the PD planform photography in
-the reference set — the span (7.154 m) is solid across all sources, and 14.10 vs 14.7 is a 4%
-difference, well above the measurement noise of a good plan-view photograph. The mesh commits to
-the photo-consistent value; `SOURCES.md` gets updated with the measurement when that happens.
-The F13-TD Figs 1–3 general-view dimensions serve as the cross-check.
+`mig21bis` meshes are built to **14.10 m** nose lip to tail, pitot boom excluded from
+`length` accounting exactly as the sources exclude it.
 
 ## Mass
 
