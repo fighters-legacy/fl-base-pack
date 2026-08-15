@@ -1,0 +1,45 @@
+# R-60M (NATO AA-8 "Aphid-B") — lightweight IR air-to-air missile. MiG-21bis wing pylons.
+#
+# The pack's first red-air weapon, and the lightest missile in it: 45 kg launch weight against
+# the AIM-9P's 86. Provenance: SOURCES.md (R60-WIKI, citing Mladenov, International Air Power
+# Review vol. 14). The bis carried R-60s from the mid-70s; the pack models the cooled-seeker
+# R-60M fit typical of late bis service. The seeker head is a SENSOR def
+# (sensors/r60m_seeker.toml) referenced by id, per RFC #676.
+[weapon]
+id       = "fl-base:r60m"
+name     = "R-60M"
+type     = "missile"
+category = "air-to-air"
+
+[seeker]
+type            = "ir"
+sensor_id       = "fl-base:r60m_seeker"
+fire_and_forget = true
+
+[performance]
+max_range_nm      = 4.3     # [P] the 8 km "brochure range" at altitude; practical ~4 km is the
+                            #     seeker's doing, which the sensor def carries
+min_range_nm      = 0.11    # [P] 200 m minimum engagement — the R-60M's party trick, and less
+                            #     than half the AIM-9P's arming distance
+max_speed_kts     = 1450.0  # [D] published Mach 2.47
+motor_burn_time_s = 3.0     # [E] very small motor
+max_g             = 30.0    # [E] "one of the most agile AAMs until thrust vectoring"; cleared
+                            #     for launch at 9 g against 8 g targets (R60-WIKI)
+
+[warhead]
+blast_radius_ft = 22.0      # [E] 3.5 kg continuous-rod — under half the AIM-9's warhead
+damage          = 45.0      # gameplay value, scaled under the AIM-9P's 60 by warhead mass
+
+[countermeasures]
+flare_susceptibility = 0.5  # [E] cooled seeker, better than the AIM-9P's 0.6 — but a mid-70s
+                            #     design with only limited all-aspect; flares still work
+chaff_susceptibility = 0.0  # immune — it does not look at radar returns
+notch_susceptibility = 0.0
+
+[load]
+weight_lb   = 99.0      # [P] 45 kg (R-60M)
+drag_factor = 0.00043   # [E] scaled from the pack's ONE measured store drag — the AIM-9P's
+                        #     0.00048, solved against the shipping F-5E model — by frontal area
+                        #     (120 mm vs 127 mm body). No published two-configuration speed
+                        #     pair exists for the bis to calibrate against directly, and
+                        #     inventing one would be worse than scaling the measured value.

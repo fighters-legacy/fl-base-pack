@@ -1,0 +1,135 @@
+# Mikoyan-Gurevich MiG-21bis Fishbed — entity definition. The pack's first red-air type (#41).
+#
+# EntityDef owns all asset wiring (engine #813). `mesh` and `flight_model` are ASSET NAMES with
+# the asset's own subdirectory ("mig21bis/mig21bis", NOT "mig21bis" — the silent-UFO-fallback
+# trap the F-5E hit); `sensors` and hardpoint `allowed`/`default` are DEF IDS. The two
+# vocabularies are not interchangeable (engine #810).
+#
+# STATION CONVENTION: slot 0 = gun, slot 1 = IR missile — the contract ai/fighter.lua is written
+# against, which is what lets the red-air bis fly the SAME script as the blue jets, unforked
+# (issue #41's acceptance note). Slot 5 = radar missile exists on the F-16A only; the bis has
+# no radar-missile capability by scope ruling.
+
+[entity]
+id           = "fl-base:mig21bis"
+name         = "MiG-21bis Fishbed"
+category     = "air_vehicle"
+max_hp       = 100.0
+# collision_radius_m omitted: the 8 m air-vehicle default fits a 7.2 m-span, 14.1 m aircraft.
+mesh         = "mig21bis/mig21bis"          # -> aircraft/mig21bis/mig21bis.glb
+cockpit      = "mig21bis/mig21bis_cockpit"  # -> aircraft/mig21bis/mig21bis_cockpit.glb
+flight_model = "mig21bis/mig21bis"          # -> aircraft/mig21bis/mig21bis.toml
+ai_script    = "fighter"                    # -> ai/fighter.lua, UNFORKED (see station note)
+
+# Honest sensing: an AI bis sees what the RP-22 and the eyeball give it — a short-range
+# single-target set and a small canopy with poor rear view. GCI was how the real force found
+# its targets; that arrives with pack #13's scope, not by inflating this radar.
+sensors = ["fl-base:rp22", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+
+# NO dispensers, and that is the aircraft, not an omission (SOURCES.md): Soviet-production bis
+# had no built-in chaff/flare dispensers — retrofits and export upgrades added them later. Same
+# honesty ruling that keeps the T-38A at zero. The pack's own R-60M and AIM-9P are
+# flare-susceptible; a bis simply has no flares to offer them, and dies accordingly.
+chaff_count = 0
+flare_count = 0
+
+# ── Signatures ────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers against a baseline fighter (1.0); radar range scales by sqrt(rcs), ir and
+# visual LINEARLY. All [E], and the estimate is not arbitrary: the MiG-21 is a small,
+# hard-to-see aircraft — 14.1 m long, 7.2 m span, famously "a dot until the merge" — but its
+# single R-25 in afterburner is a hotter, bigger plume than the F-5E's two small J85s.
+[signatures]
+rcs    = 0.60   # [E] small airframe, no shaping; the intake cone actually helps a little
+ir     = 0.90   # [E] one large afterburning turbojet
+visual = 0.60   # [E] the F-5E's peer in being hard to pick up — that is why both were aggressors
+laser  = 1.0    # [E] no basis to deviate
+
+[ai]
+skill    = 0.5  # line PVO/frontal-aviation pilot, not an aggressor instructor
+reaction = 0.5
+
+# ── Hardpoints ────────────────────────────────────────────────────────────────────────────────
+# Four underwing pylons; the fifth (centreline) station is fuel-plumbed only (JAWA via WIKI:
+# "reserved for fuel droptanks") and is not modelled until a tank store earns it. The DEFAULT is
+# the published gross configuration — gun plus TWO missiles on the inboard pylons — which is the
+# 8,725 kg the flight model's mass closure was checked against; hanging four by default would
+# quietly contradict it. Late-bis paired R-60 rails (six missiles) are recorded in SOURCES.md,
+# not modelled.
+
+[[hardpoints]]
+slot    = 0
+type    = "gun"
+allowed = ["fl-base:gsh23l"]
+default = "fl-base:gsh23l"    # 200 rounds. Semi-conformal ventral; no drag.
+
+[[hardpoints]]
+slot    = 1
+type    = "missile"
+allowed = ["fl-base:r60m"]
+default = "fl-base:r60m"      # inboard left
+
+[[hardpoints]]
+slot    = 2
+type    = "missile"
+allowed = ["fl-base:r60m"]
+default = "fl-base:r60m"      # inboard right
+
+[[hardpoints]]
+slot    = 3
+type    = "missile"
+allowed = ["fl-base:r60m"]
+default = ""                  # outboard left, empty
+
+[[hardpoints]]
+slot    = 4
+type    = "missile"
+allowed = ["fl-base:r60m"]
+default = ""                  # outboard right, empty
+
+# ── Damage ────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values, not physical ones. Critical avionics failure kills the RP-22, and a bis on
+# the eyeball alone is nearly blind — which is exactly the real degradation mode.
+[damage.light]
+hp_fraction   = 0.70
+visual_effect = "smoke_light"
+thrust_factor = 0.95
+control_factor = 1.0
+
+[damage.heavy]
+hp_fraction   = 0.35
+visual_effect = "smoke_heavy"
+thrust_factor = 0.70
+control_factor = 0.80
+
+[damage.critical]
+hp_fraction      = 0.10
+visual_effect    = "fire"
+thrust_factor    = 0.35
+control_factor   = 0.50
+avionics_failure = true
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# ONE engine — the single-point-of-failure the twin-J85 F-5E does not have. The R-25 pool is
+# bigger than one F-5E engine pool (a single big core soaks more), but losing it is losing the
+# aeroplane; there is no asymmetric-thrust limp home from a dead R-25.
+[damage.subsystems.engine]
+hp     = 55.0
+weight = 2.5
+
+[damage.subsystems.controls]
+hp     = 25.0
+weight = 1.5
+
+# Avionics: failure strips to the eyeball — the RP-22 goes dark.
+[damage.subsystems.avionics]
+hp     = 15.0
+weight = 1.0
+
+# The forward-tank CG story (SOURCES.md: fuel burn walks the CG aft) is a flight-model-tier
+# behaviour the engine cannot express today; the fuel subsystem here is the leak, as on the F-5E.
+[damage.subsystems.fuel]
+hp     = 50.0
+weight = 1.2
+
+# NB: no [classic] block — battle damage is the `mig21bis_b` NODE inside the base glb, not a
+# separate damage_mesh file (the F-5E's validate-entity lesson).

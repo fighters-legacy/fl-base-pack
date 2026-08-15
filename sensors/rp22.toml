@@ -1,0 +1,42 @@
+# RP-22M "Sapfir-21" (S-21M; NATO "Jay Bird") — MiG-21bis fire-control radar.
+#
+# PROVENANCE: the set's IDENTITY is solid (SOURCES.md: the modernization brochure names
+# "Sapfir-21M (S-21M or RP-22M)" outright). Its RANGES are not publishable-solid: the widely
+# circulated figures (fighter-size detection ~20 km co-altitude, ±28 deg scan) trace to
+# enthusiast pages whose own sourcing cannot be checked past simulator-adjacent material, which
+# this pack does not use. So, exactly as the APQ-159 did, the numbers below are ENGINEERING
+# ESTIMATES [E] — but BRACKETED, not arbitrary:
+#
+#   floor:   the RP-21 it replaced is honestly documented (RP21-WIKI): fighter-size detection
+#            13 km practical / 20 km theoretical, lock 7 km practical. The RP-22's larger dish
+#            in the bis's wider intake cone was the point of the upgrade — it sits ABOVE this.
+#   ceiling: the pack's APG-66 (a late-70s pulse-doppler set) searches at 30 nm. A 1960s-design
+#            single-target set with no look-down sits WELL UNDER it.
+#
+# Per issue #41's scope ruling: a short-range search/track set with NO radar-missile capability
+# — that tier stays with the F-16A/MiG-29A. The R-3R SARH fit the real RP-22 supported is
+# deliberately out of scope for this aircraft.
+[sensor]
+id              = "fl-base:rp22"
+name            = "RP-22M Sapfir-21 radar"
+type            = "radar"
+omnidirectional = false
+emitter         = true          # it announces itself when it looks — RWR/EMCON hangs off this
+
+eccm = 0.20   # [E] 1960s-design set, modest resistance; well under the APQ-164's 0.55
+
+[search]
+az_half_angle_deg = 28.0        # [E] the circulated +/-28 deg scan sector, plausible for the dish
+el_half_angle_deg = 17.0        # [E]
+min_range_nm      = 0.1
+max_range_nm      = 11.0        # [E] ~20 km, fighter-size baseline, co-altitude; above the
+                                #     RP-21's 13 km practical, far under the APG-66's 30 nm
+pod               = 0.40        # [E] per 10 Hz check
+
+[track]
+az_half_angle_deg = 20.0        # [E] <= search
+el_half_angle_deg = 15.0        # [E]
+min_range_nm      = 0.1
+max_range_nm      = 8.0         # [E] ~15 km lock, roughly 2x the RP-21's practical 7 km
+pod               = 0.85        # [E]
+lock_hold_s       = 1.5         # [E] single-target conical-scan set; short coast, no TWS
