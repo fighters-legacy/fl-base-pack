@@ -1,0 +1,95 @@
+# MiG-21bis Fishbed — published performance gate.
+#
+# Consumed by `fm-trim --expect aircraft/mig21bis/mig21bis.expect.toml`. The mechanised form of
+# fighters-legacy#54's Phase-4 acceptance criterion: the flight model must reproduce the
+# performance its published sources state, within a stated tolerance, forever.
+#
+# The record here is broader than the B-1B's (four gateable rows against its three) but thinner
+# than the F-5E's: no public bis EM data exists — no turn charts, no Ps ladder, no stall table —
+# exactly as issue #41 predicted. Every mass below is INFERRED (no source states the weight behind
+# any published bis figure) and stated as such per row: those rows pin the model against drift,
+# they do not independently validate it. Provenance: SOURCES.md.
+
+# ── Max level Mach at altitude — THE anchor ──────────────────────────────────────────────────────
+# [P] 2,175 km/h / M2.05 at 13,000 m (JAWA via WIKI). This is what `cd0` and the supersonic end of
+# `[aero.cd_wave]` are calibrated against — the reason the drag deck has the level it does.
+# Mass [E]: a clean aircraft at mid fuel, the condition a headline speed is flown at.
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 13000.0
+mass_kg     = 7500
+afterburner = true
+expected    = 2.05
+tolerance   = 0.03
+
+# ── Max level speed at SEA LEVEL — gateable NOW, unlike the B-1B's ──────────────────────────────
+# [P] 1,300 km/h / M1.06 at sea level (JAWA via WIKI). On the B-1B the low-level figure is a pure
+# q placard the pre-#1181 engine cannot express, and its row is commented out. Here the model
+# trims to M1.04 at sea level ON DRAG ALONE — the bis sits at the placard and the drag wall at
+# almost the same speed, so the published number is gateable today as a transonic-drag anchor.
+# When an engine release ships #1181, `max_keas = 702` (already declared in mig21bis.toml)
+# activates and caps trim at the same M~1.06 — this row keeps passing; no edit needed.
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 0.0
+mass_kg     = 8725              # [P] the published gross (two R-3S)
+afterburner = true
+expected    = 1.06
+tolerance   = 0.04
+
+# ── Sea-level rate of climb — the AB-deck / subsonic-drag anchor ─────────────────────────────────
+# [P] 235 m/s "combat-loaded", full AB, NOT the 2-minute ЧР emergency regime (Gordon via WIKI —
+# his 254 m/s ЧР figure is not gated; the regime is not modelled). Gordon states no weight, and at
+# the published 8,725 kg gross the model gives 193 m/s — so "combat-loaded" is evidently a
+# part-fuel combat condition. 7,200 kg (≈55% internal fuel + two R-60) reproduces the figure.
+#
+# ⚠ Read this row for what it is: the mass was CHOSEN to reproduce a number whose weight is
+# unpublished, so it does not independently verify the climb — it pins the AB thrust deck and the
+# subsonic drag level against future drift. Regression gate, not validation (the b1b.expect.toml
+# roc row states the same).
+[[expect]]
+metric      = "roc_mps"
+altitude_m  = 0.0
+mass_kg     = 7200
+afterburner = true
+expected    = 235.0
+tolerance   = 0.10
+
+# ── Service ceiling, expressed as "barely climbing at 17,500 m" ─────────────────────────────────
+# [P] 17,500 m (JAWA via WIKI). fm-trim has no ceiling metric, so the ceiling is gated as a small
+# residual climb rate at the published altitude. The model reaches the 0.5 m/s service-ceiling
+# convention at 17,500 m at ~8,100 kg — near the published gross, which is the honest shape of a
+# heavy delta's ceiling. Mass [E] 8,000; expected small; tolerance deliberately wide: the row
+# asserts "the published ceiling is attainable at operational weight", nothing finer.
+[[expect]]
+metric      = "roc_mps"
+altitude_m  = 17500.0
+mass_kg     = 8000
+afterburner = true
+expected    = 1.3
+tolerance   = 0.60
+
+# ── NOT GATED, and why — read before adding a row here ──────────────────────────────────────────
+#
+# time to 17,000 m = 8 min 30 s [P] — fm-trim has no time-to-altitude metric (its roc is a point
+#     value, not an integral). Kept as a documented cross-check: the AB roc profile this model
+#     produces integrates to the right order. If fm-trim ever grows the metric, gate it.
+#
+# stall_speed_1g_mps — no published bis stall speed exists. The 250 km/h LANDING speed [P] is the
+#     closure check on the Polhamus peak (it lands at 1.18x the derived Vs — derive.py prints it),
+#     but landing speed is not stall speed and gating it would launder an [E] through a [P].
+#
+# roc on ЧР emergency power (254 m/s [P]) — the 97 kN / 2-minute regime is deliberately not
+#     modelled (no time-limited throttle stop in the engine schema); gating it would require
+#     inventing one. SOURCES.md carries the numbers.
+#
+# sustained_turn_deg_s / sustained_g / instant_turn_deg_s / corner_speed_mps / ps_mps / max_lift_g
+#     — no public bis energy-manoeuvrability data of any kind. Gating these would mean inventing
+#     the number and testing the model against the invention. (The delta's signature — sustained
+#     turn collapsing while instantaneous stays high — is in the model via k = 0.26 and the
+#     24 deg Polhamus peak; nothing published exists to pin its exact level.)
+#
+# specific_range_m_per_kg — the Jane's range figures are rejected outright in SOURCES.md (they are
+#     2x inconsistent with the F-13 manual's own range tables); the credible 1,225 km figure is a
+#     mission number with profile and reserves unstated. Range is constrained indirectly by the
+#     published R-25 SFC table, which the fuel flows are [D]erived from.
