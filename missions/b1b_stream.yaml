@@ -1,0 +1,161 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# b1b_stream — the pack's third mission, and the one the B-1B was built for (#66).
+#
+# A BOMBER STREAM, WHICH IS A DIFFERENT MISSION SHAPE FROM THE OTHER TWO. f5e_intercept and
+# f16a_intercept are BFM: two fighters, one merge, win on the kill. This one is a penetration —
+# three heavy aircraft in trail on a common track, red air trying to break them up, and success
+# measured by the stream getting through rather than by anyone being shot down. It is the first
+# mission in the pack with more than two aircraft, the first with a multi-crew type, and the first
+# where the player's aircraft is not a fighter.
+#
+# WHY A STREAM AND NOT A FORMATION: `ai/bomber.lua` builds its own closed racetrack from wherever it
+# is spawned, aligned with its initial heading (its build_route, and the comment there saying "a
+# mission that wants a specific track should place the aircraft on it"). Three bombers placed in
+# trail on the same heading therefore fly three parallel tracks in trail — which is exactly what a
+# bomber stream is. No `ai:` and no `route:` on any of them on purpose: the #634 auto-detect
+# attaches each entity's own default script, and `route:` would take precedence over `ai:` and hand
+# them to the C++ waypoint controller instead, which is not what #66 is here to exercise.
+#
+# ⚠ EVERY HEAVY AIRCRAFT HERE SETS `speed:` — this is not optional. At its 207 t spawn weight
+# (empty 87 t plus full internal fuel) the B-1B stalls at 180 m/s at 8,000 m, and `speed:` absent
+# means a cruise default sized for a fighter. Dropped in below its stall it departs immediately, the
+# mission report still says the timer fired, and the only tell is `live_entities`. That is exactly
+# how it was found during #66 stage 4, so the number is stated here rather than left to a default.
+#
+# ⚠ HEADING 090 IS WORLD +X at this location, verified by probe rather than assumed — local compass
+# directions are longitude-dependent in this world (f5e_intercept sits where east is world −Z, and
+# says so). The trail therefore extends along −X, behind the lead.
+#
+# MEASURED, 36,000-tick headless probe against the engine v0.3.17 RELEASE binaries — read this
+# before "fixing" the altitude:
+#
+#   outcome success at 480 s, 4 objects spawned, 4 live at the end, 1 trigger fired,
+#   entity_cap_refusals 0, no builtin-model fallback and no warning spam.
+#
+# THE STREAM DOES NOT HOLD 8,000 m, AND THAT IS THE AEROPLANE. Both AI bombers sag to about 4,100 m
+# over the first four minutes, then climb back through 5,200 m and are still climbing at the end.
+# They spawn at 207 t — operating empty plus full internal fuel, essentially maximum takeoff weight —
+# and while `fm-trim` says the airframe can just hold 8,000 m straight and level at MIL (ROC
+# 7.4 m/s at that weight), it cannot also pay for the 35°-banked turns of bomber.lua's racetrack.
+# The throttle is already saturating at 0.92–1.00 during the sag. A bomber that snapped back to its
+# commanded altitude at max weight would be the suspicious result, not this one; bomber.lua's own
+# header documents the same behaviour from the #66 stage-4 probe.
+#
+# ⚑ AND DO NOT "MODERNISE" bomber.lua's PITCH AXIS ONTO `elevator_for_altitude_hold` HERE, even
+# though fighters-legacy#1186 is now fixed and v0.3.17 ships the `max_aoa_rad` sizing parameter that
+# was added FOR this caller. It was re-measured on this mission after the fix, and the older
+# explicit loop still wins where it matters:
+#
+#   pitch law                              min altitude    mean |error vs 8,000 m|
+#   bomber.lua as it stands                    4,079 m               2,957 m
+#   elevator_for_altitude_hold, bound 0.20     1,244 m               2,731 m
+#   elevator_for_altitude_hold, bound 0.45     1,558 m               4,997 m   <- the documented value
+#
+# No bound between 0.16 and 0.45 keeps the aircraft above 1,600 m. The engine's own #1186 test is
+# `AltitudeHoldOnly` — wings level, fixed throttle, no route — and on THAT scenario the primitive
+# holds this exact airframe to 222 m. The gap is manoeuvring flight at weight, which this mission
+# has and that test does not. Note also that the documented 0.45 rad is 25.8°, well past this
+# aircraft's 13° stall, so it cannot be reconciled with the API's own "still short of the stall".
+
+name: "Lancer Stream"
+map: world
+layer: world_clear
+time: { hour: 5, minute: 40 }        # first light: the penetration window
+wind: { heading: 280, speed: 12 }
+weather:
+  preset: overcast                   # weather the bomber does not care about and the MiG does
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  # ── The stream ─────────────────────────────────────────────────────────────────────────────────
+  # Lead, and the player slot. `player: true` makes this a JOINABLE SLOT (engine #854) rather than a
+  # world entity: without it the #634 lifecycle would attach bomber.lua and the intended player
+  # aircraft would fly itself. `crew:`, `ai:`, `route:` and `loadout:` are all ignored on a player
+  # slot and the validator warns, so none is given here — the bot seats behind the human pilot are
+  # the engine's own auto-crew (#966/#971).
+  #
+  # 8,000 m and 260 m/s is M0.84 at this altitude, which the corrected sweep schedule flies at about
+  # 24° — the aircraft's cruise detent, wings well forward. Accelerating past M0.95 sweeps it to 55°
+  # and beyond; that is the transition the mission exists to show.
+  - type: fl-base:b1b
+    id: lancer1
+    side: blue
+    pos: [0, 0, 30000]
+    alt: 8000
+    heading: 90
+    speed: 260
+    player: true
+
+  # Trail. 10 km spacing is about 38 seconds at this speed — tight for a real stream, which works in
+  # minutes, but a mission that spread them over 20 minutes of empty sky would not be flyable.
+  #
+  # The `crew:` blocks are the first in the pack, and they are here because a four-seat bomber whose
+  # seats were all identical would waste the feature. The engine rolls each seat's skill
+  # deterministically from the MISSION NAME, so these ranges are reproducible run to run and a
+  # replay stays byte-identical — two bombers differ from each other, but neither differs from
+  # itself. The DSO is named by `role` (resolved against the entity's `[[crew]]`) rather than by
+  # seat index, so this does not silently target the wrong seat if the entity's seat order changes.
+  - type: fl-base:b1b
+    id: lancer2
+    side: blue
+    pos: [-10000, 0, 30000]
+    alt: 8000
+    heading: 90
+    speed: 260
+    crew:
+      skill: [0.45, 0.7]
+      seats:
+        - role: defensive systems officer
+          skill: 0.8                 # the seat that works the countermeasures against the intercept
+
+  - type: fl-base:b1b
+    id: lancer3
+    side: blue
+    pos: [-20000, 0, 30000]
+    alt: 8000
+    heading: 90
+    speed: 260
+    crew:
+      skill: [0.35, 0.6]             # the weakest crew in the stream, at the back where it hurts least
+
+  # ── The intercept ──────────────────────────────────────────────────────────────────────────────
+  # Two MiG-21bis on a reciprocal heading, offset either side of the track so they do not arrive as
+  # a single co-altitude pair. No `ai:`: the #634 auto-detect attaches the bis's own fighter.lua,
+  # unforked, exactly as f5e_intercept does. Nobody gets ground truth — they find the stream with
+  # the RP-22 and the eyeball or not at all, and the bis is a short-legged radar on a flare-less
+  # airframe, which is its honest handicap against a bomber carrying 120 of each.
+  #
+  # 45 km ahead at a combined closure near 500 m/s puts the merge about 90 seconds in, leaving the
+  # rest of the transit for the stream to press on or come apart.
+  - type: fl-base:mig21bis
+    id: bandit1
+    side: red
+    pos: [45000, 0, 30000]
+    alt: 7000
+    heading: 270
+
+  - type: fl-base:mig21bis
+    id: bandit2
+    side: red
+    pos: [47000, 0, 34000]
+    alt: 7500
+    heading: 250
+
+triggers:
+  # SUCCESS IS SURVIVING THE TRANSIT, not killing the interceptors — a bomber that turns to fight has
+  # already failed at what it is for. 480 s at 260 m/s is about 125 km of track, well past the merge.
+  - on: timer(480)
+    do: mission_success
+
+  # Losing the lead ends it. An UNOCCUPIED player slot is not "destroyed" (engine #884), so this
+  # cannot fire before a pilot has joined — the same reasoning as f5e_intercept's failure trigger.
+  #
+  # Deliberately NOT a failure when lancer2 or lancer3 is lost: a stream that arrives having lost an
+  # aircraft has still arrived, and making every loss terminal would make the trail aircraft
+  # decorative rather than part of the mission.
+  - on: destroy(lancer1)
+    do: mission_failure
