@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: Contributors to fl-base-pack
 # SPDX-License-Identifier: CC-BY-4.0
 #
-# f5e_intercept — the pack's first mission: a BFM training engagement, F-5E vs F-5E.
+# f5e_intercept — the pack's first mission: a BFM engagement, F-5E vs MiG-21bis.
 #
-# The aggressor framing is deliberate: the same aircraft serves as player mount and adversary,
-# which is exactly how the real jet spent its career. It also means the first mission exercises
-# the whole vertical slice with ONE asset: flight model, entity def, radar + eyeball sensors,
-# the AI script, and the default loadout's mass and drag.
+# THE AGGRESSOR FINALLY HAS ITS ADVERSARY (#41). This mission shipped as F-5E vs F-5E because
+# the pack had no red-air airframe — "the aggressor is its own adversary" (#24) — and the F-5E
+# was chosen in the first place because it was the jet that STOOD IN for the MiG-21 at aggressor
+# squadrons. With the MiG-21bis in the pack, red air is a red airframe: a tailed delta with the
+# RP-22, two R-60Ms and a GSh-23L against the Tiger's trapezoid wing, APQ-159, two AIM-9Ps and
+# 20 mm — the same fight the aggressor school was rehearsing, flown for real. Both sides run the
+# SAME ai/fighter.lua (the 0=gun/1=IR station contract): the asymmetry is the airframes, which
+# is the whole point.
 #
 # WIN ON THE KILL: Epic fighters-legacy#583 landed the fire path, so the F-5E's gun and AIM-9P are
 # real ordnance and the bandit can be shot down. Success is `on: destroy(bandit1)`, evaluated live
@@ -60,15 +64,17 @@ objects:
     player: true
     start: ground
 
-  # Adversary: same aircraft, AI-flown. No `ai:` on purpose — the #634 auto-detect attaches the
-  # entity's own default script (entities/f5e.toml → ai/fighter.lua). It patrols its anchor until its
-  # OWN sensors find the player — the APQ-159 cone or the eyeball, whichever gets there first. Nobody
-  # in this mission gets ground truth.
+  # Adversary: the MiG-21bis, AI-flown. No `ai:` on purpose — the #634 auto-detect attaches the
+  # entity's own default script (entities/mig21bis.toml → ai/fighter.lua, unforked). It patrols its
+  # anchor until its OWN sensors find the player — the RP-22 cone or the eyeball, whichever gets
+  # there first. Nobody in this mission gets ground truth, and the bis's short-legged radar and
+  # flare-less airframe are its honest handicaps (entities/mig21bis.toml).
   #
   # The bandit stays AIRBORNE: fighter.lua has no takeoff logic, and the #885 parking hold waits for
   # a pilot to rotate. It spawns at cruise airspeed along its heading (the #883 default — no `speed:`
-  # needed), so the engagement develops while the player climbs out.
-  - type: fl-base:f5e
+  # needed; the delta's stall speed makes a `speed:` mandatory only for HEAVY types, per the B-1B
+  # rule), so the engagement develops while the player climbs out.
+  - type: fl-base:mig21bis
     id: bandit1
     side: red
     pos: [22000, 0, 18000]
