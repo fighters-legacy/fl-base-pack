@@ -29,6 +29,26 @@ afterburner = true
 expected    = 1.25
 tolerance   = 0.04
 
+# ── Max level Mach at LOW LEVEL — the dynamic-pressure placard ───────────────────────────────────
+# [P] 608 kn at 200-500 ft = M0.919 at sea level, checked against ISA. This is the regime the
+# aircraft exists for, and it is a q placard rather than a thrust limit: down there the airframe has
+# roughly 655 kN of installed afterburning thrust against roughly 276 kN of drag at M0.92, so
+# nothing aerodynamic holds it. Drag cannot substitute — a cd_wave steep enough to stop it at M0.92
+# at sea level walls off the transonic climb at 50,000 ft, where dynamic pressure is 4.7x lower, and
+# makes the M1.25 anchor unreachable. One Mach-dependent term cannot serve both.
+#
+# ✅ GATED SINCE 2026-08-16. `[aero.limits] max_keas` arrived with fighters-legacy#1181 and reached
+# the pack in engine v0.3.17; b1b.toml declares `max_keas = 608.0` and the model trims M0.924 here,
+# measured against the released v0.3.17 binaries. Before the field existed this model was knowingly
+# ~11% fast below ~1,000 ft, and this file said so rather than hiding it.
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 107.0         # mid of the published 200-500 ft band
+mass_kg     = 140000
+afterburner = true
+expected    = 0.919         # [P] 608 kn at sea level, checked against ISA
+tolerance   = 0.03
+
 # ── Sea-level rate of climb — the MIL-thrust / drag-level anchor ─────────────────────────────────
 # [P] 5,678 ft/min = 28.85 m/s. Like the speed above, the source states no weight, so 180 t is
 # inferred — a heavy operational weight between the published gross (148 t) and MTOW (216 t), which
@@ -47,55 +67,41 @@ afterburner = false         # MIL thrust
 expected    = 28.85
 tolerance   = 0.12          # 12% — wide, because the weight behind the published figure is unknown
 
-# ── Service ceiling, expressed as "still climbing at 60,000 ft" ──────────────────────────────────
-# [P] 60,000 ft service ceiling. fm-trim has NO ceiling metric (its vocabulary is stall/min-level/
-# max-Mach/roc/turn/corner/specific-range/max-lift/Ps), so the ceiling is gated the only way it can
-# be: the aircraft must still hold level flight AND climb at 18,288 m at a light weight. The
-# expected value is small and the tolerance deliberately wide — this row asserts "the published
-# ceiling is attainable", not a specific climb rate, which no source publishes at that altitude.
+# ── Still climbing at 50,000 ft — the altitude-performance pin ───────────────────────────────────
+# ⚑ THIS ROW REPLACED A 60,000 ft CEILING ROW ON 2026-08-16, and the reason is a caution worth
+# keeping. That row gated "roc_mps 3.8 at 18,288 m and 100 t" and it PASSED for as long as
+# fighters-legacy#1187 was open — because the pre-v0.3.17 fm-trim trimmed a variable-geometry
+# aircraft at `ref_sweep_deg` regardless of Mach. It was measuring a B-1B holding its wings SPREAD
+# at M0.9 at 60,000 ft, which the sweep schedule never commands. Against the corrected tool the
+# aircraft cannot hold level flight there at all: at 18,288 m and 100 t its 1g stall speed is
+# 376 m/s, or M1.274 — ABOVE its own max_mach of 1.25. The published 60,000 ft figure is rejected
+# in SOURCES.md, with the measurement that separates the two cases.
+#
+# What is gated instead is the altitude the aircraft's headline speed is actually published AT.
+# The M1.25 anchor above is quoted at 50,000 ft, so the model must be able to reach and work at
+# 50,000 ft for that anchor to mean anything; this row asserts it is still climbing there at a
+# light weight, and pins the afterburning thrust deck at altitude against drift.
+#
+# ⚠ Read this row for what it is, like the one above it: the ALTITUDE is published, but the
+# expected VALUE is model-derived — no source states a B-1B climb rate at 50,000 ft. It is a
+# regression pin on the AB deck and the supersonic drag tail, not an independent validation.
 [[expect]]
 metric      = "roc_mps"
-altitude_m  = 18288.0       # 60,000 ft
-mass_kg     = 100000        # light: the condition a ceiling figure is flown at
+altitude_m  = 15240.0       # 50,000 ft — where the published max-speed anchor is quoted
+mass_kg     = 100000        # light: the condition a ceiling-class figure is flown at
 afterburner = true
-expected    = 3.8
-tolerance   = 0.60
+expected    = 16.3
+tolerance   = 0.10
 
 # ── NOT GATED, and why — read before adding a row here ──────────────────────────────────────────
 #
-# max level speed at LOW LEVEL (608 kn at 200-500 ft = M0.919 at sea level) — [P], published, and
-#     now MODELLED but not yet GATEABLE. It is a dynamic-pressure placard, not a thrust limit: at sea
-#     level this airframe has roughly 655 kN of installed afterburning thrust against roughly 276 kN
-#     of drag at M0.92, so nothing aerodynamic holds it there — the real aircraft is held by a q
-#     limit (608 kn at sea level is ~59.2 kPa, ~1,236 lb/ft^2).
-#
-#     It CANNOT be fixed with drag. Making cd_wave steep enough to stop the aircraft at M0.92 at sea
-#     level was tried and it walls off the transonic climb: the same curve then prevents the aircraft
-#     from accelerating through M1.0 at 50,000 ft, where dynamic pressure is 4.7x lower, and the
-#     M1.25 anchor above becomes unreachable. One Mach-dependent drag term cannot serve both a
-#     sea-level q limit and a stratospheric thrust limit.
-#
-#     ✅ The engine gained the field: fighters-legacy#1181 added `[aero.limits] max_keas`, and
-#     b1b.toml now declares `max_keas = 608.0`. Against an engine built from main the model trims to
-#     M0.92 down low — the published number, reproduced.
-#
-#     ⏳ THE ROW BELOW STAYS COMMENTED OUT UNTIL AN ENGINE RELEASE SHIPS #1181. Pack CI fetches its
-#     validators from the LATEST RELEASE, which is v0.3.16 and predates the placard; that fm-trim
-#     ignores the key and still computes ~M1.02, so gating 0.919 now would fail CI on a model that
-#     is correct. Verified directly against the released v0.3.16 binaries rather than assumed.
-#     When a release ships it, delete this paragraph and uncomment:
-#
-# [[expect]]
-# metric      = "max_level_mach"
-# altitude_m  = 107.0        # mid of the published 200-500 ft band
-# mass_kg     = 140000
-# afterburner = true
-# expected    = 0.919        # [P] 608 kn at sea level, checked against ISA
-# tolerance   = 0.03
-#
-#     NOTE this is the same class of problem the T-38A documents ("710 KEAS placard ... the model
-#     trims a hair above it") — but a hair there and 11% here, because the B-1B's placard bites far
-#     lower relative to its thrust. Both aircraft can carry `max_keas` once the release lands.
+# service ceiling — the published 60,000 ft figure is REJECTED. It survived in this file as a
+#     passing row only while fighters-legacy#1187 was open; the reasoning and the measurement that
+#     separates the two cases are in the "still climbing at 50,000 ft" row above and in SOURCES.md.
+#     For the record, the model's own ceiling at 100 t is about 17,000 m (55,800 ft), where it
+#     still climbs at 7.5 m/s. That altitude is NOT gated: it is an output of this model, so gating
+#     it would be gating the model against itself — the same reason the stall speed below is not
+#     gated.
 #
 # stall_speed_1g_mps — no published B-1 stall speed exists. `alpha_stall_deg` and the cl_table peak
 #     are [E]/[D] from geometry, so gating a stall speed would be gating this model against itself.

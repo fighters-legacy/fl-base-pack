@@ -120,16 +120,33 @@ AC = 0.25           # x/c   wing aerodynamic centre (thin-airfoil standard)
 #     608 kn at 200-500 ft (= M0.919 at sea level)
 # Both are flown with the wings SWEPT, so what they actually constrain is
 # (CD0 + CD0_DELTA_SWEPT) and the cd_wave shape. Re-run fm-trim --expect after changing any of them.
+#
+# ⚑ RE-FITTED 2026-08-16 against a CORRECTED TOOL, and this is worth understanding before touching
+# these numbers again. Until fighters-legacy#1187 (fixed in engine v0.3.17), `fm-trim` evaluated a
+# variable-geometry aircraft at `ref_sweep_deg` no matter what Mach it was trimming -- so the whole
+# original fit was performed on a wing SPREAD at 15 deg, a configuration the schedule below never
+# commands above M0.5. The aircraft was being calibrated in a shape it never flies.
+#
+# The tell was visible in the numbers and was missed: the old supersonic tail RISES monotonically
+# (0.0345 -> 0.0380 -> 0.0400 at M1.10/1.25/1.60), which no area-ruled body does and which no other
+# aircraft in this pack does -- the F-5E, F-16A, T-38A and MiG-21bis all peak transonically and then
+# decay. That climb was not physics; it was drag inflated to hold a spread wing down to M1.25.
+# Flown swept, k_scale 1.715 supplies far more induced drag on its own, and the wave-drag tail comes
+# down to the ordinary post-peak decay it should always have had.
 CD0 = 0.0175            # zero-lift drag at the SPREAD reference                [D]
 CD0_DELTA_SWEPT = -0.0020   # swept is aerodynamically cleaner                  [D]
 CD0_DELTA_SPREAD = 0.0
 
 # Transonic/supersonic wave-drag rise. The SHAPE is [E] -- a standard transonic rise that peaks
-# just above M1.0 and settles supersonically; the LEVEL is pinned by the two anchors above. The
-# low-level anchor sits ON the steep part of this curve, which is why the B-1B is held subsonic
-# down low while still reaching M1.25 where the dynamic pressure is 4.7x lower.
+# just above M1.0 and decays supersonically; the LEVEL is pinned by the M1.25 anchor, measured in
+# the swept configuration the schedule actually commands there.
+#
+# CD0 itself is NOT re-fitted: it is pinned by the sea-level MIL climb row, which is flown subsonic
+# and spread (the schedule holds 15 deg below M0.5), where cd_wave contributes nothing. The two
+# anchors therefore constrain two different parts of the deck without fighting each other, which is
+# exactly why only the supersonic tail moved.
 CD_WAVE_MACH = [0.80, 0.88, 0.92, 0.96, 1.02, 1.10, 1.25, 1.60]
-CD_WAVE_VALS = [0.0000, 0.0035, 0.0090, 0.0210, 0.0330, 0.0345, 0.0380, 0.0400]
+CD_WAVE_VALS = [0.0000, 0.0035, 0.0090, 0.0210, 0.0330, 0.0325, 0.0310, 0.0270]
 
 # ─── Derived geometry ────────────────────────────────────────────────────────────
 AR_SPREAD = B_SPREAD**2 / S      # 9.625 -- matches SOURCES.md

@@ -119,7 +119,7 @@ Four General Electric **F101-GE-102** afterburning turbofans.
 |---|---|---|
 | max speed at altitude | M1.25 / 721 kn TAS at 50,000 ft | **P** WIKI (cites Pace) |
 | max speed at low level | 608 kn at 200–500 ft | **P** WIKI |
-| service ceiling | 18,288 m (60,000 ft) | **P** WIKI |
+| ~~service ceiling~~ | ~~18,288 m (60,000 ft)~~ | **P** WIKI — ❌ **REJECTED**, see below |
 | rate of climb | 28.85 m/s (5,678 ft/min) | **P** WIKI |
 | range | 5,100 nmi | **P** WIKI |
 | combat range | 2,993 nmi | **P** WIKI |
@@ -153,6 +153,37 @@ Boeing's own product page states a sea-level speed of "900-plus mph (Mach 1.2 at
 regime this aircraft is built to fly** — the low-level penetration case. Recorded here so nobody
 "corrects" the model back toward it later.
 
+### ❌ REJECTED: the 60,000 ft service ceiling — **WIKI**
+
+Rejected **2026-08-16**, and unlike the Boeing figure above this one had already been written into
+the flight model's gate, where it passed for two days. The full sequence is worth keeping, because
+the failure mode is more interesting than the number.
+
+- The USAF fact sheet — the **primary** source, and the one every other performance row here is
+  ultimately traced to — states the ceiling as **"more than 30,000 feet"**. The 60,000 ft figure is
+  the Wikipedia infobox's, and the two were never reconciled when this file was first written.
+- The physics sides with the fact sheet. At 18,288 m the ISA density is 0.1153 kg/m³; a 100 t B-1B
+  on 181.16 m² needs **CL ≈ 0.65 even at its maximum permitted M1.25**. Measured against the
+  corrected `fm-trim`, its 1g stall speed at that altitude and weight is **376 m/s = M1.274** —
+  above its own `max_mach` of 1.25. **There is no speed at which the aircraft can hold level flight
+  at 60,000 ft**, at any weight down to operating empty.
+- The B-1A reached far higher, and this is the same B-1A/B-1B confusion the rejected Boeing speed
+  came from: variable inlets, M2.2, a different envelope entirely.
+
+**Why it passed the gate anyway, which is the part to remember.** Until
+**fighters-legacy#1187** (fixed in engine v0.3.17) `fm-trim` evaluated a variable-geometry aircraft
+at `ref_sweep_deg` at every Mach — for this aircraft, wings **spread** at 15°. Spread, the model
+does hold 18,288 m and climbs at 3.80 m/s, which is why a row gating "3.8 m/s at 60,000 ft" was
+written and believed. It was measuring a configuration the sweep schedule never commands: to stay
+above the stall up there the aircraft must fly at M1.2+, and at M1.2+ the schedule commands 67.5°,
+which costs it a third of its lift-curve slope. Locking the wing spread and re-running is what
+separated the two cases, and the difference is exactly the 3.80 m/s the old row expected.
+
+**Two lessons, both already paid for elsewhere in this pack:** a validator that agrees with a
+published number can still be measuring the wrong aircraft, and a figure whose provenance is a
+tertiary infobox should be checked against the primary source before it is gated — the fact sheet
+disagreed with it in plain text the whole time.
+
 ---
 
 ## Gaps — what is **D** or **E**, and how each was resolved
@@ -165,7 +196,7 @@ shipped in `b1b.toml`.
 | `ixx/iyy/izz` inertias | Never published for the B-1 in any public document | **E** — radii of gyration (0.34 / 0.38 / 0.44, airframe-class values) about span, length and their mean, at gross weight. 7.45e6 / 1.06e7 / 1.33e7 kg·m² |
 | `[aero.cl_table]` | No public CL(α, M) database — no B-1 equivalent of NASA TP-1538 | **D** — DATCOM/Helmbold swept-wing lift slope at the spread reference, capped at 5.80 /rad so the transonic columns do not imply an unphysical CL_max. Each Mach column peaks at the 13° stall by construction, because `validate-flight-model` requires the table peak within 2° of `alpha_stall_deg` |
 | `[aero.drag_polar]` `k` | Not published | **D** — 1/(π·AR·e) at the spread AR with an **E** Oswald efficiency of 0.80 → 0.0413 |
-| `cd0`, `[aero.cd_wave]` | Not published | **D** — the *only* fitted quantities, calibrated against the M1.25/50,000 ft anchor alone. cd0 0.0175; the wave curve peaks 0.0345 near M1.10 and holds 0.0380 at M1.25 |
+| `cd0`, `[aero.cd_wave]` | Not published | **D** — the *only* fitted quantities. `cd0` 0.0175 is pinned by the sea-level MIL climb row (flown subsonic and spread, where the wave curve contributes nothing); the wave curve's supersonic tail is pinned by the M1.25/50,000 ft anchor, measured **swept**. It peaks 0.0330 near M1.02 and decays to 0.0310 at M1.25 and 0.0270 at M1.60 — ⚑ **re-fitted 2026-08-16**, see below |
 | `[wing_sweep]` scales | Not published | **D** — lift-slope and effective-AR ratios between the extremes, each blended through the share of lift the body and fixed glove carry regardless of sweep (**E**, 0.50) → cl_scale 0.666, k_scale 1.715. **Cross-checked** against the engine's F-14 example, whose spread/swept AR ratio is nearly identical (2.83 vs 3.01) and which uses 0.68 |
 | `mac_m` | Not published | **D** — 4.758 m, from the mean chord (S/b) and an **E** taper of 0.30 read off the PD planform photographs |
 | `cl_p`, `cl_da` (roll damping/authority) | No public roll-rate data | **E** — strip theory from geometry. Nothing checks these, exactly as on the F-5E and T-38A |
@@ -173,11 +204,37 @@ shipped in `b1b.toml`.
 | engine thrust vs Mach/altitude | Only SL-static ratings are published | **D** — density lapse σ^0.85 × ram recovery, level fixed by the published static ratings. ⚑ The ram term **decays above M1.20** to model the B-1B's *fixed* inlet; left growing as M², the model reached M1.67 at 50,000 ft — B-1A installed thrust on a B-1B airframe |
 | `max_g_structural` | Not published for the B-1B | **E** — 2.50, the middle of the +2.0…+3.0 g bomber band. With `has_fbw = false` there is no limiter, so it is a real, breakable limit |
 
-### What the gate actually covers — and the one published number it cannot
+### What the gate actually covers
 
-`b1b.expect.toml` gates three rows: max level Mach at 50,000 ft (the calibration anchor), sea-level
-MIL rate of climb, and the 60,000 ft ceiling expressed as "still climbing". The gate was **proved to
-fail** before it was believed — perturbing `cd0` or the supersonic wave drag each turns it red.
+`b1b.expect.toml` gates four rows: max level Mach at 50,000 ft (the calibration anchor), max level
+Mach at 107 m (the `max_keas` placard), sea-level MIL rate of climb, and "still climbing at
+50,000 ft" at a light weight. The gate was **proved to fail** before it was believed — perturbing
+the supersonic wave drag by ±0.0030 drives the anchor to M1.003 and M1.315 respectively, both well
+outside its 4% band.
+
+### ⚑ The 2026-08-16 re-calibration — what moved, and why
+
+Engine **v0.3.17** shipped **fighters-legacy#1187**, which makes `fm-trim` resolve wing sweep from
+the Mach-driven schedule instead of evaluating every point at `ref_sweep_deg`. This aircraft is the
+only one in the pack with a `[wing_sweep]` block, so it is the only one affected — the other four
+were re-checked against the released binaries and are byte-identical in their results (F-5E 12/12,
+F-16A 1/1, T-38A 5/5, MiG-21bis 4/4).
+
+Against the corrected tool the model went from 3/3 met to 1 missed plus a non-convergent row, and
+both failures were real. Three things changed in response:
+
+1. **The supersonic `cd_wave` tail came down** (0.0345/0.0380/0.0400 → 0.0325/0.0310/0.0270 at
+   M1.10/1.25/1.60). Flown swept, `k_scale` 1.715 supplies far more induced drag than the spread
+   wing the curve had been fitted against, so the wave-drag level that reproduces M1.25 is lower.
+   The old shape *rose* monotonically past its peak, which no area-ruled body does and no other
+   aircraft in this pack does — that was the visible fingerprint of the defect, and it went unread.
+   `cd0` did **not** move: it is pinned by a subsonic, spread-wing row that the fix does not touch.
+2. **The sweep schedule was corrected** to the B-1B's four published detents (15° takeoff/loiter,
+   25° cruise, 55° subsonic penetration, 67.5° dash). It previously commanded 45° at M0.85 — near
+   mid-sweep at the aircraft's own cruise Mach. Worth 3.84 → 7.50 m/s of climb at 17,000 m; it does
+   **not** move the calibration anchor, since both schedules command 67.5° at M1.25, and that was
+   verified by measurement rather than assumed.
+3. **The 60,000 ft ceiling row was rejected and replaced** — see the rejected-figures section above.
 
 ✅ **The published low-level limit (608 kn at 200–500 ft) is now MODELLED.** It is a
 dynamic-pressure placard rather than a thrust limit, and `[aero.limits]` had no way to say so — only
@@ -186,13 +243,10 @@ steep enough to hold M0.92 at sea level walls off the transonic climb at 50,000 
 M1.25 anchor unreachable, because one Mach-dependent term cannot serve both a sea-level q limit and
 a stratospheric thrust limit.
 
-**fighters-legacy#1181** added `max_keas`, and `b1b.toml` declares `max_keas = 608.0`. Against an
-engine built from main the model trims to **M0.92** down low — the published figure, reproduced.
-The corresponding `b1b.expect.toml` row is written but commented out until an engine **release**
-ships the field: pack CI fetches its validators from the latest release (v0.3.16), whose fm-trim
-ignores the key and still computes ~M1.02. Verified against those released binaries rather than
-assumed. Full reasoning is in
-`b1b.expect.toml`'s "NOT GATED, and why" section.
+**fighters-legacy#1181** added `max_keas`, and `b1b.toml` declares `max_keas = 608.0`. The field
+reached the pack in engine **v0.3.17**, so the row is no longer commented out: `b1b.expect.toml`
+now **gates** the low-level anchor, and the model trims **M0.924** against the published M0.919,
+measured with the released v0.3.17 binaries rather than a local main build.
 
 Also filed: **fighters-legacy#1182** — `validate-flight-model` applies no plausibility bands to
 non-fighter roles at all, so nothing in this file is range-checked and a unit error would pass
