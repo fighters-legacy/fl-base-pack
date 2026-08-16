@@ -97,10 +97,17 @@ speedbrake_cd = 0.0400           # [E] the B-1 has no conventional airbrake; spo
 gear_cd       = 0.0250           # [E] four-wheel bogies, large doors
 
 # Transonic rise. Shape [E], level pinned by the 50,000 ft anchor: peaks just above M1.0 and
-# settles supersonically, the standard shape for an area-ruled body.
+# decays supersonically, the standard shape for an area-ruled body.
+#
+# ⚑ The supersonic tail was RE-FITTED for fighters-legacy#1187 (engine v0.3.17). Before that fix
+# fm-trim trimmed this aircraft at ref_sweep_deg (15 deg) at every Mach, so the tail had been fitted
+# against a spread wing -- and to hold a spread wing down to M1.25 it had to RISE past its peak
+# (0.0345/0.0380/0.0400), which no area-ruled body does and no other aircraft in this pack does.
+# Measured swept, as the schedule below actually commands at M1.25, the curve decays normally.
+# Regenerate with derive.py; see its CALIBRATION block for the full reasoning.
 [aero.cd_wave]
 mach   = [ 0.80,  0.88,  0.92,  0.96,  1.02,  1.10,  1.25,  1.60]
-values = [ 0.0000,  0.0035,  0.0090,  0.0210,  0.0330,  0.0345,  0.0380,  0.0400]
+values = [ 0.0000,  0.0035,  0.0090,  0.0210,  0.0330,  0.0325,  0.0310,  0.0270]
 
 # ── Variable-sweep wing (#66 — the pack's first) ───────────────────────────────────────────────
 [wing_sweep]
@@ -109,11 +116,25 @@ min_deg         = 15.0           # [P] full forward
 max_deg         = 67.5           # [P] full aft
 slew_rate_deg_s = 5.0            # [E] not published; a large wing takes ~10 s corner to corner
 
-# Mach-driven auto programme [E]: spread for takeoff, landing and high-altitude cruise; aft for
-# high subsonic and supersonic flight. The published usage statement, made numeric.
+# Mach-driven auto programme [E] approximating the B-1B's four published sweep positions, which the
+# real aircraft selects by hand rather than on a schedule:
+#     15 deg   takeoff, landing, air refuelling, loiter, maximum-range cruise
+#     25 deg   normal cruise
+#     55 deg   high subsonic penetration
+#     67.5 deg supersonic dash and high-speed low-level penetration
+# The engine supports only a Mach schedule (plus manual override), so those detents are laid onto
+# the Mach numbers each is flown at.
+#
+# ⚑ CORRECTED 2026-08-16: this previously commanded 45 deg at M0.85 and 60 deg at M1.00, which put
+# the aircraft near mid-sweep at its own cruise Mach -- the real B-1B cruises at 25 deg. The error
+# was invisible while fighters-legacy#1187 made fm-trim evaluate every aircraft at ref_sweep_deg;
+# once the tool followed the schedule, the over-swept cruise cost real climb performance at altitude
+# (3.84 -> 7.50 m/s AB rate of climb at 17,000 m and 100 t once corrected). It does NOT move the
+# calibration anchor -- both the old and the corrected schedule command 67.5 deg at M1.25, which was
+# verified by measurement rather than assumed.
 [wing_sweep.schedule]
-mach  = [0.00, 0.50, 0.70, 0.85, 1.00, 1.25]
-sweep = [15.0, 15.0, 25.0, 45.0, 60.0, 67.5]
+mach  = [0.00, 0.70, 0.85, 0.95, 1.05, 1.25]
+sweep = [15.0, 15.0, 25.0, 55.0, 67.5, 67.5]
 
 [wing_sweep.spread]
 cl_scale  = 1.000
@@ -156,10 +177,8 @@ max_mach         =  1.25  # [P] published maximum, at altitude
 # aircraft exists for. Drag cannot substitute: a cd_wave steep enough to hold M0.92 at sea level
 # walls off the transonic climb at 50,000 ft and makes the M1.25 anchor unreachable.
 #
-# ⚠ INERT ON ENGINE RELEASES UP TO v0.3.16, which is what pack CI fetches -- older parsers ignore
-# the key (verified against the released binaries: validate clean, no unknown-key complaint, and
-# the existing expectation rows still pass). It takes effect the moment a release ships #1181, and
-# b1b.expect.toml then gains the low-level row it currently documents as ungateable.
+# ✅ LIVE as of engine v0.3.17, which shipped #1181. Measured against the released binaries the
+# model now trims M0.924 at 107 m against the published M0.919 -- and b1b.expect.toml gates it.
 max_keas         = 608.0
 
 [aero.controls]
