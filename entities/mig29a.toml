@@ -1,0 +1,165 @@
+# Mikoyan MiG-29A Fulcrum-A (izdeliye 9.12) — entity definition. The pack's twin-engine red-air
+# peer to the F-16A (#43), and its first aircraft carrying an IRST.
+#
+# EntityDef owns all asset wiring (engine #813). `mesh` and `flight_model` are ASSET NAMES with
+# the asset's own subdirectory ("mig29a/mig29a", NOT "mig29a" — the silent-UFO-fallback trap the
+# F-5E hit); `sensors` and hardpoint `allowed`/`default` are DEF IDS. The two vocabularies are not
+# interchangeable (engine #810).
+#
+# STATION CONVENTION: slot 0 = gun, slot 1 = IR missile, slot 5 = radar missile — the contract
+# ai/fighter.lua is written against, extended to 5 by #6's BVR work. That convention is what lets
+# this aircraft fly the SAME script as the blue jets and the MiG-21bis, unforked.
+
+[entity]
+id           = "fl-base:mig29a"
+name         = "MiG-29A Fulcrum-A"
+category     = "air_vehicle"
+max_hp       = 110.0              # [E] a bigger, twin-engine airframe than the F-16A's 100
+collision_radius_m = 10.0         # span 11.36 m; the 8 m air-vehicle default is too tight
+mesh         = "mig29a/mig29a"          # -> aircraft/mig29a/mig29a.glb
+cockpit      = "mig29a/mig29a_cockpit"  # -> aircraft/mig29a/mig29a_cockpit.glb
+flight_model = "mig29a/mig29a"          # -> aircraft/mig29a/mig29a.toml
+ai_script    = "fighter"                # -> ai/fighter.lua, UNFORKED (see station note)
+
+# ⚑ THREE SENSORS, AND THE MIDDLE ONE IS NEW TO THIS PACK. The N019 is the radar; the OEPS-29 is
+# the pack's first true IRST (a PASSIVE search set, not a missile seeker head — see
+# sensors/oeps29.toml), which is the deliverable pack #17 has been blocked on for want of a host
+# airframe. There is no night eyeball: it was retired in #79 because the engine has owned night
+# since #209, and every aircraft in the pack now carries the day eyeball alone.
+#
+# The fit is the aircraft's character in three lines: it can hunt passively with the radar in
+# Silent mode and stay invisible to a hostile RWR — the one place this sensor suite beats the
+# F-16A's outright — while its radar TRACK range is deliberately shorter than the F-16A's.
+sensors = ["fl-base:n019", "fl-base:oeps29", "fl-base:eyeball_day"]
+
+# Expendables magazine (engine #529): BVP-30-26 dispensers in the wing roots and spine. The 9.12
+# carried 30 mm cartridges; the split below is the usual half-and-half mix [E].
+chaff_count = 30
+flare_count = 30
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers against a baseline fighter (1.0); radar range scales by sqrt(rcs), ir and
+# visual LINEARLY. All [E] — no signature data for this aircraft is public — but reasoned against
+# the pack's own F-16A, which is the comparison that matters:
+[signatures]
+rcs    = 0.95   # [E] bigger than the F-16A's 0.80: a 17.3 m airframe with two big rectangular
+                #     intakes, twin fins and no shaping anywhere. Nothing here was hidden.
+ir     = 1.20   # [E] the highest in the pack, and earned: TWO afterburning turbofans, and the
+                #     RD-33 is documented as producing "noticeably heavier smoke than its
+                #     contemporaries" from its short combustor (SOURCES.md). This aircraft is
+                #     easy to see in the infra-red, which is the cost of its own IRST advantage.
+visual = 0.85   # [E] well above the F-5E's 0.55 and the F-16A's 0.70 — a big twin-finned jet,
+                #     and the smoke trail is a visual cue too
+laser  = 1.0    # [E] no basis to deviate from baseline
+
+[ai]
+skill    = 0.55 # [E] a competent frontline pilot, under the F-16A's 0.6. The Luftwaffe
+                #     assessment (SOURCES.md) is that the aircraft was best used as a
+                #     point-defence interceptor, not swept forward — the handicap is the sensor
+                #     suite and the BVR workload, both modelled directly, so this is not the
+                #     place to double-count it.
+reaction = 0.6  # [E] under the F-16A's 0.7: no HOTAS, conventional dials, and the cockpit was
+                #     deliberately made MiG-23-like for ease of conversion rather than ergonomic
+
+# ── Hardpoints — SIX external stations, per the manufacturer ────────────────────────────────────
+# RAC MiG's own table says "Number of external stations 6" (SOURCES.md). Wikipedia says seven
+# (6 underwing + 1 fuselage); both are right about different things — the fuselage point is the
+# centreline WET station for the 1,500 L drop tank, not a weapons station on the 9.12. It is out
+# of scope until a tank store exists, the same ruling the MiG-21bis made about its fifth pylon.
+#
+# The DEFAULT is the published combat configuration: gun + 2x R-27R1 + 4x R-73E, which is exactly
+# the fit Gordon quotes the 700-900 km combat range against (SOURCES.md). The flight model's
+# expect rows pin their own payload per row, so the spawn state and the calibration rows are
+# independently honest.
+
+[[hardpoints]]
+slot    = 0
+type    = "gun"
+allowed = ["fl-base:gsh301"]
+default = "fl-base:gsh301"    # 150 rounds, internal at the port LERX root. No drag.
+
+[[hardpoints]]
+slot    = 1
+type    = "missile"
+allowed = ["fl-base:r73e"]
+default = "fl-base:r73e"      # outboard left — fighter.lua's IR station
+[[hardpoints]]
+slot    = 2
+type    = "missile"
+allowed = ["fl-base:r73e"]
+default = "fl-base:r73e"      # outboard right
+
+[[hardpoints]]
+slot    = 3
+type    = "missile"
+allowed = ["fl-base:r73e"]
+default = "fl-base:r73e"      # mid left
+[[hardpoints]]
+slot    = 4
+type    = "missile"
+allowed = ["fl-base:r73e"]
+default = "fl-base:r73e"      # mid right
+
+[[hardpoints]]
+slot    = 5
+type    = "missile"
+allowed = ["fl-base:r27r1", "fl-base:r73e"]
+default = "fl-base:r27r1"     # inboard left — fighter.lua's RADAR-missile station
+[[hardpoints]]
+slot    = 6
+type    = "missile"
+allowed = ["fl-base:r27r1", "fl-base:r73e"]
+default = "fl-base:r27r1"     # inboard right
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values [E]. `avionics_failure` at critical strips the aircraft to the eyeball — and on
+# THIS aircraft that costs two sensors, the N019 and the OEPS-29, which is a heavier loss than any
+# other jet in the pack suffers.
+[damage.light]
+hp_fraction   = 0.70
+visual_effect = "smoke_light"
+thrust_factor = 0.95
+control_factor = 1.0
+
+[damage.heavy]
+hp_fraction   = 0.35
+visual_effect = "smoke_heavy"
+thrust_factor = 0.70
+control_factor = 0.80
+
+[damage.critical]
+hp_fraction      = 0.10
+visual_effect    = "fire"
+thrust_factor    = 0.35
+control_factor   = 0.50
+avionics_failure = true
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# TWIN ENGINES — the pack's second asymmetric engine-out case after the F-5E, and the first on a
+# modern fighter. engine_left / engine_right are separate pools: losing ONE is half thrust plus a
+# yaw moment toward the dead side, and on an aircraft with its engines this WIDELY SPACED that
+# moment is large. The MiG-29 has no fly-by-wire to help (mig29a.toml's has_fbw = false), so an
+# engine-out here is a genuine handful in a way the F-16A's single-engine total loss is not.
+[damage.subsystems.engine_left]
+hp     = 45.0
+weight = 2.0
+
+[damage.subsystems.engine_right]
+hp     = 45.0
+weight = 2.0
+
+[damage.subsystems.controls]
+hp     = 25.0
+weight = 1.5
+
+# Avionics: failure takes the N019 AND the OEPS-29 — see the note above.
+[damage.subsystems.avionics]
+hp     = 15.0
+weight = 1.0
+
+[damage.subsystems.fuel]
+hp     = 50.0
+weight = 1.2
+
+# NB: no [classic] block — battle damage is the `mig29a_b` NODE inside the base glb, not a
+# separate damage_mesh file (the F-5E's validate-entity lesson).

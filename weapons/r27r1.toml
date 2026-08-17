@@ -1,0 +1,55 @@
+# R-27R1 (NATO AA-10 "Alamo-A") — semi-active radar-homing air-to-air missile.
+#
+# The pack's SECOND radar-guided missile and its first RED-AIR one — the counterpart to the F-16A
+# ADF's AIM-7M, and the reason a radar-versus-radar engagement is now flyable rather than a mirror
+# match (fl-base-pack#43's own framing).
+#
+# SEMI-ACTIVE: the missile rides the LAUNCH AIRCRAFT'S illumination, so `fire_and_forget = false`
+# and the shooter must hold the lock through time-of-flight — the engine's SupportQuery path, and
+# the `fighter.lua` support-hold phase #6 added. (`pitbull_nm` is active-radar-only and would be a
+# parse error here; `requires_designator` is the laser/GPS flag and does not apply.)
+#
+# ⚑ THIS WEAPON OUT-RANGES ITS OWN RADAR, DELIBERATELY. 22 nm of missile behind a 19 nm track
+# lobe is the MiG-29's published BVR problem stated in numbers — see sensors/n019.toml. The
+# aircraft can carry a shot it cannot always support, which is exactly what the Luftwaffe pilots
+# in SOURCES.md describe.
+[weapon]
+id       = "fl-base:r27r1"
+name     = "R-27R1"
+type     = "missile"
+category = "air-to-air"
+
+[seeker]
+type            = "semi-active-radar"
+sensor_id       = "fl-base:r27r1_seeker"
+fire_and_forget = false    # [P] the defining SARH property: lose the lock, lose the missile
+
+[performance]
+max_range_nm      = 22.0   # [E] practical head-on employment. The PUBLISHED figure is "up to
+                           #     75 km" (40 nm, R27-WIKI) — a brochure maximum under ideal
+                           #     head-on geometry, treated the way the AIM-7M's was (20 nm
+                           #     practical against longer brochure maxima).
+min_range_nm      = 0.5    # [E]
+max_speed_kts     = 2600.0 # [D] the published M4.5 band, at altitude
+motor_burn_time_s = 11.0   # [E] boost-sustain class, slightly longer than the Mk 58's
+max_g             = 25.0   # [E] comparable to the AIM-7M
+
+[warhead]
+blast_radius_ft = 42.0     # [D] 39 kg blast/fragmentation or continuous-rod [P R27-WIKI] —
+                           #     a shade heavier than the AIM-7M's 88 lb (40 kg)
+damage          = 92.0     # [E] gameplay: marginally above the Sparrow's 90, by warhead mass
+
+[countermeasures]
+flare_susceptibility = 0.0   # radar seeker: flares mean nothing to it
+chaff_susceptibility = 0.55  # [E] slightly MORE seducible than the AIM-7M's 0.50 — analogue
+                             #     illumination processing from the N019 behind it
+notch_susceptibility = 0.55  # [E] same reasoning; the doppler notch is the classic SARH defeat
+
+[load]
+weight_lb   = 558.0        # [P] 253 kg launch weight (R27-WIKI)
+drag_factor = 0.0034       # [E] UNCALIBRATED, and says so: no published with/without-R-27 speed
+                           #     delta exists for the MiG-29. Scaled from the AIM-7M's 0.0030 by
+                           #     frontal area (230 mm body vs 203 mm), which is itself a scaling
+                           #     of the pack's ONE measured store drag (the AIM-9P's 0.00048,
+                           #     solved against the shipping F-5E model). Two scalings deep —
+                           #     recorded rather than dressed up as derived.

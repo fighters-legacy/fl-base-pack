@@ -1,0 +1,60 @@
+# N019 "Sapfir-29" (RLPK-29 fire-control system, NATO "Slot Back") — MiG-29A radar.
+#
+# PROVENANCE: the set's IDENTITY is solid — SOURCES.md (Gordon 2006 p. 58) names the RLPK-29 fire
+# control system, the N019 Sapfir-29 coherent pulse-Doppler radar and the Ts100.02-02 computer
+# outright. Its RANGES are not published anywhere admissible, and the circulated figures trace to
+# enthusiast pages this pack does not cite.
+#
+# So the numbers are ENGINEERING ESTIMATES [E] — but BRACKETED, exactly as the RP-22's and the
+# APQ-159's were, and here the bracket is unusually well formed because the published record says
+# what the radar FAILED to do:
+#
+#   ceiling: the N019 was SPECIFIED for >= 100 km (54 nm) detection and tracking against a
+#            fighter-size target, and Phazotron could NOT attain it in the nose volume available.
+#            It reverted to the Sapfir-23ML's twisted-polarisation Cassegrain antenna and analogue
+#            signal processing. So 54 nm is a documented CEILING the set is known to sit under.
+#   floor:   the pack's own RP-22 (11 nm), a 1960s single-target set with no look-down. The N019
+#            is a generation and a half beyond it.
+#   peer:    the pack's APG-66 searches at 30 nm and tracks at 22 nm.
+#
+# ⚑ THE ASYMMETRY AGAINST THE APG-66 IS DELIBERATE AND IT ENCODES THE PUBLISHED RECORD.
+# This set gets MORE search range than the APG-66 (a physically bigger antenna in a bigger nose)
+# and LESS track range (Sapfir-23ML-era analogue processing against a late-70s American digital
+# set). That is precisely what the sources describe: raw detection was not the Fulcrum's problem,
+# holding and using a firing solution was. The Luftwaffe assessment in SOURCES.md is explicit that
+# German pilots "found it difficult to multi-task locking and firing the R-27" in BVR.
+#
+# ⚑ AND IT MAKES THE RADAR THE BINDING CONSTRAINT ON THE MISSILE, WHICH IS THE POINT.
+# Track reaches 19 nm; the R-27R1 it illuminates is a 22 nm weapon. Wikipedia's sensors section
+# says the N019's weaknesses "plagu[ed] the MiG-29's ability to detect and track airborne targets
+# at ranges available with the R-27". Here that is not a comment — it is arithmetic the engine
+# enforces, because a semi-active missile flies only while the shooter holds the lock.
+[sensor]
+id              = "fl-base:n019"
+name            = "N019 Sapfir-29 radar"
+type            = "radar"
+omnidirectional = false
+emitter         = true          # it announces itself when it looks — RWR/EMCON hangs off this
+
+eccm = 0.30   # [E] coherent pulse-Doppler, so ahead of the RP-22's 0.20; but analogue processing
+              #     inherited from a 1960s-lineage set, so under the APQ-164's 0.55
+
+[search]
+az_half_angle_deg = 55.0        # [E] slightly narrower than the APG-66's +/-60; a mechanically
+                                #     scanned dish rather than a planar array
+el_half_angle_deg = 28.0        # [E]
+min_range_nm      = 0.4
+max_range_nm      = 33.0        # [E] ~61 km. Above the APG-66's 30 nm (bigger antenna), and well
+                                #     under the 54 nm the set was specified for and missed.
+pod               = 0.33        # [E] per 10 Hz check; slightly under the APG-66's 0.35 —
+                                #     analogue processing finds things a little slower
+
+[track]
+az_half_angle_deg = 50.0        # [E] <= search
+el_half_angle_deg = 24.0        # [E]
+min_range_nm      = 0.3
+max_range_nm      = 19.0        # [E] UNDER the APG-66's 22 nm, and under the R-27R1's own
+                                #     22 nm reach — see the header. This number is the aircraft's
+                                #     BVR handicap, expressed where the engine can act on it.
+pod               = 0.62        # [E] under the APG-66's 0.70
+lock_hold_s       = 3.0         # [E] under the APG-66's 4.0 s: a weaker file to coast on

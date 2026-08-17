@@ -1,0 +1,38 @@
+# R-73E all-aspect infra-red seeker head.
+#
+# ⚑ THE 45-DEGREE OFF-BORESIGHT BASKET IS THE POINT OF THIS MISSILE, and it is the one seeker
+# number in this pack with something close to a published basis. SOURCES.md records the Luftwaffe
+# DACT finding verbatim: the Shchel-3UM helmet sight let German pilots "achieve a lock on any
+# target the pilot could see within the missile field of view, including those almost 45 degrees
+# off boresight", and that the R-73 "was superior to the AIM-9 Sidewinder of the time".
+#
+# So this head gets a 45-degree basket against the pack's AIM-9P at 25 degrees, and a higher
+# acquisition probability. That is not flattery — it is the single clearest published capability
+# claim about this aircraft, and the aircraft's compensating weakness (BVR) is modelled just as
+# honestly in sensors/n019.toml.
+#
+# The engine has no helmet-cueing surface, so the wide basket IS how the helmet sight is
+# expressed. Recorded here so the number is not later "corrected" down to a conventional gimbal.
+[sensor]
+id              = "fl-base:r73e_seeker"
+name            = "R-73E IR seeker"
+type            = "ir"
+role            = "seeker"      # weapon-path sensor (engine #902)
+omnidirectional = false
+emitter         = false
+
+[search]
+az_half_angle_deg = 45.0        # [P-class] the published off-boresight capability — see header
+el_half_angle_deg = 45.0
+min_range_nm      = 0.0
+max_range_nm      = 6.0         # [E] cooled all-aspect seeker; ahead of the R-60M's 3.2 and the
+                                #     AIM-9P's 5.0, consistent with the DACT assessment
+pod               = 0.72        # [E] the fastest-acquiring seeker in the pack, deliberately
+
+[track]
+az_half_angle_deg = 40.0        # [E] <= search
+el_half_angle_deg = 40.0
+min_range_nm      = 0.0
+max_range_nm      = 5.2         # [E] <= search max
+pod               = 0.93        # [E]
+lock_hold_s       = 1.2         # [E] holds through a flare blink a shade better than the R-60M

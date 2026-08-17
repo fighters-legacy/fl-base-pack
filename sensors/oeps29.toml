@@ -1,0 +1,52 @@
+# OEPS-29 optoelectronic sighting system (S-31E2 KOLS head) — MiG-29A infra-red search and track.
+#
+# ⚑ THE PACK'S FIRST TRUE IRST, and the deliverable pack #17 has been blocked on since 2026-07-15.
+# #17's remaining scope was `sam_radar` (still waiting on ground units) and a STANDALONE PASSIVE
+# IRST, which needed a host airframe to ride. This is that host. The pack's two existing `ir` defs
+# — aim9p_seeker and r60m_seeker — are missile SEEKER HEADS marked `role = "seeker"`; they ride a
+# weapon and see only what it is pointed at. This is a SEARCH sensor an aircraft carries, and it
+# deliberately carries no `role`, which is what makes it the first of its kind here.
+#
+# PROVENANCE: identity is published (SOURCES.md — the 9.12 variant text names the OEPS-29 and the
+# S-31E2 KOLS head, alongside the N019 and the Shchel-3UM helmet sight). Performance is not
+# published anywhere admissible, so the ranges are [E], bracketed against what the pack already
+# ships and against the physics of the channel:
+#
+#   * An IRST is PASSIVE. `emitter = false` is the whole tactical point: this aircraft can hunt
+#     with the N019 in Silent mode and still see, and nothing on a hostile RWR lights up. That is
+#     the one place the Fulcrum's sensor fit beats the F-16A's outright, and the engine models it
+#     (#526: radar modes govern radar-typed sensors ONLY; an IRST is never switched off by EMCON).
+#   * Its reach is ASPECT-DEPENDENT in reality — a tailpipe is a far brighter target than a
+#     head-on airframe. The engine has no aspect term for IR, so the single range below is a
+#     rear/beam-quarter figure, and the entity `[signatures] ir` multiplier is what actually
+#     scales it per target. Stated so nobody reads 12 nm as a head-on detection range.
+#   * Bracketed under the N019's 33 nm search by a wide margin: an infra-red channel of this era
+#     is a short-range instrument, and inflating it would hand the aircraft a passive BVR
+#     capability the record explicitly says it did not have.
+[sensor]
+id              = "fl-base:oeps29"
+name            = "OEPS-29 IRST (S-31E2 KOLS)"
+type            = "ir"
+omnidirectional = false
+emitter         = false         # PASSIVE — the point of the sensor. No `role`: this is a search
+                                # set an aircraft carries, not a weapon seeker head.
+# No `eccm`: that field is a radar burn-through term (engine#1119 warns on inert placements).
+
+[search]
+az_half_angle_deg = 30.0        # [E] the KOLS ball scans a modest forward sector, far narrower
+                                #     than the radar it supplements
+el_half_angle_deg = 15.0        # [E]
+min_range_nm      = 0.1
+max_range_nm      = 12.0        # [E] ~22 km against a baseline afterburning fighter from the
+                                #     rear/beam quarter; scales linearly with the target's `ir`
+                                #     signature, so a cold head-on aspect is a fraction of it
+pod               = 0.30        # [E] slower to find than the radar — it is a narrow field being
+                                #     searched by a mechanically steered head
+
+[track]
+az_half_angle_deg = 25.0        # [E] <= search
+el_half_angle_deg = 12.0        # [E]
+min_range_nm      = 0.1
+max_range_nm      = 9.0         # [E] <= search max
+pod               = 0.80        # [E] once it has the plume it holds it well
+lock_hold_s       = 2.5         # [E] an IR track coasts through brief obscuration
