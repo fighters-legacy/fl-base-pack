@@ -1,0 +1,130 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# mig29a_bvr — the pack's fourth mission, and the one the MiG-29A was built for (#43).
+#
+# THE FIRST RADAR-VERSUS-RADAR ENGAGEMENT IN THIS PACK. The other three missions are decided inside
+# visual range: f5e_intercept and f16a_intercept are BFM merges, b1b_stream is a penetration. This
+# one starts 46 km apart, head-on, co-altitude, with BOTH aircraft carrying a semi-active radar
+# missile and a radar to guide it — the F-16A ADF with two AIM-7M, the MiG-29A with two R-27R1.
+# Issue #43 was filed to make exactly this flyable "against a real opponent rather than a mirror
+# match", and until this aircraft existed the F-16A had nobody to fly it against.
+#
+# ⚑ THE FIGHT IS ASYMMETRIC BY DESIGN, AND THE ASYMMETRY IS AUTHORED IN THE SENSOR DEFS, NOT HERE.
+# Neither aircraft is handicapped by this file; they are handicapped by what they are:
+#
+#   * The MiG-29A sees FURTHER (N019 search 33 nm against the APG-66's 30) but LOCKS SHORTER
+#     (19 nm against 22). Its R-27R1 reaches 22 nm — further than its own radar can hold a track —
+#     so it can carry a shot it cannot always support. A semi-active missile flies only while the
+#     shooter holds the lock, so that gap is not a comment, it is the outcome.
+#   * The MiG-29A can hunt PASSIVELY. Its OEPS-29 IRST works with the radar in Silent mode and
+#     lights up no hostile RWR — the one place its suite beats the F-16A's outright.
+#   * If it gets to the merge it should win it: the R-73E's 45-degree off-boresight basket and the
+#     pack's lowest flare susceptibility, against the AIM-9P's 25 degrees.
+#
+# That is the Luftwaffe DACT assessment recorded in aircraft/mig29a/SOURCES.md, flown rather than
+# asserted: better in the merge, worse at range.
+#
+# ⚠ THE MiG-29A HAS NO G-LIMITER, AND THAT IS THE POINT OF THE AIRCRAFT (#43, engine #816).
+# `has_fbw = false` — hydraulic controls, a SAU-451 autopilot, and soft g/alpha limiters the pilot
+# can switch off. The F-16A's FLCS refuses to leave the envelope; this aircraft will happily be
+# pulled past 9 g and the engine bills it. MEASURED, A/B, identical full-aft-stick input at 4,000 m
+# and 300 m/s: the MiG-29A dropped 110.0 -> 94.9 hp within one second while the F-16A sat at 100.0
+# and never moved. That is #43's acceptance criterion, and it is why an AI Fulcrum flown hard here
+# can hurt itself in a way no other fighter in the pack can.
+#
+# NO `ai:` ON EITHER AIRCRAFT, on purpose: the #634 auto-detect attaches each entity's own default
+# script, and both are `ai/fighter.lua` UNFORKED. The MiG-29A needed no fork at all — it matches the
+# 0 = gun / 1 = IR missile / 5 = radar missile station convention the script is written against,
+# which is the same contract that let the MiG-21bis fly it. Verified in a 36,000-tick probe: gun,
+# R-73E and R-27R1 stations all exercised, including five releases on station 5.
+#
+# ⚠ HEADING AND WORLD AXES: local compass directions are longitude-dependent in this world
+# (f5e_intercept sits where east is world -Z and says so). Here the two aircraft are placed on a
+# common world-X line and pointed at each other by heading 90 / 270, which is geometry rather than
+# compass reasoning and holds regardless of where east happens to point.
+#
+# MEASURED — and read what this probe DID and DID NOT show before trusting it.
+#
+# Probed against the engine v0.3.17 RELEASE binaries. `player: true` had to be STRIPPED in the run
+# copy first: an unoccupied player slot is not spawned as a world entity, so the first probe of this
+# file reported `spawned_objects: 1` and never staged the fight at all. With both aircraft spawned:
+# 2 spawned, engagement joined, zero warn/error lines, no builtin-model fallback,
+# entity_cap_refusals 0.
+#
+# ⚠ THE AI-FLOWN F-16A DEPARTED AND SPUN IN at 424 s ("ejection: pilot MIA, 0 m AGL, 40 m/s"),
+# firing destroy(viper1). That is an AI-flight outcome in a long slow-speed fight, not a mission
+# defect — in normal use viper1 is the PLAYER's aircraft and never runs fighter.lua at all. It is
+# recorded here rather than tidied away, because a probe that only ever reports the tidy result is
+# not worth running. If a future change makes the AI Viper survive, that is an improvement to
+# ai/fighter.lua, not to this file.
+#
+# The sensor and weapon behaviour quoted above was measured separately, on a two-aircraft probe
+# mission without a player slot (stage 4 of #43): contacts held by radar, by IR ALONE and by
+# visual, and 2,228 missile release intents including five on station 5, the SARH station. No kill
+# inside ten minutes there — two SARH shooters with two missiles each is a stalemate more often
+# than a kill, the same result the MiG-21bis's own probe found (engine #1188's closing comment).
+# The mission is therefore scored on the KILL, with a draw timer.
+
+name: "Fulcrum's Peer"
+map: world
+layer: world_clear
+time: { hour: 10, minute: 0 }
+wind: { heading: 250, speed: 4 }
+weather:
+  preset: clear
+time_scale: 1.0        # real-time: this is an intercept, not a campaign transit
+
+sides: [blue, red]
+
+objects:
+  # Player: the F-16A ADF, the only F-16A that could employ Sparrow — which is why the pack models
+  # that mark (entities/f16a.toml). Its default loadout is the intercept fit: gun, two AIM-9P on
+  # the tips, two AIM-7M on the mid-wing stations.
+  #
+  # `player: true` makes this a JOINABLE PLAYER SLOT (engine #854). Without it the human gets a
+  # default spawn and this object flies itself under the #634 auto-detect.
+  #
+  # Airborne start at 8,000 m: this is a BVR setup, and a runway start (as f5e_intercept uses)
+  # would spend the first three minutes climbing out of the fight this mission exists to stage.
+  - type: fl-base:f16a
+    id: viper1
+    side: blue
+    pos: [0, 0, 0]
+    alt: 8000
+    heading: 90
+    player: true
+
+  # Adversary: the MiG-29A, AI-flown, 46 km away head-on and co-altitude. That range is OUTSIDE
+  # both radars' search lobes at spawn (33 nm = 61 km search, but a fighter-size target at
+  # signature 0.80/0.95 scales it down), so the engagement genuinely begins with the search
+  # problem rather than with both aircraft already holding each other.
+  #
+  # Its default loadout is the published combat fit — gun, 2x R-27R1 inboard, 4x R-73E — which is
+  # the configuration Gordon quotes the 700-900 km combat range against (SOURCES.md).
+  - type: fl-base:mig29a
+    id: fulcrum1
+    side: red
+    pos: [46000, 0, 0]
+    alt: 8000
+    heading: 270
+
+triggers:
+  # Win on the kill — the whole point of staging a radar-versus-radar fight.
+  - on: destroy(fulcrum1)
+    do: mission_success
+
+  # Losing your own aircraft loses it. An UNOCCUPIED slot is not "destroyed" (engine #884), so
+  # this cannot fire before a pilot has joined.
+  - on: destroy(viper1)
+    do: mission_failure
+
+  # The draw. Nine minutes is past the probe's observed stalemate point: two SARH shooters that
+  # both miss end up in a slow-speed knife fight neither can finish quickly, and calling that a
+  # draw is more honest than letting it run forever.
+  #
+  # ⚠ 540 s, NOT 600. The headless mission-report loop caps at 36,000 ticks = exactly 600 s, so a
+  # timer(600) sits on the last tick and cannot be observed to fire in a probe — the run just ends
+  # "incomplete" and looks like a trigger that does not work. Found by probing this file.
+  - on: timer(540)
+    do: mission_failure
