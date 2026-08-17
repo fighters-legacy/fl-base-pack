@@ -322,14 +322,39 @@ modelling it honestly is the same discipline that kept the MiG-21bis's RP-22 sho
 
 ---
 
-## Open items carried into the next stage
+## Open items — status after stage 2 (the flight model)
 
-1. **Airfoil** — no admissible source. Lift curve to be derived from planform with LERX vortex lift.
-2. **Empty weight** — 10,900 vs 11,000 kg, no datum stated by either; to be resolved by mass closure
-   against the manufacturer's 14,900 kg normal TO and 3,500 kg internal fuel.
-3. **RD-33 SFC** — not published; to be backed out of the two published range figures and tagged [E].
-4. **MAC** — not published; to be derived from the planform once the LERX/outer-panel geometry is
-   laid out, as the MiG-21bis's `c_root` was.
-5. **N019 range** — not published; to be bracketed [E] between the pack's APG-66 and the stated,
-   unmet 100 km goal.
-6. **NMUSAF fact sheet** — unreadable by tooling (`af.mil` 403). Worth a human cross-check.
+1. ✅ **Airfoil** — still no admissible source, and resolved as planned: the lift curve is derived
+   from planform by the Polhamus method with a LERX vortex term (`derive.py`), not from a named
+   section. The vortex constant `KV0 = 1.80` is the single most consequential [E] in the aircraft.
+2. ✅ **Empty weight** — **11,000 kg**. Mass closure was run and it does **not** discriminate:
+   11,000 closes to +0.2% of the published normal take-off weight and 10,900 to −0.5%, both well
+   inside the unstated-datum ambiguity. Since closure cannot choose, the pack takes the **heavier**
+   figure — where the record is silent, do not flatter the aircraft.
+3. ⚠️ **RD-33 SFC** — **NOT resolved, and the promised method failed.** This file said it would be
+   "backed out of the published range figures". It cannot be: the model's specific range at the
+   class SFC is 286 m/kg against the 409 m/kg the published 1,430 km implies — about 30% thirstier —
+   and the published range states no profile, altitude or reserves to back anything out of. Rather
+   than invent an implausibly efficient engine to fit an unconditioned number, the flows stay
+   honestly **[E]** and range is **not gated**. The discrepancy is in the conservative direction.
+4. ✅ **MAC** — **3.746 m [D]**, the reference-trapezoid MAC at an assumed 0.25 taper ratio. It is a
+   [D] resting on an [E], which is weaker than the MiG-21bis's published 4.002 m, and says so.
+5. ⏳ **N019 range** — unchanged; still to be bracketed [E] at the sensor stage (stage 4).
+6. ⏳ **NMUSAF fact sheet** — unchanged; `af.mil` 403s every non-browser request. Worth a human
+   cross-check.
+
+### New from stage 2
+
+7. **Oswald factor is calibrated against another MODEL, not a publication.** No public MiG-29
+   energy-manoeuvrability data exists, and neither speed anchor constrains induced drag at all. At
+   the geometric `e = 0.75` the aircraft out-sustained the F-16A's published-data model 8.6 g to
+   7.1 g — contradicting the Luftwaffe assessment above, which is explicit that the Fulcrum's edge
+   was nose authority at low speed and that it *lost* the energy fight. `e = 0.62` brings sustained
+   turn to parity (17.7 vs 17.3 deg/s) while instantaneous stays well ahead (27.6 vs 22.0). No turn
+   row is gated, because gating one would test the model against a number derived from another model.
+8. **Installed vs uninstalled thrust is not identifiable here.** The published RD-33 ratings are
+   uninstalled brochure figures; the F-16A's deck is TP-1538 installed data. Applying a 6%
+   installation loss and re-fitting `cd0` to hold the M2.25 anchor returns the sustained turn
+   unchanged and drives `cd0` to 0.0235 — below the F-16A's *published* 0.0216 for a bigger
+   twin-engine airframe. One anchor cannot separate two unknowns, so the published rating stands
+   and the uncertainty is carried in the Oswald factor instead.

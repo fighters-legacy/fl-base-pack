@@ -1,0 +1,119 @@
+# MiG-29A Fulcrum-A — published performance gate.
+#
+# Consumed by `fm-trim --expect aircraft/mig29a/mig29a.expect.toml`. The mechanised form of
+# fighters-legacy#54's Phase-4 acceptance criterion: the flight model must reproduce the
+# performance its published sources state, within a stated tolerance, forever.
+#
+# Four gateable rows, and — unusually for this pack — THREE OF THE FOUR ARE MANUFACTURER FIGURES.
+# The MiG-21bis had to reach performance through a Jane's-via-Wikipedia chain and the B-1B through
+# an AF-via-Wikipedia one; RAC MiG publishes these directly. Provenance: SOURCES.md.
+#
+# What is still missing is energy-manoeuvrability data. No public MiG-29 turn chart, Ps ladder or
+# stall table exists, so no turn row is gated here — see the closing section, and note that the
+# Oswald factor those numbers depend on was calibrated against the SHIPPING F-16A model rather
+# than against any publication.
+
+# ── Max level Mach at altitude — THE anchor ─────────────────────────────────────────────────────
+# [P] 2,400 km/h / M2.25 at altitude (RAC MiG). This is what `cd0` and the supersonic end of
+# [aero.cd_wave] are calibrated against, and the two manufacturer figures are self-consistent:
+# 2,400 km/h at the 11 km speed of sound is M2.259, 0.4% from the stated M2.25.
+# Mass [E]: clean at mid fuel, the condition a headline speed is flown at.
+#
+# ⚠ This row is STEEP. Moving the supersonic wave-drag tail by 0.0005 moves the trimmed Mach by
+# about 0.03 — at M2 thrust and drag run nearly parallel, the same sensitivity the MiG-21bis
+# recorded. Do not nudge cd_wave without re-running the gate.
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 11000.0
+mass_kg     = 13000
+afterburner = true
+expected    = 2.25
+tolerance   = 0.03
+
+# ── Max level speed at SEA LEVEL — the q placard, live from day one ─────────────────────────────
+# [P] 1,500 km/h at sea level (RAC MiG) = M1.224 = 810 KEAS = 106.3 kPa. This is a
+# dynamic-pressure placard, not a thrust limit.
+#
+# The B-1B had to ship its equivalent row COMMENTED OUT, because `max_keas` (engine#1181) had not
+# reached a release and pack CI fetches validators from the latest RELEASE. #1181 shipped in
+# v0.3.17, so this row is live immediately — the first pack aircraft to gate a placard on the
+# release binaries rather than wait for one.
+#
+# Measured behaviour worth recording: with the placard removed the model still tops out at M1.23
+# on drag alone, so the placard and the transonic drag wall sit at almost the same speed here.
+# The row passes either way, which makes it a robust gate rather than a test of one engine field.
+[[expect]]
+metric      = "max_level_mach"
+altitude_m  = 0.0
+mass_kg     = 14900             # [P] the published normal take-off weight
+afterburner = true
+expected    = 1.224
+tolerance   = 0.04
+
+# ── Sea-level rate of climb — the AB-deck / subsonic-drag anchor ────────────────────────────────
+# [P] 330 m/s (Flug Revue). No source states the weight behind it, and at the published normal
+# take-off weight of 14,900 kg the model gives 274 m/s — so the published figure is evidently a
+# light combat condition. 12,400 kg (empty + ~1,300 kg fuel + pilot) reproduces it exactly.
+#
+# ⚠ Read this row for what it is: the mass was CHOSEN to reproduce a number whose weight is
+# unpublished, so it does not independently verify the climb — it pins the AB thrust deck and the
+# subsonic drag level against future drift. Regression gate, not validation. Both the MiG-21bis's
+# and the B-1B's roc rows carry the same caveat, for the same reason.
+[[expect]]
+metric      = "roc_mps"
+altitude_m  = 0.0
+mass_kg     = 12400
+afterburner = true
+expected    = 330.0
+tolerance   = 0.08
+
+# ── Service ceiling, expressed as "barely climbing at 18,000 m" ────────────────────────────────
+# [P] 18,000 m (RAC MiG). fm-trim has no ceiling metric, so the ceiling is gated as a small
+# residual climb rate at the published altitude.
+#
+# ⚑ This row is the strongest of the four, and it was NOT fitted: the model reaches 2.6 m/s at
+# 18,000 m at 14,900 kg — the PUBLISHED ceiling at the PUBLISHED normal take-off weight, with the
+# residual sitting just above the 0.5 m/s service-ceiling convention. Neither number was chosen to
+# make the other work. The MiG-21bis had to pick a mass for its ceiling row; this one did not.
+#
+# The model's own absolute ceiling is ~19 km at 13,000 kg. That is stated but deliberately NOT
+# gated — gating it would be gating the model against itself rather than against a publication.
+#
+# Getting here required a real correction, recorded in derive.py: with a single sigma^0.85 lapse
+# at all altitudes, thrust fell more slowly than drag and the AB climb rate went UP with altitude
+# (42 m/s at 18 km, 140 m/s at 21 km) — an aircraft with no ceiling at all. The exponent steepens
+# to linear above the tropopause, where the temperature lapse it approximates no longer exists.
+[[expect]]
+metric      = "roc_mps"
+altitude_m  = 18000.0
+mass_kg     = 14900
+afterburner = true
+expected    = 2.6
+tolerance   = 0.60
+
+# ── NOT GATED, and why — read before adding a row here ─────────────────────────────────────────
+#
+# sustained_turn_deg_s / sustained_g / instant_turn_deg_s / corner_speed_mps / ps_mps / max_lift_g
+#     — no public MiG-29 energy-manoeuvrability data of any kind exists. Worse than "unavailable":
+#     the Oswald factor these depend on was itself calibrated against the SHIPPING F-16A model
+#     (derive.py explains why), so gating a turn row would test the model against a number derived
+#     from another model. That is circular and it would look like validation.
+#     For the record, the resulting behaviour is the shape the Luftwaffe assessment describes:
+#     sustained turn at parity with the F-16A (17.7 vs 17.3 deg/s at each aircraft's own combat
+#     weight) and instantaneous turn well ahead of it (27.6 vs 22.0 deg/s) — nose authority, not
+#     energy. That is a cross-check, not a gate.
+#
+# stall_speed_1g_mps — no published MiG-29 stall or landing speed. The model's 1-g stall at
+#     landing weight is 197 km/h, which is plausible for the class, but plausible is not published
+#     and gating it would launder an [E] through a [P].
+#
+# specific_range_m_per_kg — NOT gated, and this one is a real discrepancy rather than a gap. The
+#     model gives 286 m/kg at 11 km against the 409 m/kg implied by the published 1,430 km on
+#     3,500 kg internal: about 30% thirstier than the published figure. The published range states
+#     no profile, altitude or reserve allowance, and RD-33 SFC is not published anywhere
+#     admissible, so the flows in mig29a.toml are honestly [E] and not [D]. The discrepancy sits
+#     in the conservative direction; it is recorded rather than tuned away, because tuning SFC to
+#     match would mean inventing an implausibly efficient engine to fit a number whose conditions
+#     are unknown.
+#
+# time to altitude — fm-trim has no time-to-altitude metric.
