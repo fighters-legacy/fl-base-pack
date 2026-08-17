@@ -116,9 +116,14 @@ jobs:
           # [flight_model] table and the validator rejects it on sight. The obvious
           # `aircraft/**/*.toml` glob sweeps it in and would fail every aircraft PR on a file that
           # is doing its job.
+          #
+          # The `[ -f ]` filter drops files this PR DELETED. `git diff --name-only` lists a deletion
+          # exactly like an edit, but the path is not in the checkout, so passing it on would fail
+          # the leg on a file whose removal is the change. Every changed-file leg needs this.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
             | { grep -E '\.toml$' || true; } \
             | { grep -v -E '\.expect\.toml$' || true; } \
+            | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Flight models to validate: ${FILES:-(none)}"
@@ -150,9 +155,14 @@ jobs:
           set -euo pipefail
           # Same glob as flight-model-validate: aircraft TOMLs, minus the *.expect.toml fixtures
           # (which have no [flight_model] table and are the expectation input, not a model).
+          #
+          # The `[ -f ]` filter drops files this PR DELETED. `git diff --name-only` lists a deletion
+          # exactly like an edit, but the path is not in the checkout, so passing it on would fail
+          # the leg on a file whose removal is the change. Every changed-file leg needs this.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
             | { grep -E '\.toml$' || true; } \
             | { grep -v -E '\.expect\.toml$' || true; } \
+            | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Flight models to fm-trim: ${FILES:-(none)}"
@@ -205,10 +215,13 @@ jobs:
           #
           # LOD siblings are not listed either: validate-mesh discovers and validates them itself
           # from the base mesh, so naming them would only validate them twice.
+          #
+          # `[ -f ]`: a mesh this PR DELETED is listed by git diff but is not in the checkout.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- aircraft \
             | { grep -E '\.glb$' || true; } \
             | { grep -v -E '_cockpit\.glb$' || true; } \
             | { grep -v -E '_lod[0-9]+\.glb$' || true; } \
+            | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Meshes to validate: ${FILES:-(none)}"
@@ -232,8 +245,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # `[ -f ]`: a mission this PR DELETED is listed by git diff but is not in the checkout.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- missions \
             | { grep -E '\.ya?ml$' || true; } \
+            | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Missions to validate: ${FILES:-(none)}"
@@ -321,8 +336,14 @@ jobs:
         run: |
           set -euo pipefail
           # validate-sensor has no --pack mode; it validates each file, so pass the changed list.
+          #
+          # `[ -f ]`: a sensor def this PR DELETED is listed by git diff but is not in the checkout.
+          # This is not hypothetical -- retiring `eyeball_night` is the change that found it. The
+          # references a deletion breaks are caught by entity-validate's whole-pack `--pack` run,
+          # which is the right leg for that: it resolves every `sensors = [...]` id in the pack.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- sensors \
             | { grep -E '\.toml$' || true; } \
+            | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
           echo "Sensors to validate: ${FILES:-(none)}"

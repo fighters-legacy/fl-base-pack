@@ -24,7 +24,7 @@ ai_script    = "fighter"                    # -> ai/fighter.lua, UNFORKED (see s
 # Honest sensing: an AI bis sees what the RP-22 and the eyeball give it — a short-range
 # single-target set and a small canopy with poor rear view. GCI was how the real force found
 # its targets; that arrives with pack #13's scope, not by inflating this radar.
-sensors = ["fl-base:rp22", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+sensors = ["fl-base:rp22", "fl-base:eyeball_day"]
 
 # NO dispensers, and that is the aircraft, not an omission (SOURCES.md): Soviet-production bis
 # had no built-in chaff/flare dispensers — retrofits and export upgrades added them later. Same
