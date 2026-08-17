@@ -110,8 +110,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - name: Install numpy
-        run: python -m pip install numpy
+      - name: Install ffmpeg + numpy
+        # ffmpeg is NOT preinstalled on ubuntu-latest (the first run of this leg failed on a missing
+        # ffprobe). The check needs ffprobe for the container/format assertions and ffmpeg to decode
+        # for the silence test; both come from the one package.
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install numpy
       - name: Check voice-line coverage and format
         run: python tools/voicegen/gen_voice_lines.py --check-assets
 
