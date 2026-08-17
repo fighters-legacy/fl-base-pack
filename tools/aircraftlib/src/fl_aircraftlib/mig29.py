@@ -80,26 +80,55 @@ class Mig29Config:
     # mesh and the aerodynamics describe ONE wing. The root chord then closes from area and span.
     wing_taper: float = 0.25        # [E] — must match derive.py's TAPER
     wing_thick: float = 0.05        # t/c [E]
-    wing_root_y: float = 1.62       # m [E] wing root station, ON the nacelle side
+    wing_root_y: float = 1.56       # m [E] wing root = the nacelle's OUTER shoulder
+                                    #     (nac_y + nac_r). ⚑ This was once the nacelle CENTRELINE,
+                                    #     which put the wing root inside the nacelle and left the
+                                    #     LERX no exposed span to be seen in.
     wing_x_le_root: float = 8.60    # m [E] root LE station
     wing_z: float = 0.10            # m [E] mid-mounted on the nacelle shoulder
     dihedral: float = -2.0          # deg [E] slight anhedral, as photographed
 
     # LERX — the aircraft's signature. Runs from the forward fuselage to the wing root LE at the
     # published 73.5-deg sweep, blending the body into the wing.
-    lerx_x0: float = 4.20           # m [E] forward root of the LERX
+    lerx_x0: float = 5.20           # m [E] forward apex of the LERX, beside the cockpit
     lerx_z: float = 0.18            # m [E]
-    lerx_thick: float = 0.10        # m [E] half-thickness at the root
+    lerx_thick: float = 0.13        # m [E] half-thickness at the root
 
-    # Engine nacelles — widely spaced, with the intakes UNDER the LERX. `nac_y` is the nacelle
-    # centreline offset; the tunnel between them is what carries the centre-section lift.
-    nac_y: float = 1.62             # m [E] nacelle centreline offset from the plane of symmetry
-    nac_x0: float = 5.30            # m [E] intake lip station
+    # Engine nacelles. ⚑ THESE NUMBERS WERE WRONG IN THE FIRST BUILD AND THE ERROR WAS ONLY
+    # VISIBLE IN A RENDER — every dimension check passed while the aircraft looked nothing like a
+    # MiG-29. The nacelles were 1.64 m fat cigars starting level with the COCKPIT and hanging well
+    # below the fuselage line, with tall square intake mouths. The real aircraft has SHALLOW WEDGE
+    # inlets, roughly twice as wide as they are tall, tucked UNDER the LERX and well aft, feeding
+    # nacelles that blend into the wing root rather than hang off it.
+    #
+    # Rule this cost: measuring span and length proves scale, never SHAPE. Render the built glb and
+    # look at it. (The B-1B lane recorded exactly this — "it rendered as a plain tube with wings" —
+    # and the lesson did not transfer until a human looked at this aircraft.)
+    nac_y: float = 1.02             # m [E] nacelle centreline offset. ⚑ 1.62 then 1.34 both
+                                    #     rendered as two DETACHED PODS with a canyon between
+                                    #     them. The real aircraft's inlets sit close, low, and
+                                    #     either side of a narrow keel — the 'widely spaced'
+                                    #     description is about the TUNNEL, not a wide stance.
+    nac_x0: float = 7.30            # m [E] intake lip, ~42% of length, UNDER the LERX
+                                    #     (was 5.30, level with the cockpit)
     nac_x1: float = 17.32           # m [E] nozzle station (== length by construction)
-    nac_r: float = 0.82             # m [E] nacelle radius aft
-    intake_w: float = 0.72          # m [E] intake half-width
-    intake_h: float = 0.52          # m [E] intake height
-    intake_z: float = -0.62         # m [E] intake centre height (below the LERX)
+    nac_r: float = 0.54             # m [E] nacelle radius, around a 1.04 m engine
+    intake_w: float = 0.54          # m [E] intake HALF-width -> 1.08 m wide
+    intake_h: float = 0.34          # m [E] intake HALF-height -> 0.68 m tall. ⚑ 0.24 was an
+                                    #     OVERCORRECTION: the real MiG-29 duct is a big, deep,
+                                    #     SHARP-CORNERED rectangle, not a shallow slot.
+    intake_power: float = 6.0       #       ring exponent at the lip. ⚑ THE SHAPE, NOT THE SIZE,
+                                    #       was what read wrong: at ~3 the mouth rounds off into a
+                                    #       lump merged with the fuselage. 6 gives the flat faces
+                                    #       and hard corners the photographs show.
+    body_power: float = 3.6         #       centre-body section exponent (flattened oval)
+    splitter_gap: float = 0.10      # m [E] boundary-layer splitter at the LIP ONLY. ⚑ Applied
+                                    #       along the whole nacelle it opens a visible HOLE
+                                    #       between duct and body — the real splitter is a
+                                    #       forward feature; aft of the intake the nacelle
+                                    #       merges into the centre body as one structure.
+                                    #       Tapers to zero by the third station.
+    intake_z: float = -0.44         # m [E] intake centre height, under the LERX
 
     # Stabilators — all-moving, mounted on the tail booms outboard of the nozzles.
     stab_root_y: float = 1.60       # m [E]
@@ -136,10 +165,12 @@ class Mig29Config:
 
     # Canopy — the high bubble the type is known for. Stands PROUD of the deck, never a
     # full-width ridge (the F-5E canopy lesson, fl-base-pack#29).
-    canopy_x: float = 5.35          # m [E] dome centre
-    canopy_len: float = 1.70        # m [E] half-length
-    canopy_w: float = 0.44          # m [E] half-width
-    canopy_h: float = 0.52          # m [E] rise above the deck
+    canopy_x: float = 5.55          # m [E] dome centre
+    canopy_len: float = 1.85        # m [E] half-length
+    canopy_w: float = 0.46          # m [E] half-width
+    canopy_h: float = 0.62          # m [E] rise above the deck — the Fulcrum's high
+                                    #     bubble is a recognition feature; the first
+                                    #     build rendered it as a small blister
     canopy_z: float = 0.72          # m [E] deck height at the cockpit
 
     # Dorsal spine — the FAMILY VARIABLE. The 9.12's is slim; the 9.13 Fulcrum-C's enlarged #1
@@ -161,18 +192,23 @@ class Mig29Config:
     # forward, blending into the flat lifting centre-section between the nacelles. Nothing the
     # flight model consumes comes from here.
     stations: list = field(default_factory=lambda: [
-        (0.000, 0.02, -0.02, 0.02),
-        (0.040, 0.20, -0.20, 0.22),
-        (0.100, 0.34, -0.32, 0.38),
-        (0.170, 0.46, -0.40, 0.52),
-        (0.250, 0.56, -0.46, 0.66),
-        (0.330, 0.60, -0.50, 0.86),
-        (0.420, 0.58, -0.54, 1.05),
-        (0.520, 0.54, -0.56, 1.18),
-        (0.650, 0.50, -0.54, 1.20),
-        (0.780, 0.46, -0.50, 1.14),
-        (0.900, 0.42, -0.44, 1.02),
-        (1.000, 0.36, -0.38, 0.88),
+        # ⚑ The aft half-widths are NOT free. The nacelle inner face sits at nac_y - nac_r
+        # (~0.48 m) and its nozzle ring at ~0.58 m; if the body is narrower than that the two
+        # lofts never touch and you can see daylight between them from behind. Keep the aft
+        # stations >= 0.58 so the centre body always overlaps the nacelles.
+        (0.000, 0.05, -0.05, 0.05),
+        (0.030, 0.22, -0.20, 0.18),
+        (0.080, 0.36, -0.30, 0.32),
+        (0.140, 0.46, -0.38, 0.42),
+        (0.200, 0.53, -0.42, 0.47),
+        (0.280, 0.58, -0.44, 0.52),
+        (0.340, 0.60, -0.46, 0.56),
+        (0.420, 0.59, -0.50, 0.60),
+        (0.520, 0.55, -0.54, 0.63),
+        (0.650, 0.51, -0.56, 0.64),
+        (0.800, 0.47, -0.54, 0.64),
+        (0.900, 0.43, -0.50, 0.62),
+        (1.000, 0.36, -0.44, 0.60),
     ])
 
 
@@ -191,13 +227,16 @@ def _wing_chords(cfg):
     return c_root, c_tip, mac, semi
 
 
-def _ring(bm, x, z_up, z_lo, y_half, steps=20, power=2.4, y0=0.0):
-    """One body station ring. power > 2 flattens it toward the rounded-rectangle centre-section."""
+def _simple_ring(bm, x, z_up, z_lo, y_half, steps=12, power=2.4):
+    """A plain superelliptic station ring — used by the small add-on lofts (spine, boom).
+
+    The AIRFRAME does not use this: its sections are the union outline built by _union_ring.
+    """
     verts = []
     for i in range(steps):
         a = 2.0 * math.pi * i / steps
         c, s = math.cos(a), math.sin(a)
-        y = y0 + y_half * math.copysign(abs(c) ** (2.0 / power), c)
+        y = y_half * math.copysign(abs(c) ** (2.0 / power), c)
         z = (z_up if s >= 0 else -z_lo) * math.copysign(abs(s) ** (2.0 / power), s)
         verts.append(bm.verts.new(Vector((x, y, z))))
     return verts
@@ -224,73 +263,146 @@ def _skin(bm, rings, cap_front=False, cap_rear=True):
             pass
 
 
+def _lerp_table(table, f):
+    """Interpolate a station table (fraction-of-length first) at fraction f."""
+    if f <= table[0][0]:
+        return table[0][1:]
+    if f >= table[-1][0]:
+        return table[-1][1:]
+    for a, b in zip(table, table[1:]):
+        if a[0] <= f <= b[0]:
+            u = (f - a[0]) / max(1e-9, b[0] - a[0])
+            return tuple(av + (bv - av) * u for av, bv in zip(a[1:], b[1:]))
+    return table[-1][1:]
+
+
+def _body_params(cfg, x):
+    """Centre-body half-dimensions at station x: (z_up, z_lo, y_half)."""
+    return _lerp_table(cfg.stations, x / cfg.length)
+
+
+def _nac_params(cfg, x):
+    """Nacelle bulge at station x: (y_centre, z_centre, half_width, half_height, exponent).
+
+    Returns None ahead of the inlet lip. The bulge starts as a BOXY duct at the lip and relaxes
+    to a round nozzle aft — the same wide-shallow-to-round walk the separate nacelle loft used,
+    but now expressed as part of the body's own cross-section.
+    """
+    if x < cfg.nac_x0:
+        return None
+    f = min(1.0, (x - cfg.nac_x0) / max(1e-6, cfg.nac_x1 - cfg.nac_x0))
+    tab = [
+        # frac, y_centre, z_centre, half_w, half_h, exponent
+        (0.00, cfg.nac_y, cfg.intake_z, cfg.intake_w, cfg.intake_h, cfg.intake_power),
+        (0.10, cfg.nac_y, cfg.intake_z + 0.04, cfg.intake_w + 0.02, cfg.intake_h + 0.06, 5.0),
+        (0.30, cfg.nac_y, cfg.intake_z + 0.16, cfg.nac_r * 0.94, cfg.nac_r * 0.86, 3.2),
+        (0.55, cfg.nac_y, -0.12, cfg.nac_r, cfg.nac_r * 0.98, 2.3),
+        (0.85, cfg.nac_y, -0.08, cfg.nac_r * 0.97, cfg.nac_r * 0.97, 2.0),
+        (1.00, cfg.nac_y, -0.08, cfg.nac_r * 0.84, cfg.nac_r * 0.84, 2.0),
+    ]
+    return _lerp_table(tab, f)
+
+
+def _inside(cfg, x, y, z):
+    """Is (y, z) inside the airframe's cross-section at station x?
+
+    The section is the UNION of the centre body and the two nacelle bulges. This is the whole
+    point of the rewrite: one union means ONE closed outline per station, so the body and the
+    nacelles cannot fail to meet. Previously they were three independent lofts that merely
+    overlapped, and wherever the overlap lapsed you could see daylight between them.
+    """
+    z_up, z_lo, y_half = _body_params(cfg, x)
+    if y_half > 1e-6:
+        zc = 0.5 * (z_up + z_lo)
+        zh = 0.5 * (z_up - z_lo)
+        if zh > 1e-6:
+            n = cfg.body_power
+            if (abs(y / y_half) ** n + abs((z - zc) / zh) ** n) <= 1.0:
+                return True
+    nac = _nac_params(cfg, x)
+    if nac is not None:
+        ny, nz, rw, rh, npow = nac
+        if rw > 1e-6 and rh > 1e-6:
+            for s in (1.0, -1.0):
+                if (abs((y - s * ny) / rw) ** npow + abs((z - nz) / rh) ** npow) <= 1.0:
+                    return True
+    return False
+
+
+def _union_ring(bm, cfg, x, steps=34, samples=200):
+    """One station ring: the outer boundary of the union, sampled radially.
+
+    Sampled rather than solved because the union is NOT star-shaped — a ray heading down and
+    outboard leaves the centre body and re-enters a nacelle bulge, so a bisection would stop at
+    the first boundary and cut the nacelle off. Taking the LARGEST inside sample along each ray
+    gives the true outer outline.
+    """
+    z_up, z_lo, _ = _body_params(cfg, x)
+    z0 = 0.5 * (z_up + z_lo)
+    reach = cfg.nac_y + cfg.nac_r + max(abs(z_up), abs(z_lo)) + 0.6
+    verts = []
+    for i in range(steps):
+        th = 2.0 * math.pi * i / steps
+        cy, cz = math.cos(th), math.sin(th)
+        best = 0.0
+        for j in range(1, samples + 1):
+            tt = reach * j / samples
+            if _inside(cfg, x, cy * tt, z0 + cz * tt):
+                best = tt
+        verts.append(bm.verts.new(Vector((x, cy * best, z0 + cz * best))))
+    return verts
+
+
 def _body(cfg, bm):
-    rings = [_ring(bm, t * cfg.length, z_up, z_lo, y_half)
-             for (t, z_up, z_lo, y_half) in cfg.stations]
+    """The blended airframe: centre body and nacelles as ONE lofted surface.
+
+    Stations are densified around the inlet lip, where the section changes fastest.
+    """
+    xs = sorted(set(
+        [s[0] * cfg.length for s in cfg.stations]
+        + [cfg.nac_x0 + d for d in (-0.30, 0.0, 0.25, 0.60, 1.10, 1.90, 3.00, 4.40)]
+        + [cfg.nac_x1 - d for d in (2.40, 1.20, 0.45, 0.0)]))
+    xs = [x for x in xs if 0.0 <= x <= cfg.length]
+    rings = [_union_ring(bm, cfg, x) for x in xs]
     _skin(bm, rings, cap_front=True, cap_rear=True)
 
 
-def _nacelle(cfg, bm, side):
-    """One engine nacelle: a rectangular-ish intake under the LERX fairing into a round nozzle.
-
-    Built per side rather than mirrored, because the intake mouth is recessed and the winding of
-    the interior surface has to flip with the side.
-    """
-    y0 = side * cfg.nac_y
-    xs = [cfg.nac_x0, cfg.nac_x0 + 1.60, cfg.nac_x0 + 4.20,
-          cfg.nac_x1 - 2.60, cfg.nac_x1 - 0.60, cfg.nac_x1]
-    # (half-width, up, down, z-centre) walking from the rectangular lip to the round nozzle
-    prof = [(cfg.intake_w, cfg.intake_h, cfg.intake_h, cfg.intake_z),
-            (cfg.intake_w + 0.04, cfg.intake_h + 0.16, cfg.intake_h + 0.06, cfg.intake_z + 0.06),
-            (cfg.nac_r * 0.96, cfg.nac_r * 0.92, cfg.nac_r * 0.86, -0.16),
-            (cfg.nac_r, cfg.nac_r, cfg.nac_r, -0.06),
-            (cfg.nac_r * 0.94, cfg.nac_r * 0.94, cfg.nac_r * 0.94, -0.04),
-            (cfg.nac_r * 0.80, cfg.nac_r * 0.80, cfg.nac_r * 0.80, -0.04)]
+def _intake_recess(cfg, bm, side):
+    """Recess the inlet mouth so it reads as a duct rather than a painted-on rectangle."""
+    ny, nz, rw, rh, npow = _nac_params(cfg, cfg.nac_x0)
     rings = []
-    for x, (w, up, dn, zc) in zip(xs, prof):
-        # power walks 3.2 (rectangular lip) -> 2.0 (round nozzle) so the duct visibly transitions
-        f = (x - xs[0]) / max(1e-6, xs[-1] - xs[0])
-        p = 3.2 + (2.0 - 3.2) * min(1.0, f * 1.6)
+    for dx, sc in ((0.0, 1.0), (0.22, 0.86), (0.60, 0.72)):
         ring = []
-        for i in range(20):
-            a = 2.0 * math.pi * i / 20
+        for i in range(24):
+            a = 2.0 * math.pi * i / 24
             c, s = math.cos(a), math.sin(a)
-            yy = y0 + w * math.copysign(abs(c) ** (2.0 / p), c)
-            zz = zc + (up if s >= 0 else dn) * math.copysign(abs(s) ** (2.0 / p), s)
-            ring.append(bm.verts.new(Vector((x, yy, zz))))
-        rings.append(ring)
+            yy = side * ny + rw * sc * math.copysign(abs(c) ** (2.0 / npow), c)
+            zz = nz + rh * sc * math.copysign(abs(s) ** (2.0 / npow), s)
+            ring.append(bm.verts.new(Vector((cfg.nac_x0 + dx, yy, zz))))
+        rings.append(list(reversed(ring)))
     _skin(bm, rings, cap_front=False, cap_rear=True)
 
-    # Recessed intake mouth so the inlet reads as a duct, not a painted-on rectangle.
-    mouth = [rings[0]]
-    for (dx, sc) in ((0.22, 0.86), (0.60, 0.74)):
-        w, up, dn, zc = prof[0]
-        ring = []
-        for i in range(20):
-            a = 2.0 * math.pi * i / 20
-            c, s = math.cos(a), math.sin(a)
-            yy = y0 + w * sc * math.copysign(abs(c) ** (2.0 / 3.2), c)
-            zz = zc + (up if s >= 0 else dn) * sc * math.copysign(abs(s) ** (2.0 / 3.2), s)
-            ring.append(bm.verts.new(Vector((cfg.nac_x0 + dx, yy, zz))))
-        mouth.append(ring)
-    _skin(bm, [list(reversed(m)) for m in mouth], cap_front=False, cap_rear=True)
 
-
-def _lerx(cfg, bm, side, x_le_root, c_root):
+def _lerx(cfg, bm, side, x_le_root, c_root, y_in):
     """One leading-edge root extension: a thin, highly swept blend from the body to the wing root.
 
     Its trailing edge MEETS the wing root leading edge, so the two surfaces are continuous — the
     B-1B's second shape bug was exactly this kind of gap (glove tip chord and panel root chord
     placed independently, leaving 5.3 m of daylight at the pivot).
     """
+    # ⚑ SPANS FROM THE BODY SIDE (y_in) TO THE WING ROOT, not from the centreline. Built from
+    # y = 0 it lies entirely inside the fuselage and never appears in the planform — which is
+    # exactly the bug the B-1B hit with its glove ("3.85 m semi-span against a 5.75 m body
+    # half-width, so it sat entirely INSIDE the fuselage"), repeated here and caught the same way:
+    # by rendering the top view and looking at it.
     y_out = cfg.wing_root_y
     tan_lerx = math.tan(math.radians(cfg.sweep_lerx))
     steps = 7
     rings = []
     for i in range(steps + 1):
         f = i / steps
-        y = side * f * y_out
-        x_le = cfg.lerx_x0 + abs(f * y_out) * tan_lerx
+        y = side * (y_in + f * (y_out - y_in))
+        x_le = cfg.lerx_x0 + (f * (y_out - y_in)) * tan_lerx
         x_te = x_le_root + c_root * 0.0 + (x_le_root - x_le) * 0.0 + x_le_root
         # The LERX trailing edge runs to the wing root LE station, closing the blend.
         x_te = x_le_root
@@ -407,7 +519,7 @@ def _spine(cfg, bm):
     xs = [cfg.spine_x0, cfg.spine_x0 + 1.4, (cfg.spine_x0 + cfg.spine_x1) / 2.0,
           cfg.spine_x1 - 1.4, cfg.spine_x1]
     heights = [cfg.spine_h * f for f in (0.55, 1.00, 0.95, 0.75, 0.40)]
-    rings = [_ring(bm, x, cfg.spine_z + h, -0.05, cfg.spine_w, steps=10)
+    rings = [_simple_ring(bm, x, cfg.spine_z + h, -0.05, cfg.spine_w, steps=10)
              for x, h in zip(xs, heights)]
     _skin(bm, rings, cap_front=True, cap_rear=True)
 
@@ -431,6 +543,9 @@ def build_airframe(cfg, name):
           f"MAC {mac:.3f} m (taper {cfg.wing_taper}); exposed semi-span {exposed:.3f} m "
           f"from the nacelle at y {cfg.wing_root_y:.2f}")
 
+    # widest body half-width, so the LERX can start where the fuselage actually ends
+    body_half = max(s[3] for s in cfg.stations)   # LERX starts where the centre body ends
+
     bm = bmesh.new()
     _body(cfg, bm)
     _canopy(cfg, bm)
@@ -442,8 +557,8 @@ def build_airframe(cfg, name):
     x_c4_root = cfg.wing_x_le_root + 0.25 * c_root
 
     for side in (1.0, -1.0):
-        _nacelle(cfg, bm, side)
-        _lerx(cfg, bm, side, cfg.wing_x_le_root, c_root)
+        _intake_recess(cfg, bm, side)
+        _lerx(cfg, bm, side, cfg.wing_x_le_root, c_root, body_half)
         # Wing panel: rooted ON the nacelle, so only the EXPOSED span is built. The chord at the
         # root station is interpolated on the reference trapezoid, which keeps the built planform
         # identical to the one the closure line above prints.
