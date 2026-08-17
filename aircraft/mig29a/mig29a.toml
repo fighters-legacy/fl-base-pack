@@ -53,7 +53,7 @@ cruise_alt_m = 11000.0           # [E] tropopause; where the max-speed anchor is
 #           LERX LE sonic at M3.52 (i.e. never, in this envelope)
 # Lift:     CL_alpha potential (M0.6) 3.556 /rad; Polhamus peak CL 1.638 at 30 deg
 #           k = 1/(pi*AR*e) = 0.1512 with e = 0.62 [E] — 58% of the bis's 0.2601
-# Stability: cm_alpha -0.8821 /rad (statically stable, as a no-FBW aircraft must be)
+# Stability: cm_alpha -0.7136 /rad (statically stable, as a no-FBW aircraft must be)
 # Mass closure: 11000 empty + 3500 fuel + 100 pilot + 120 ammo
 #           + 2x105 R-73E = 14930 kg vs published normal TO 14900 kg
 #           (+0.2%)
@@ -130,15 +130,15 @@ values = [ 0.0000,  0.0150,  0.0340,  0.0330,  0.0305,  0.0290,  0.0283]
 # the headless probe flew into the ground while every validator and every expect row stayed green.
 # cm_de uses tau = 1.0: all-moving stabilator.
 [aero.moments]
-cm_alpha = -0.8821
-cm_q     = -3.2392
-cm_de    = -1.0835
-cl_beta  = -0.4900
+cm_alpha = -0.7136
+cm_q     = -1.8745
+cm_de    = -0.8243
+cl_beta  = -0.4961
 cl_p     = -0.3556
 cl_da    = +0.2371
-cn_beta  = +0.0665
-cn_r     = -0.1707
-cn_dr    = -0.0839
+cn_beta  = +0.0735
+cn_r     = -0.1043
+cn_dr    = -0.0691
 
 [aero.limits]
 alpha_stall_deg  = 30.0   # [E] the cl_table peak, by construction. Not published; bounded below

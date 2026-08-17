@@ -147,19 +147,28 @@ RGYR_Z = 0.40       #       yaw, referred to (span+length)/4                    
 # Empennage. NOTHING here is published — no MiG-29 tail areas, spans or arms were found in any
 # admissible source. Scaled from the published overall dimensions by the proportions this
 # configuration class carries. Flagged [E] individually in mig29a.toml.
+# ⚑ THE ARMS ARE TAKEN FROM THE MESH, NOT GUESSED. The wing AC sits at 9.94 m and the mesh
+# builder puts the stabilator quarter-chord at 14.20 m and the fin's at 13.10 m, so the arms
+# are 4.26 m and 3.16 m. They were [E] 5.60 and 5.20 until the built glb was measured — which
+# would have put the tail surfaces at 15.5 m on a 17.32 m aircraft. Same rule as the shared
+# taper ratio: the mesh and the flight model must describe ONE aeroplane.
 S_H = 7.50          # m^2   BOTH stabilators, total                                [E]
 B_H = 7.78          # m     stabilator span (tip to tip)                           [E]
-S_V = 10.10         # m^2   BOTH fins, total — twin canted fins                    [E]
+S_V = 11.20         # m^2   BOTH fins, total — twin canted fins                    [E]
 AR_V = 1.35         #       per-fin aspect ratio                                   [E]
-L_H = 5.60          # m     wing AC -> stabilator AC arm                           [E]
-L_V = 5.20          # m     wing AC -> fin AC arm                                  [E]
+L_H = 4.26          # m     wing AC -> stabilator AC arm    [D from the MESH, see below]
+L_V = 3.86          # m     wing AC -> fin AC arm           [D from the MESH, see below]
 Z_V = 1.55          # m     fin AC height above CG                                 [E]
 ETA_H = 0.90        #       stabilator dynamic-pressure efficiency                 [E]
 ETA_V = 0.85        #       fin efficiency — twin fins sit in the wing/LERX wake   [E]
 DEPS = 0.35         #       downwash gradient at the tail                          [E]
 TAU_R = 0.45        #       rudder flap effectiveness                              [E]
 TAU_E = 1.00        #       all-moving stabilator: full surface slope              [E]
-CN_FUS = -0.12      # /rad  fuselage yaw destabilisation                           [E]
+CN_FUS = -0.08      # /rad  fuselage yaw destabilisation. SMALLER than the MiG-21bis's
+                    #       -0.10 despite a bigger aeroplane, and that is the right
+                    #       direction: the term normalises by S*b, and this aircraft's
+                    #       11.36 m span is 59% wider than the bis's 7.15 m, so the same
+                    #       forebody buys less destabilisation per unit of it.       [E]
 
 # ⚑ STATIC MARGIN. The MiG-29A has NO fly-by-wire (SOURCES.md), so unlike the F-16 it cannot be
 # relaxed-stability: it must be conventionally stable to be flyable at all. CG is set comfortably
