@@ -24,7 +24,7 @@ flight_model = "f16a/f16a"        # -> aircraft/f16a/f16a.toml
 ai_script    = "fighter"          # shared ai/fighter.lua; gun station 0 + IR station 1 + radar-
                                   # missile station 5 match its expectations, so no script fork
                                   # (#6 BVR employs the mid-wing AIM-7s from this convention)
-sensors = ["fl-base:apg66", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+sensors = ["fl-base:apg66", "fl-base:eyeball_day"]
 
 # Expendables magazine (engine #529): AN/ALE-40(V)-4 — four aft-fuselage dispensers, each
 # 30 chaff OR 15 flares, modelled as the usual two-and-two mix [E]; see SOURCES.md.

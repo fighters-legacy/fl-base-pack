@@ -27,8 +27,9 @@ flight_model = "f5e/f5e"          # -> aircraft/f5e/f5e.toml
 ai_script    = "fighter"      # -> ai/fighter.lua
 
 # The eyeball is not optional and not a courtesy: honest sensing (Epic #670) means an AI F-5E sees
-# only what its sensors give it. Night degrades it hard -- see sensors/eyeball_night.toml.
-sensors = ["fl-base:apq159", "fl-base:eyeball_day", "fl-base:eyeball_night"]
+# only what its sensors give it. There is no night eyeball to pair with this one: the engine owns
+# the dark (#209) and scales the visual channel's PoD to 25% after hours by itself.
+sensors = ["fl-base:apq159", "fl-base:eyeball_day"]
 
 # Expendables magazine (engine #529): `E` dispenses one chaff + one flare. AN/ALE-40(V) is an
 # operator retrofit — two aft-fuselage dispensers, each 30 chaff OR 15 flares; modelled as the

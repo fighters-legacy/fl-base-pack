@@ -25,10 +25,11 @@ cockpit      = "t38a/t38a_cockpit"  # -> aircraft/t38a/t38a_cockpit.glb  (engine
 flight_model = "t38a/t38a"          # -> aircraft/t38a/t38a.toml
 ai_script    = "trainer"        # -> ai/trainer.lua (basic flight; NO weapon employment)
 
-# ONE sensor, and only the day eyeball. The T-38A has no radar (fl-base-pack#20 is explicit), so it
+# ONE sensor, and only the eyeball. The T-38A has no radar (fl-base-pack#20 is explicit), so it
 # hunts — or rather navigates — by Mark One Eyeball alone. This is deliberately more minimal than the
-# F-5E, which also carries eyeball_night; the single sensor is the point of the proof case. Honest
-# sensing (Epic #670) means an AI T-38 sees only what this one sensor gives it, and nothing else.
+# F-5E, which pairs the same eyeball with an APQ-159; the single sensor is the point of the proof
+# case. Honest sensing (Epic #670) means an AI T-38 sees only what this one sensor gives it, and
+# nothing else.
 sensors = ["fl-base:eyeball_day"]
 
 # ── Signatures ──────────────────────────────────────────────────────────────────────────────────
