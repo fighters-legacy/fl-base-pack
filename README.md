@@ -18,7 +18,7 @@ DCO sign-off.
 | `missions/` | YAML mission files |
 | `audio/sfx/` | CC0 OGG sound effects (procedurally synthesised, `tools/sfxgen`) |
 | `audio/radio/` | Radio voice lines — **synthesised speech**, see below |
-| `audio/music/` | Music tracks + `data/playlist.toml` |
+| `audio/music/` | Music tracks + `data/playlist.toml` — **generated audio**, see below |
 | `ai/` | Lua 5.4 AI behaviour scripts |
 
 ---
@@ -67,22 +67,32 @@ licensing requirements, and review criteria.
 All assets in this repository are licensed under
 [Creative Commons Attribution 4.0 International (CC-BY 4.0)](LICENSES/CC-BY-4.0.txt) unless an
 individual asset carries a `<filename>.license` sidecar declaring CC0-1.0, or is covered by a path
-rule in [`REUSE.toml`](REUSE.toml) — as the generated voice lines in `audio/radio/` are, at CC0-1.0.
+rule in [`REUSE.toml`](REUSE.toml) — as the generated audio in `audio/radio/` and `audio/music/` is,
+at CC0-1.0.
 
 ### Generated audio — what it is, and where it stops
 
-**The 42 radio voice lines in `audio/radio/` are synthesised speech, not recorded actors.** They are
-produced locally by [piper](https://github.com/OHF-Voice/piper1-gpl), an open-weight text-to-speech
-model, from the script and pinned models recorded in
-[`audio/radio/SOURCES.md`](audio/radio/SOURCES.md). Anyone can regenerate them byte-for-byte.
+**Two things in this pack are model-generated, and nothing else is.**
 
-Nothing else in this pack is model-generated. Aircraft, missions, flight models, mission prose and
-the sound effects are authored — the SFX by a procedural synthesis script, the aircraft by parametric
-mesh builders, both human-written. The engine's AI content policy
+- **The 42 radio voice lines in `audio/radio/`** are synthesised speech, not recorded actors —
+  produced locally by [piper](https://github.com/OHF-Voice/piper1-gpl), an open-weight
+  text-to-speech model, from the script and pinned models in
+  [`audio/radio/SOURCES.md`](audio/radio/SOURCES.md).
+- **The six music tracks in `audio/music/`** are generated, not recorded performances — produced
+  locally with [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5), an open-weight
+  text-to-music model, from the prompts and seeds in
+  [`audio/music/SOURCES.md`](audio/music/SOURCES.md).
+
+Both are regenerable by anyone from what is recorded in this repository, and both are CC0 rather than
+the pack's CC-BY-4.0, because a generated work carries no copyright to assert.
+
+Everything else is authored: the aircraft come from parametric mesh builders, the sound effects from
+a procedural synthesis script, and the missions, flight models and mission prose are written. The
+engine's AI content policy
 ([decision record 2026-08-17](https://github.com/fighters-legacy/fighters-legacy/blob/main/docs/developer/architecture.md#decision-records))
-permits generated **audio** in a shipped pack under four conditions and continues to rule out
-generated art, campaigns and story prose. This section exists because one of those four conditions is
-that players are told, in the product, rather than in a pull request they will never read.
+permits generated **audio** in a shipped pack under four conditions, and continues to rule out
+generated art, campaigns and story prose. This section exists because one of those conditions is that
+players are told in the product, rather than in a pull request they will never read.
 
 The fl-base-pack name and the Fighters Legacy project are not affiliated with any commercial
 flight simulation product.

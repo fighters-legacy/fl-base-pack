@@ -120,6 +120,35 @@ jobs:
       - name: Check voice-line coverage and format
         run: python tools/voicegen/gen_voice_lines.py --check-assets
 
+  # Music + playlist (#5). Two checks that catch different failures, both cheap:
+  #
+  #   validate-playlist   the engine's own parser -- state ids, track asset names, crossfade.
+  #   --check-assets      BOTH-WAYS coverage between data/playlist.toml and audio/music/, plus
+  #                       format and edge-silence. A track nobody references never plays; a
+  #                       reference with no track sends that game state silent. Neither is an error
+  #                       anywhere else, which is exactly why they would ship.
+  #
+  # Generation is author-side (a 10 GB model and a GPU); the OGGs are committed artifacts.
+  music-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install ffmpeg + numpy
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install numpy
+      - name: Fetch validator
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-playlist
+      - name: Validate playlist
+        run: validate-playlist --playlist data/playlist.toml --pack .
+      - name: Check track coverage and format
+        run: python tools/musicgen/gen_music.py --check-assets
+
   flight-model-validate:
     runs-on: ubuntu-latest
     # HARD GATE (#7). validate-flight-model (post-#823) knows that `aero.drag_polar.k = 0.0` is
