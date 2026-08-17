@@ -5,6 +5,21 @@ path = "**"
 SPDX-FileCopyrightText = "Contributors to fl-base-pack"
 SPDX-License-Identifier = "CC-BY-4.0"
 
+# Radio voice lines — model-generated audio, so CC0 rather than the pack default.
+#
+# These are the one asset class covered by the AI content policy's audio exception (decision record
+# 2026-08-17, fighters-legacy/fighters-legacy#1200), and the exception REQUIRES this annotation: a
+# purely model-generated work carries no copyright the project can assert, so claiming CC-BY-4.0 over
+# it — which the `**` rule above would do — would make this file's licence metadata false.
+#
+# Annotated by path rather than with 42 `.license` sidecars: one rule covering a whole generated
+# directory is auditable at a glance, where 42 sidecars are 42 chances to miss one. Provenance
+# (models, prompts, seeds) is in audio/radio/SOURCES.md, per the same decision record.
+[[annotations]]
+path = "audio/radio/**.ogg"
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"
+
 # Vendored three.js (tools/gltf-inspect) — a third party's MIT-licensed work, not pack content.
 # It is committed rather than fetched so the stopgap viewer works offline with no build step.
 # Pinned to r160; to update, re-download the same file set at a new tag and keep this annotation.

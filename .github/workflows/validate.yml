@@ -95,6 +95,26 @@ jobs:
           [ $FAIL -eq 0 ] && echo "All naming checks passed."
           exit $FAIL
 
+  # Radio voice lines (#13). The engine has no validator for these -- the binding is the filename, so
+  # a missing or malformed OGG is not an error anywhere, it is just a line that silently stays a
+  # subtitle. This leg is the only thing that would notice.
+  #
+  # It runs the generator's --check-assets mode, which needs ffmpeg and NOTHING ELSE: no piper, no
+  # 300 MB of voice models, no GPU. The two heavier modes (--check re-synthesises; --verify-speech
+  # transcribes the audio back and compares the words) are author-side, like the mesh and SFX
+  # generators -- the OGGs are committed artifacts and CI does not rebuild them.
+  voice-lines-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install numpy
+        run: python -m pip install numpy
+      - name: Check voice-line coverage and format
+        run: python tools/voicegen/gen_voice_lines.py --check-assets
+
   flight-model-validate:
     runs-on: ubuntu-latest
     # HARD GATE (#7). validate-flight-model (post-#823) knows that `aero.drag_polar.k = 0.0` is
