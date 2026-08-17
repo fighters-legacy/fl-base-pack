@@ -1,0 +1,34 @@
+# GSh-301 30 mm single-barrel cannon — internal, port LERX root. MiG-29A gun armament.
+#
+# The heaviest-hitting gun in the pack: one 30x165 mm shell against the GSh-23L's 23 mm and the
+# M39/M61's 20 mm. A single-barrel short-recoil design, remarkably light for its calibre at 46 kg
+# (GSH-WIKI) — which is how a 30 mm cannon fits a fighter this size at all.
+#
+# 150 ROUNDS, not 100: SOURCES.md records that the magazine "originally held 150 rounds, reduced
+# to 100 on later variants", and this is the early 9.12.
+#
+# WEIGHT IS AMMUNITION ONLY, NOT THE GUN — the same rule as the M39A2 and GSh-23L: the 46 kg gun
+# body is part of the airframe's empty weight; this store is the 150 rounds of 30x165.
+[weapon]
+id       = "fl-base:gsh301"
+name     = "GSh-301 30 mm cannon"
+type     = "gun"
+category = "air-to-air"
+
+[performance]
+max_range_nm      = 0.65     # [E] effective air-to-air range, ~1,200 m — a heavier shell carries
+                             #     further usefully than the GSh-23L's 23 mm
+min_range_nm      = 0.0
+max_speed_kts     = 1750.0   # [P] 900 m/s muzzle velocity (GSH-WIKI)
+motor_burn_time_s = 0.0      # unpowered
+max_g             = 0.0
+
+[warhead]
+blast_radius_ft = 4.5        # [E] 30 mm HEI — the biggest shell in the pack
+damage          = 18.0       # per round; gameplay value, above the GSh-23L's 10 for the same
+                             #     reason it is above the M39A2's 8: shell mass. A 30 mm hit
+                             #     should be decisive, and the low rate of fire is the balance.
+
+[load]
+weight_lb   = 278.0   # [D] 150 rounds of 30x165 at ~0.84 kg linked
+drag_factor = 0.0     # internal. No external drag.

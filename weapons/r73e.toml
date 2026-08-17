@@ -1,0 +1,48 @@
+# R-73E (NATO AA-11 "Archer") — all-aspect infra-red air-to-air missile.
+#
+# The best dogfight missile in this pack, and the sources say so plainly rather than the pack
+# asserting it: SOURCES.md records the Luftwaffe DACT finding that the R-73 paired with the
+# Shchel-3UM helmet sight "was superior to the AIM-9 Sidewinder of the time", with locks achieved
+# nearly 45 degrees off boresight. The seeker def carries that basket
+# (sensors/r73e_seeker.toml); this file carries the airframe.
+#
+# The aircraft's compensating weakness is modelled with equal care in sensors/n019.toml — a
+# Fulcrum should win the merge and struggle at range, and both halves of that are authored.
+[weapon]
+id       = "fl-base:r73e"
+name     = "R-73E"
+type     = "missile"
+category = "air-to-air"
+
+[seeker]
+type            = "ir"
+sensor_id       = "fl-base:r73e_seeker"
+fire_and_forget = true
+
+[performance]
+max_range_nm      = 8.0     # [E] practical. PUBLISHED is 30 km (16 nm, R73-WIKI) as a brochure
+                            #     maximum; the same halving the AIM-9P's entry applies.
+min_range_nm      = 0.16    # [E] ~300 m — a short arming distance, though not the R-60M's 200 m
+max_speed_kts     = 1650.0  # [D] published Mach 2.5
+motor_burn_time_s = 4.0     # [E]
+max_g             = 40.0    # [E] the highest in the pack, and the reason it earns that: thrust
+                            #     vectoring plus aerodynamic control, against the R-60M's 30 and
+                            #     the AIM-9P's 20
+
+[warhead]
+blast_radius_ft = 30.0      # [D] 7.4 kg expanding-rod [P R73-WIKI] — twice the R-60M's 3.5 kg
+damage          = 70.0      # [E] gameplay: above the AIM-9P's 60 and the R-60M's 45, by warhead
+
+[countermeasures]
+flare_susceptibility = 0.35 # [E] the LOWEST in the pack. A late-80s all-aspect cooled seeker with
+                            #     real flare rejection, against the R-60M's 0.5 and the AIM-9P's
+                            #     0.6 — this is the "superior to the AIM-9 of the time" finding,
+                            #     expressed where it changes an outcome
+chaff_susceptibility = 0.0  # immune — it does not look at radar returns
+notch_susceptibility = 0.0
+
+[load]
+weight_lb   = 231.0     # [P] 105 kg (R73-WIKI)
+drag_factor = 0.00072   # [E] scaled from the pack's ONE measured store drag (the AIM-9P's
+                        #     0.00048, solved against the shipping F-5E) by frontal area —
+                        #     165 mm body against 127 mm. Same honest limitation as the R-60M's.
