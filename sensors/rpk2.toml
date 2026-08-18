@@ -1,0 +1,64 @@
+# RPK-2 "Tobol" (NATO "Gun Dish") — the ZSU-23-4 Shilka's fire-control radar.
+#
+# The pack's second ground radar and its SHORTEST-legged one. This set exists to do a single job
+# the 1S91 cannot: solve a gun problem on a target that is already close, already fast, and
+# already crossing. SHILKA-WIKI publishes Ku band and detection "up to 20 km"; it publishes no
+# tracking range, so the [track] lobe below is an estimate and says so.
+#
+# ⚑ WHY A GUN GETS A RADAR AT ALL, AND WHY IT MATTERS HERE. The Shilka's whole point was that it
+# could shoot at what it could not see: radar-directed fire at night, through haze, and at aircraft
+# crossing faster than an optical gunner can track. In this engine that translates directly —
+# `AaaFireController` leads the CONTACT's last-known state, not ground truth, so what the vehicle
+# has actually detected is what it can shoot at. A Shilka carrying only the eyeball would be a
+# fair-weather daylight gun. This def is the difference.
+#
+# It carries the day eyeball too (see entities/zsu23_4.toml), which is honest in both directions:
+# real crews tracked optically when the radar was jammed or when emitting was unwise, and the
+# engine's sensors COMPETE rather than compose (each slot draws its own acquisition roll and the
+# best state wins — see the eyeball_night finding in PR #79), so a second short-range slot can
+# only help acquisition, never hurt it.
+#
+# ⚠ THE ONE PUBLISHED LIMITATION THE ENGINE CANNOT REPRESENT: the source states the set "picks up
+# many false returns (ground clutter) under 60 m (200 ft) of altitude". The engine models no ground
+# clutter at all — a sensor's detection is a range/lobe/PoD roll and the terrain under the target
+# does not enter it — so a Shilka here sees a target on the deck exactly as well as one at height.
+# That makes this vehicle MORE dangerous to a low ingress than the real one was, and no combination
+# of the fields below can fix it: the missing model is in the engine, not in this file. Recorded so
+# nobody "corrects" it by degrading the whole sensor and making it useless at every altitude.
+#
+# ⚠ THE RADAR IS A LIABILITY AS WELL AS AN ASSET, AND THAT IS DELIBERATE. `emitter = true` puts
+# this vehicle on a hostile RWR the moment it looks. A Shilka that has decided to paint you is
+# announcing itself to a strike package that may be carrying something that homes on exactly that.
+# The engine has no anti-radiation weapon today (no pack weapon uses `category = "anti-radiation"`),
+# so today this costs the vehicle only warning; when one exists, it costs more, and this def will
+# not need changing.
+[sensor]
+id              = "fl-base:rpk2"
+name            = "RPK-2 Tobol (Gun Dish)"
+type            = "radar"
+omnidirectional = true          # [E] the dish traverses with the turret through a full circle
+emitter         = true          # see the RWR note above
+
+eccm = 0.15   # [E] the lowest in the pack, under the RP-22's 0.20. An early-1960s set whose one
+              #     published weakness is discrimination — see the ground-clutter note above — and
+              #     nothing in the source claims any counter-countermeasure capability for it.
+
+[search]
+az_half_angle_deg = 180.0       # omni: nominal, per the engine's convention
+el_half_angle_deg = 75.0        # [E] a gun mount elevates high but not vertically
+min_range_nm      = 0.05        # a fire-control set with a genuinely short minimum
+max_range_nm      = 10.8        # [P] detection "up to 20 km" (SHILKA-WIKI)
+pod               = 0.45        # [E] just under the 1S91's 0.50: a smaller antenna doing a
+                                #     harder job on a moving chassis
+
+[track]
+az_half_angle_deg = 180.0
+el_half_angle_deg = 75.0
+min_range_nm      = 0.05
+max_range_nm      = 4.3         # [E] ~8 km. NOT PUBLISHED. Bounded: it must comfortably exceed
+                                #     the gun's own reach (the crew tracks a target in while it
+                                #     closes and fires when it arrives) and sit well under the
+                                #     published 20 km detection range.
+pod               = 0.80        # [E] under the 1S91's 0.85 — a fire-control set, but a 1962 one
+lock_hold_s       = 2.0         # [E] the shortest in the pack: a crossing target at gun range
+                                #     leaves the basket quickly, and this file does not coast long

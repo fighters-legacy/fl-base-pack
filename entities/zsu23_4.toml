@@ -1,0 +1,96 @@
+# ZSU-23-4 "Shilka" — radar-directed self-propelled anti-aircraft gun. The pack's short-range
+# air-defence unit, and the thing that punishes the run-in the SA-6 battery is meant to deny.
+#
+# THE PAIRING IS THE POINT. weapons/3m9m.toml has a 3.7 km MINIMUM engagement range — the largest
+# minimum in this pack — so a Kub battery has a hole directly over itself. The Shilka fills it:
+# 2.5 km of 23 mm at 3,400 rounds a minute, exactly where the missile cannot reach. Siting the two
+# together is not decoration, it is how the real system was meant to work, and a mission that
+# places one without the other is authoring a gap on purpose.
+#
+# NO `flight_model` — an emplacement. See entities/sa6_battery.toml's note; the same applies here,
+# including that the vehicle is drawn stationary and spawned with `start: ground`.
+#
+# ⚠ IT FIRES ALONG ITS FIXED NOSE. `AaaFireController` computes a ballistic lead and pulls the
+# trigger only when the predicted miss at the target's range falls inside the lethal radius — but
+# it never slews. Turret elevation exists as an engine primitive (engine/weapon/Turret.h) and is
+# not wired to these controllers yet (engine #969/#971). WHERE THIS VEHICLE POINTS IS A MISSION
+# DECISION. Face it down the expected run-in heading or it will watch the strike go past.
+
+[entity]
+id           = "fl-base:zsu23_4"
+name         = "ZSU-23-4 Shilka"
+category     = "ground_vehicle"
+max_hp       = 120.0              # [E] at the engine builtin AAA's 120. Light armour, proof
+                                  #     against shell splinters and nothing a jet carries.
+collision_radius_m = 4.0          # [D] ~6.5 m long, ~3.1 m wide — a compact tracked vehicle
+mesh         = "zsu23_4/zsu23_4"  # -> aircraft/zsu23_4/zsu23_4.glb (all meshes live under
+                                  #    aircraft/ regardless of category — AssetPaths.cpp:12)
+
+# ⚑ TWO SENSORS, AND UNLIKE THE SA-6 THE SECOND ONE EARNS ITS PLACE. The RPK-2 is the fire-control
+# radar; the day eyeball is the drill every Shilka crew was taught for when the radar is jammed or
+# emitting is unwise. The engine's sensors COMPETE rather than compose — each slot draws its own
+# acquisition roll and the best resulting state wins (SensorSystem.cpp:360-383) — so a second
+# short-legged slot can only pull acquisition earlier, never later. That finding is what retired
+# eyeball_night in PR #79, and it is what makes this fit correct rather than superstitious: at gun
+# range, in daylight, the eyeball genuinely contributes.
+sensors = ["fl-base:rpk2", "fl-base:eyeball_day"]
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+[signatures]
+rcs    = 3.0    # [E] under the SA-6's 4.0 — a lower, more compact vehicle with no missile rails,
+                #     though the radar dish itself is a fine reflector
+ir     = 2.0    # [E] a diesel chassis; no generator running a large radar
+visual = 2.0    # [E] low and small; the hardest of the four ground units to spot from height
+laser  = 1.0    # [E] baseline
+
+# ── Crew quality ────────────────────────────────────────────────────────────────────────────────
+[ai]
+skill    = 0.50 # [E] under the Kub crew's 0.65. A conscript vehicle crew with a small radar and a
+                #     lot else to do, not a battery of air-defence specialists.
+reaction = 0.30 # [E] ⚑ THE FASTEST-ACTING UNIT IN THE PACK (lower is quicker). It sees less than
+                #     the Kub does, but the moment it does see, it is already firing: no
+                #     hand-off, no illumination sequence, no launch decision — a trigger and a
+                #     traverse handle. That contrast between skill and reaction is exactly what
+                #     the two fields exist to express.
+
+# ── Hardpoints ──────────────────────────────────────────────────────────────────────────────────
+# One gun station. The four barrels are aggregated into the single store (see weapons/azp23.toml).
+# Note the engine selects "the first non-empty NON-gun station, else the first non-empty station"
+# (StationState.h) — with only a gun here, that resolves to this station, which is what the AAA
+# controller's `trigger` path needs.
+[[hardpoints]]
+slot    = 0
+type    = "gun"
+allowed = ["fl-base:azp23"]
+default = "fl-base:azp23"
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+[damage.light]
+hp_fraction   = 0.66
+visual_effect = "smoke"
+
+[damage.heavy]
+hp_fraction    = 0.33
+visual_effect  = "fire"
+control_factor = 0.5
+
+[damage.critical]
+hp_fraction      = 0.12
+visual_effect    = "fire"
+control_factor   = 0.2
+avionics_failure = true    # strips the RPK-2 and leaves the crew on the eyeball — degraded, but
+                           # NOT out of the fight, which is the difference between this unit and
+                           # the SA-6 battery. A blinded Shilka can still hit something close.
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+[damage.subsystems.avionics]
+hp     = 35.0
+weight = 1.5     # [E] the radar dish and the analogue fire-control computer
+
+[damage.subsystems.controls]
+hp     = 40.0
+weight = 1.5     # [E] turret traverse and elevation — hit this and the gun stops tracking
+
+[damage.subsystems.fuel]
+hp     = 30.0
+weight = 1.2     # [E] diesel plus 2,000 rounds of belted HEI in the hull

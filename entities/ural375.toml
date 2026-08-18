@@ -1,0 +1,76 @@
+# Ural-375D 6x6 truck — the soft target. Transport for everything the units around it need, and
+# the thing a gunnery pass is practised on.
+#
+# It exists for three reasons, in ascending order of importance:
+#
+#   1. #17 asks for per-class signatures "beyond fighters" — bomber (delivered by #66's B-1B),
+#      transport, drone, ground unit. This is the TRANSPORT row, and it is the lowest-signature
+#      ground unit in the pack, which is what that class should look like.
+#   2. A training syllabus needs something to strafe that is not a SAM battery. A student's first
+#      air-to-ground pass should not be flown into 3,400 rounds a minute.
+#   3. A defended target area with nothing but shooters in it reads as a shooting gallery. Real
+#      sites have vehicles parked in them doing nothing, and their presence is what makes finding
+#      the ones that matter a task rather than a formality.
+#
+# PROVENANCE: the identity is published and unambiguous (URAL-WIKI names the 375D, its 6x6 layout
+# and its role as the standard Soviet mid-weight military truck, including as the BM-21 Grad's
+# carrier). None of the numbers below are published FOR it, because signature and crew-quality
+# values are not things a truck's specification sheet contains — they are all [E], reasoned
+# against the pack's other ground units.
+#
+# NO SENSORS, NO WEAPONS, NO `flight_model`. Spawn with `start: ground` and no `ai:`.
+
+[entity]
+id           = "fl-base:ural375"
+name         = "Ural-375D truck"
+category     = "ground_vehicle"
+max_hp       = 60.0               # [E] the softest thing in the pack by a wide margin. A canvas
+                                  #     tilt over a steel frame: a short cannon burst ends it,
+                                  #     which is the point of having it in a gunnery mission.
+collision_radius_m = 4.0          # [D] ~7.4 m long, ~2.7 m wide
+mesh         = "ural375/ural375"  # -> aircraft/ural375/ural375.glb (AssetPaths.cpp:12)
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+[signatures]
+rcs    = 2.0    # [E] the lowest ground rcs here — a box on wheels with no rails, no dish and no
+                #     armour, though the engine's builtin generic ground vehicle sits at 5.0 for
+                #     a reason: any vehicle is a strong return against ground clutter the engine
+                #     does not model. 2.0 keeps it under the Shilka's 3.0 without pretending a
+                #     truck is stealthy.
+ir     = 1.5    # [E] a running diesel and nothing else warm
+visual = 1.5    # [E] small and low, but a truck-shaped object on open ground is not hidden
+laser  = 1.0    # [E] baseline
+
+# ── Crew quality ────────────────────────────────────────────────────────────────────────────────
+# It carries no weapon, so these values change nothing today: with no hardpoints there is nothing
+# for a fast reaction to do. They are authored anyway because #17 asks for the class rows, and
+# because the moment anything gives this vehicle a sensor consumer — a spotter role, a campaign
+# supply model — the row should already say what a truck crew is.
+[ai]
+skill    = 0.30 # [E] the lowest in the pack. A driver watching the road, not the sky.
+reaction = 0.75 # [E] the slowest. By the time a truck crew has understood what is happening, the
+                #     pass is over.
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+[damage.light]
+hp_fraction   = 0.66
+visual_effect = "smoke"
+
+[damage.heavy]
+hp_fraction   = 0.33
+visual_effect = "fire"
+
+[damage.critical]
+hp_fraction   = 0.12
+visual_effect = "fire"
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# Two pools only: there is no avionics fit to lose, and `controls` on a truck is the steering and
+# the drivetrain — hit it and the vehicle stops, which is the whole of its capability.
+[damage.subsystems.controls]
+hp     = 25.0
+weight = 1.5
+
+[damage.subsystems.fuel]
+hp     = 20.0
+weight = 1.0

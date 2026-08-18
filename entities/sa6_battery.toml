@@ -1,0 +1,129 @@
+# 2K12 Kub (NATO SA-6 "Gainful") battery element — the pack's first ground unit, and the host
+# pack #17 has waited on since July.
+#
+# ⚑ WHAT THIS ENTITY IS, AND WHY IT IS NOT EXACTLY WHAT A REAL BATTERY IS. A real Kub battery is
+# several vehicles: the 1S91 SURN radar vehicle, and separate 2P25 transporter-erector-launchers
+# each carrying three rounds (KUB-WIKI). This def is ONE entity carrying both the radar and three
+# missiles, and that is a deliberate abstraction forced by the engine rather than a modelling
+# shortcut taken for convenience:
+#
+#   `SamEngagementController` engages strictly off the EMPLACEMENT'S OWN contact table
+#   (SurfaceThreatControllers.cpp:32-40 — a null table means no engagement, full stop). There is
+#   no datalink between ground units. A separate TEL entity would carry no radar, would therefore
+#   see nothing beyond the builtin eyeball, and would never launch. Splitting the battery into its
+#   real vehicles would produce a radar that cannot shoot and launchers that cannot see.
+#
+# So the unit of content here is the BATTERY ELEMENT: the smallest thing that can actually fight.
+# The mesh is drawn as the 2P25 TEL with three rounds, which is the silhouette anyone recognises,
+# and the radar is understood to be the vehicle beside it. When engine #969/#971 wire crewed
+# turret control (and with it a reason for a second vehicle to exist), this can be revisited.
+#
+# EntityDef owns all asset wiring (engine #813): `mesh` is an ASSET NAME with its own subdirectory,
+# `sensors` and hardpoint `allowed`/`default` are DEF IDS. The two vocabularies are not
+# interchangeable (engine #810).
+#
+# NO `flight_model`, AND THAT IS CORRECT. An empty flight model means the entity is not integrated
+# by the flight solver at all. Spawn it with `start: ground` in a mission and it sits on the
+# terrain where it was placed — which is what an emplacement does. The engine's own builtin SAM
+# site does exactly this (ContentBootstrap.cpp:504).
+#
+# ⚠ FACING IS TACTICAL, NOT COSMETIC. The controller gates firing to a cone about the vehicle's
+# BODY FORWARD (default +/-90 deg, tunable per mission via `ai: "sam <rangeM> <coneHalfDeg>
+# <intervalS>"`). The 1S91 sees the whole hemisphere; the launcher services only the arc ahead of
+# it. A battery pointed away from the run-in detects the strike perfectly and shoots at nothing.
+
+[entity]
+id           = "fl-base:sa6_battery"
+name         = "2K12 Kub (SA-6) battery element"
+category     = "ground_vehicle"
+max_hp       = 150.0              # [E] at the engine builtin SAM site's 150 — a thin-skinned
+                                  #     tracked launcher, not armour. Anything that hits it kills it.
+collision_radius_m = 7.0          # [D] the 2P25 is ~7.4 m long; the 15 m ground-category default
+                                  #     is far too generous for a single vehicle
+mesh         = "sa6_battery/sa6_battery"   # -> aircraft/sa6_battery/sa6_battery.glb
+                                           #    (the engine resolves ALL meshes under aircraft/,
+                                           #     whatever their category — AssetPaths.cpp:12)
+
+# ONE radar and no eyeball, which is the opposite of the Shilka beside it. This battery fights at
+# 24 km; a Mk 1 eyeball contributes nothing at that range and would only add acquisition rolls
+# inside 8 nm where the missile has a 3.7 km minimum anyway. Blind the radar and this unit is done
+# — which is the intended SEAD story.
+sensors = ["fl-base:1s91"]
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+# Unitless multipliers against a baseline fighter (1.0); radar range scales by sqrt(rcs), ir and
+# visual LINEARLY. Referenced against the engine's builtin surface units (ground vehicle 5/3/2,
+# SAM site 3/2/2) rather than against the pack's aircraft, because those are the values a ground
+# target's numbers have to sit sensibly among.
+[signatures]
+rcs    = 4.0    # [E] a flat-sided tracked chassis with three large missiles and their rails on
+                #     top: corner reflectors everywhere. Above the builtin SAM site's 3.0 because
+                #     this one is drawn with its rounds up.
+ir     = 2.5    # [E] a diesel chassis and a generator that has to run to feed the radar. Warmer
+                #     than the builtin's 2.0 for that reason, and far cooler than any jet.
+visual = 3.0    # [E] a distinctive silhouette on open ground; harder to miss than a truck
+laser  = 1.0    # [E] no basis to deviate from baseline
+
+# ── Crew quality ────────────────────────────────────────────────────────────────────────────────
+# `skill` scales probability of detection UP; `reaction` scales the delay between detecting and
+# acting UP — so higher reaction is SLOWER. The docs' own worked example for these two fields is
+# a SAM crew, and it is worth heeding: "a distracted SAM crew can see you perfectly well and still
+# be slow off the mark" (formats.md).
+[ai]
+skill    = 0.65 # [E] the highest in the pack, above the F-16A's 0.60. This is a crew of
+                #     specialists watching one screen for one thing, on a mount that is not
+                #     manoeuvring, in weather they chose to fight in.
+reaction = 0.55 # [E] but NOT the fastest to act. The Kub's engagement sequence is a battery
+                #     drill — acquire, hand off to the 1S31, illuminate, launch — not a fighter
+                #     pilot's trigger finger. Faster than the MiG-29A's 0.60, slower than the
+                #     F-16A's HOTAS-equipped 0.70... which in this field's direction means this
+                #     crew acts sooner than a Fulcrum pilot and later than a Viper's.
+
+# ── Hardpoints — ONE station, THREE rounds ──────────────────────────────────────────────────────
+# ⚑ READ weapons/3m9m.toml's `[load] rounds` NOTE BEFORE CHANGING THIS. The engine fires the
+# SELECTED station and never advances the selection on its own (FireControl.cpp:202). Three
+# separate hardpoints would fire one missile and then sit dry holding two it could never select.
+# One station with `rounds = 3` is both the real 2P25 launcher and the only shape that works.
+[[hardpoints]]
+slot    = 0
+type    = "missile"
+allowed = ["fl-base:3m9m"]
+default = "fl-base:3m9m"
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+# Gameplay values [E], following the engine's builtin surface damage model rather than an
+# aircraft's: a launcher has no engines to shoot out, so the pools that matter are the fire-control
+# gear, the traverse/erector gear, and the rounds themselves.
+[damage.light]
+hp_fraction   = 0.66
+visual_effect = "smoke"
+
+[damage.heavy]
+hp_fraction    = 0.33
+visual_effect  = "fire"
+control_factor = 0.5
+
+[damage.critical]
+hp_fraction      = 0.12
+visual_effect    = "fire"
+control_factor   = 0.2
+avionics_failure = true    # ⚑ this is the SEAD kill: avionics failure strips the 1S91, and a
+                           #   battery with no radar has no contact table, so it stops engaging
+                           #   entirely. It does not need to be destroyed to be defeated.
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# The engine's fixed subsystem vocabulary, read onto a launcher: `avionics` is the radar and
+# fire-control set, `controls` is the traverse and erector gear, `fuel` is the missile propellant
+# and the chassis diesel — a genuine cook-off pool on a vehicle carrying three loaded rounds. No
+# engine pools: a parked launcher has nothing for them to mean.
+[damage.subsystems.avionics]
+hp     = 40.0
+weight = 2.0     # [E] the biggest target on the vehicle and the one worth hitting
+
+[damage.subsystems.controls]
+hp     = 40.0
+weight = 1.0
+
+[damage.subsystems.fuel]
+hp     = 30.0
+weight = 1.5     # [E] above the builtin's 1.0: three loaded rounds sitting on the rails

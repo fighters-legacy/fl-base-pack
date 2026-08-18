@@ -1,0 +1,69 @@
+# Forward fuel depot — a POL (petroleum, oil, lubricants) storage site. The pack's first
+# STRUCTURE-category entity, and the thing a strike mission is flown against.
+#
+# ⚑ THIS ONE IS DELIBERATELY GENERIC, AND THAT IS A PROVENANCE DECISION RATHER THAN LAZINESS.
+# Every other unit in this pack models a specific, named, identifiable piece of equipment, with a
+# SOURCES.md tracing each number to a published document. A fuel depot has no type designation to
+# research and no manufacturer's data to cite — it is three tanks, a pump house and a berm, built
+# to whatever the local engineers had. So its numbers are honest [E] estimates against the
+# engine's own builtin static target, and there is nothing here that a source could have settled.
+#
+# NO SENSORS AND NO WEAPONS. It does not look and it does not shoot; it burns. Note that an entity
+# with no declared `sensors` still gets the compiled-in builtin eyeball when AI-controlled
+# (formats.md) — harmless here, since nothing drives it. Spawn it with no `ai:` at all.
+#
+# NO `flight_model` — see entities/sa6_battery.toml. Place it with `start: ground`.
+
+[entity]
+id           = "fl-base:fuel_depot"
+name         = "Forward fuel depot"
+category     = "structure"
+max_hp       = 400.0              # ⚑ SIZED AGAINST THE PACK'S OWN BOMB, ON PURPOSE. The Mk 82
+                                  #   does 200 damage (weapons/mk82.toml), so this is a TWO-BOMB
+                                  #   target on direct hits and rather more than that with the
+                                  #   blast falloff a real delivery gets. Under the engine
+                                  #   builtin static target's 800, which is a hardened bunker;
+                                  #   thin steel tanks full of fuel are not that.
+collision_radius_m = 22.0         # [E] a tank farm with its berm, not a single building — the
+                                  #     15 m structure default is too tight
+mesh         = "fuel_depot/fuel_depot"   # -> aircraft/fuel_depot/fuel_depot.glb (all meshes
+                                         #    resolve under aircraft/ — AssetPaths.cpp:12)
+
+# ── Signatures ──────────────────────────────────────────────────────────────────────────────────
+# The easiest thing in the pack to find, by every channel. That is the point of a target: the
+# problem a strike mission poses is getting TO it past the SA-6 and the Shilka, not seeing it.
+[signatures]
+rcs    = 12.0   # [E] under the builtin static target's 15 — large cylindrical tanks are strong
+                #     radar returns, though a tank farm is a less perfect corner than a building
+ir     = 2.0    # [E] above the builtin's 1.0: fuel storage runs pumps and the tanks hold the
+                #     day's heat well past sunset. It is not hot the way a running jet is hot.
+visual = 9.0    # [E] the highest visual signature in the pack, above the builtin's 6.0. Big
+                #     light-coloured cylinders on open ground, sited away from anything that
+                #     could hide them — which is exactly how fuel gets stored, and exactly why it
+                #     is a target.
+laser  = 1.0    # [E] baseline. Nothing in the pack designates yet; when something does, this is
+                #     the sort of target it will designate.
+
+# No [ai] block: skill and reaction describe a CREW's acquisition and response, and this entity
+# has neither. Omitting the section keeps the engine defaults, which is the honest statement.
+
+# ── Damage ──────────────────────────────────────────────────────────────────────────────────────
+# It goes to fire early and stays there. There is no "lightly damaged" fuel depot worth the name.
+[damage.light]
+hp_fraction   = 0.75
+visual_effect = "smoke"
+
+[damage.heavy]
+hp_fraction   = 0.45
+visual_effect = "fire"
+
+[damage.critical]
+hp_fraction   = 0.15
+visual_effect = "fire"
+
+# ── Per-subsystem damage (engine #675) ──────────────────────────────────────────────────────────
+# One pool, and it is the whole story: the fuel. No avionics, no controls — a depot has neither,
+# and inventing pools so the table looks complete would be modelling furniture.
+[damage.subsystems.fuel]
+hp     = 200.0
+weight = 3.0

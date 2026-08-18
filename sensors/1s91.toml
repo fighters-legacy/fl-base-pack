@@ -1,0 +1,78 @@
+# 1S91 SURN "Straight Flush" — the 2K12 Kub (SA-6 Gainful) battery's radar vehicle.
+#
+# THE PACK'S FIRST GROUND RADAR, and the deliverable pack #17 has been blocked on since July for
+# want of a host: a SAM needs a battery to sit on, and until this pack had ground units there was
+# nowhere to put one. It is also the pack's first OMNIDIRECTIONAL sensor — every radar before it
+# is an aircraft's, scanning a cone ahead of a nose. A battery watches the whole sky.
+#
+# PROVENANCE: the identity is solid and so is the ACQUISITION range; the tracking range is not.
+# KUB-WIKI states the 1S91 SURN carried two radar stations — "a target acquisition and distribution
+# radar 1S11 and a continuous wave illuminator 1S31" — and gives an acquisition range of 50 km
+# against an F-4 Phantom. That two-radars-one-vehicle fact is what makes it fit the engine's
+# search/track lobe pair so cleanly: the lobes here are not an abstraction of one antenna's two
+# modes, they are two real antennas.
+#
+# ⚠ NO TRACKING RANGE IS PUBLISHED in the source this pack cites, so the [track] lobe below is an
+# ESTIMATE and says so. Circulated figures for the 1S31 exist; they trace to sources this pack does
+# not cite. The estimate is bounded rather than invented — see the note on the track lobe.
+#
+# ⚑ THE SEARCH/TRACK GAP IS LARGE, AND IT IS THE DEFINING TACTICAL FACT ABOUT THIS BATTERY.
+# 27 nm of acquisition against ~15 nm of engagement is a ratio no aircraft radar in this pack comes
+# close to (the APG-66 is 30/22, the N019 33/19). It cuts both ways:
+#
+#   * It sees a strike package a very long way out — long before that package can do anything
+#     about it, and long before it can shoot.
+#   * It cannot ENGAGE until the target is well inside that, and its missile reaches 24 km. So unlike
+#     the MiG-29A — whose R-27R1 out-ranges the radar meant to guide it (see sensors/n019.toml) —
+#     this battery can support every shot it takes. The weapon sits INSIDE the track lobe, which is
+#     what a purpose-built system looks like next to a compromised one.
+#
+# The gap is also the whole reason a SEAD tasking is interesting: something that sees you at 50 km
+# and shoots at 24 is a threat you can watch, plan against, and still have to solve.
+#
+# ⚠ WHAT THE ENGINE CANNOT MODEL, RECORDED HONESTLY: the 1S31 is a CONTINUOUS WAVE illuminator, and
+# KUB-WIKI states plainly that in 1973 Israeli radar warning receivers "did not alert the pilot to
+# the fact that he was being illuminated by the radar" — the system "caused the most Israeli losses
+# of any Egyptian anti-aircraft missile" that war. The engine's `emitter` is a BOOL: a radar either
+# announces
+# itself to every RWR or it does not. There is no "announces itself in a way period equipment
+# misses". So this set is a plain emitter, and the historical asymmetry is a note here rather than
+# a number below. Do not "fix" it by setting emitter = false — that would make the battery
+# invisible to RWR entirely, which is a far bigger lie than the one it corrects.
+[sensor]
+id              = "fl-base:1s91"
+name            = "1S91 SURN (Straight Flush)"
+type            = "radar"
+omnidirectional = true          # the 1S11 antenna rotates; a battery covers the whole hemisphere
+emitter         = true          # see the CW note above — RWR/EMCON hangs off this
+
+eccm = 0.40   # [E] above the pack's aircraft sets (N019 0.30, RP-22 0.20) and under the APQ-164's
+              #     0.55. The Kub was hard to jam when it was new and progressively less so as
+              #     Western ECM caught up; 0.40 puts it between the two generations that bracket it.
+
+[search]
+az_half_angle_deg = 180.0       # omni: the lobe angles are nominal, per the engine's convention
+el_half_angle_deg = 80.0        # [E] a ground set has no look-down problem and a near-vertical hole
+min_range_nm      = 0.3
+max_range_nm      = 27.0        # [P] 50 km acquisition (KUB-WIKI). ⚠ THE SOURCE QUOTES IT AGAINST
+                                #     AN F-4 PHANTOM, and this field is quoted against the engine's
+                                #     baseline (rcs 1.0) fighter. An F-4 is a large fighter, so if
+                                #     anything this is generous to the target and conservative for
+                                #     the battery. Recorded rather than silently converted.
+pod               = 0.50        # [E] a dedicated surveillance antenna with nothing else to do;
+                                #     above every aircraft radar in the pack
+
+[track]
+az_half_angle_deg = 180.0
+el_half_angle_deg = 80.0
+min_range_nm      = 0.3
+max_range_nm      = 15.1        # [E] ~28 km. NOT PUBLISHED — bounded rather than guessed: it must
+                                #     exceed the 3M9M's published 24 km reach (or the battery could
+                                #     not support its own missile, which a purpose-built system
+                                #     would not do) and sit well under the 50 km acquisition range
+                                #     (or the 1S11 would be redundant). This is the number that
+                                #     decides every engagement this battery fights.
+pod               = 0.85        # [E] a dedicated tracking/illumination set, at the builtin ground
+                                #     radar's 0.85 rather than an aircraft set's 0.62-0.70
+lock_hold_s       = 4.0         # [E] above every aircraft radar here: a vehicle on the ground with
+                                #     a crew whose only job is holding this file
