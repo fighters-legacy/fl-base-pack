@@ -82,12 +82,35 @@ jobs:
             FAIL=1
           fi
 
-          # Aircraft directory layout: <name>.glb must pair with <name>.toml
+          # Mesh directory layout. Two checks, and the split matters:
+          #
+          #   1. EVERY mesh directory must have an entity def. An `aircraft/<name>/<name>.glb` that
+          #      no `entities/<name>.toml` claims is a mesh nothing can ever spawn -- dead weight in
+          #      the mod archive. validate-entity cannot catch this: it walks entity defs and
+          #      resolves their assets, so a mesh no def mentions is invisible to it.
+          #
+          #   2. Only an AIR VEHICLE must also carry a flight model beside its mesh. The original
+          #      rule demanded `<name>.toml` of every mesh directory, which was right while this
+          #      pack held nothing but aircraft and became wrong the moment it grew ground units
+          #      (#17): a SAM launcher, a gun vehicle, a fuel depot and a truck have NO flight model
+          #      by design -- an empty `flight_model` is what tells the engine not to integrate them,
+          #      and they sit where a mission's `start: ground` puts them.
+          #
+          # ⚠ Note both checks key on the DIRECTORY NAME matching the entity def's file name, which
+          # is this pack's convention throughout. If that ever stops being true, these become
+          # useless rather than wrong -- they will simply stop firing.
           for dir in aircraft/*/; do
             [ -d "$dir" ] || continue
             name=$(basename "$dir")
-            if [ -f "${dir}${name}.glb" ] && [ ! -f "${dir}${name}.toml" ]; then
-              echo "ERROR: ${dir}${name}.glb has no matching .toml"
+            [ -f "${dir}${name}.glb" ] || continue
+            if [ ! -f "entities/${name}.toml" ]; then
+              echo "ERROR: ${dir}${name}.glb has no entities/${name}.toml -- nothing can spawn it"
+              FAIL=1
+              continue
+            fi
+            if grep -qE '^[[:space:]]*category[[:space:]]*=[[:space:]]*"air_vehicle"' \
+                "entities/${name}.toml" && [ ! -f "${dir}${name}.toml" ]; then
+              echo "ERROR: ${dir}${name}.glb is an air_vehicle mesh with no ${name}.toml flight model"
               FAIL=1
             fi
           done

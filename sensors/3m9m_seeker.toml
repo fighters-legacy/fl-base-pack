@@ -1,0 +1,40 @@
+# 3M9M semi-active radar seeker head — the SA-6's homing eye.
+#
+# A RECEIVER, not an emitter: the missile rides the 1S91's illumination and the BATTERY does the
+# shouting. `emitter = false` with `role = "seeker"` is the engine#902 pattern that exempts a
+# seeker head from the aircraft-radar track-lobe warning — the same treatment aim7m_seeker and
+# r27r1_seeker carry.
+#
+# THE PACK'S FIRST SURFACE-LAUNCHED SEEKER, and the geometry it works in is the reverse of every
+# air-launched one here: it is fired UP at a target that is usually crossing rather than closing,
+# from a launcher that is not going anywhere. That does not change the numbers below — the engine
+# models a seeker as lobes and a hold time — but it changes which of them binds. For an AIM-7M the
+# limit is the shooter's radar; for this missile the 1S91 tracks to 15.1 nm and the weapon reaches
+# 13.0 nm, so the SEEKER's own basket is never the thing that runs out first. It is sized to be
+# comfortably inside both, which is what a system designed as one piece looks like.
+[sensor]
+id              = "fl-base:3m9m_seeker"
+name            = "3M9M SARH seeker"
+type            = "radar"
+role            = "seeker"
+omnidirectional = false
+emitter         = false    # receives the 1S91's illumination only
+
+[search]
+az_half_angle_deg = 25.0   # [E] gimbal limits, acquisition basket — the R-27R1 head's geometry,
+                           #     which is the closest analogue in the pack
+el_half_angle_deg = 25.0
+min_range_nm      = 0.3
+max_range_nm      = 14.0   # [E] comfortably past the missile's own 13 nm reach: the seeker is
+                           #     never the binding constraint on this weapon (see header)
+pod               = 0.50
+
+[track]
+az_half_angle_deg = 20.0
+el_half_angle_deg = 20.0
+min_range_nm      = 0.2
+max_range_nm      = 13.0   # track <= search in every axis
+pod               = 0.85
+lock_hold_s       = 1.5    # [E] brief memory through an illumination fade, then it goes dumb —
+                           #     and against this battery that fade means the vehicle is dead or
+                           #     has shut down, both of which should end the shot

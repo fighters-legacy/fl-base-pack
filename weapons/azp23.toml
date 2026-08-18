@@ -1,0 +1,63 @@
+# AZP-23 "Amur" — the ZSU-23-4 Shilka's quadruple 23 mm cannon.
+#
+# The pack's third gun and its first GROUND gun. Where the M39A2 and the GSh-23L are aircraft
+# armament sized for a firing pass measured in seconds, this is a magazine of two thousand rounds
+# on a vehicle that is not going anywhere, firing at something crossing overhead.
+#
+# FOUR BARRELS, ONE STORE. The AZP-23 is four 2A7 autocannons on a common cradle, water-cooled,
+# fed from a 2,000-round belt (SHILKA-WIKI). The engine models a gun as one station with a rate and
+# a magazine, so the `rate_of_fire_rpm` below is the COMBINED cyclic rate of all four barrels and
+# `rounds` is the whole vehicle's belt. That is the honest aggregation: the vehicle either shoots
+# or it does not, and it shoots with everything.
+#
+# ⚑ THIS IS THE HIGHEST RATE OF FIRE IN THE PACK BY A WIDE MARGIN — 3,400 rpm against the
+# GSh-23L's default. What the numbers encode is a wall of shells in a small volume for a short time.
+#
+# ⚠ THE SOURCE PUBLISHES THREE RANGES AND THE ENGINE HAS ONE FIELD. SHILKA-WIKI gives a maximum
+# horizontal range of 7 km, a maximum VERTICAL range of 5.1 km, and an EFFECTIVE vertical range of
+# 1.5 km. Those describe different things: how far a shell travels, how high it reaches, and how
+# far the system actually kills. `max_range_nm` gates whether the engine will let a shot happen at
+# all, so it is authored between the effective and maximum figures and flagged [E] rather than
+# quietly attributed to one of them. The number that decides real engagements is the mission's
+# own `ai: "aaa <rangeM>"` argument, which an author sets per scenario.
+#
+# ⚠ HOW IT ACTUALLY GETS USED, AND THE LIMIT THAT BITES: `AaaFireController` fires along the
+# emplacement's FIXED NOSE and only when the computed ballistic-lead miss falls inside the lethal
+# radius. Launcher/turret elevation exists in the engine as a primitive (engine/weapon/Turret.h)
+# but is NOT wired to these controllers yet — that is engine #969/#971. So a Shilka hits what
+# crosses its boresight, and WHERE IT IS POINTED IS A MISSION AUTHORING DECISION, not a detail.
+# Site it facing the run-in, or it is scenery.
+#
+# WEIGHT IS AMMUNITION ONLY, NOT THE GUN — the same rule the M39A2 and the GSh-23L follow. The
+# mount is part of the vehicle; this store is the belt.
+[weapon]
+id       = "fl-base:azp23"
+name     = "AZP-23 Amur 23 mm quad cannon"
+type     = "gun"
+category = "air-to-air"      # target class — see weapons/3m9m.toml on why a ground weapon says this
+
+[performance]
+max_range_nm      = 1.35     # [E] ~2,500 m — between the published 1.5 km effective vertical
+                             #     range and the 5.1 km maximum vertical range (SHILKA-WIKI); see
+                             #     the header on why the source's three numbers do not map onto
+                             #     this field's one
+min_range_nm      = 0.0
+max_speed_kts     = 1885.0   # [P] 970 m/s muzzle velocity, the low end of the published
+                             #     970-980 m/s band (SHILKA-WIKI) — well above the GSh-23L's
+                             #     715 m/s, which is why the lead solution is flatter
+rate_of_fire_rpm  = 3400.0   # [P] the low end of the published combined 3,400-4,000 rpm
+                             #     (850-1,000 rpm per gun x 4, SHILKA-WIKI) — see header
+motor_burn_time_s = 0.0      # unpowered
+max_g             = 0.0
+
+[warhead]
+blast_radius_ft = 4.0        # [E] 23x152B HEI — a heavier round than the GSh-23L's 23x115, so
+                             #     marginally above its 3.5
+damage          = 12.0       # [E] per round; above the GSh-23L's 10 for the same reason
+
+[load]
+rounds      = 2000           # [P] "2,000 rounds stowed aboard" (SHILKA-WIKI). At 3,400 rpm that is
+                             #     ~35 seconds of continuous fire — a long time for a gun and no
+                             #     time at all for a war, which is the correct feel.
+weight_lb   = 1984.0         # [D] 2,000 rounds of 23x152B at ~0.45 kg linked
+drag_factor = 0.0            # vehicle-mounted. Nothing to load down.

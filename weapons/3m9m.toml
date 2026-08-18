@@ -1,0 +1,84 @@
+# 3M9M (NATO SA-6 "Gainful") — the 2K12 Kub battery's semi-active radar-homing missile.
+#
+# THE PACK'S FIRST SURFACE-TO-AIR WEAPON, and the first store here that is not carried by an
+# aircraft. Everything else in weapons/ hangs off a pylon; this one sits on a tracked launcher and
+# waits.
+#
+# ⚑ `category = "air-to-air"` IS NOT A TYPO, AND IT IS NOT A COMPROMISE THIS PACK INVENTED.
+# The engine's category vocabulary is air-to-air / air-to-ground / air-to-sea / anti-radiation
+# (WeaponDefParser.cpp:74) — it names the TARGET class, and it has no surface-launched member.
+# The engine's own builtin SAM (`builtin:sarh-missile`, ContentBootstrap.cpp) makes exactly the
+# same choice for exactly the same reason. A missile that kills aircraft is air-to-air here,
+# whatever it took off from. Do not "correct" this to something the parser rejects.
+#
+# SEMI-ACTIVE: it rides the 1S91's illumination, so `fire_and_forget = false` and the battery must
+# hold the track through time-of-flight. That is not a formality — `SamEngagementController`
+# engages purely off the emplacement's own contact table, so a battery that is jammed, blinded, or
+# destroyed mid-flight stops supporting the missile exactly as an aircraft would.
+#
+# ⚑ THE ONE PLACE THIS SYSTEM BEATS EVERY AIRCRAFT IN THE PACK: its weapon fits INSIDE its radar.
+# 13.0 nm of missile under a 15.1 nm track lobe. The MiG-29A carries the opposite problem by
+# design (22 nm of R-27R1 behind a 19 nm track — see sensors/n019.toml), and the contrast is the
+# point: a purpose-built integrated battery versus a fighter carrying a missile its radar cannot
+# always support.
+#
+# THE RAMJET, AND WHY `motor_burn_time_s` IS SO LONG. The 3M9 is an integral rocket-ramjet: a
+# solid booster burns out inside the ramjet's own combustion chamber (~4 s), the case is ejected,
+# and the ramjet sustains for the rest of the flight (KUB-WIKI). So unlike every air-launched
+# missile in this pack — all of which coast for most of their time of flight — this one is still
+# under power deep into the engagement. 22 s below is boost plus sustain, and it is the single
+# biggest behavioural difference between this weapon and the R-27R1 it most resembles on paper.
+[weapon]
+id       = "fl-base:3m9m"
+name     = "3M9M (SA-6 Gainful)"
+type     = "missile"
+category = "air-to-air"     # target class, not launch platform — see the header
+
+[seeker]
+type            = "semi-active-radar"
+sensor_id       = "fl-base:3m9m_seeker"
+fire_and_forget = false     # [P] SARH: lose the illumination, lose the missile
+
+[performance]
+max_range_nm      = 13.0    # [P] "Operational range: 24 kilometres" (KUB-WIKI). Sits inside the
+                            #     1S91's estimated track lobe — the battery can support its shots.
+min_range_nm      = 2.0     # [E] ~3.7 km. NOT PUBLISHED: the source gives a minimum flight
+                            #     ALTITUDE (100 m) and no minimum range. Estimated from the
+                            #     propulsion the source DOES publish — an integral rocket-ramjet
+                            #     has a boost phase to get through before it can guide — and it is
+                            #     still the largest minimum in this pack, which leaves the battery
+                            #     a real hole overhead. That hole is why the Shilka exists.
+max_speed_kts     = 1610.0  # [D] "Maximum speed: Mach 2.8" (KUB-WIKI) at ~295 m/s local sound speed
+motor_burn_time_s = 22.0    # [E] the PROPULSION TYPE is published — "integral rocket motor/ramjet
+                            #     booster and sustainer motor" (KUB-WIKI) — the burn SPLIT is not.
+                            #     22 s is an estimate of boost plus sustain; what it encodes is the
+                            #     published fact that this missile keeps thrusting where every
+                            #     air-launched missile in the pack is coasting.
+max_g             = 18.0    # [E] under the R-27R1's 25: a heavier airframe pulling against a
+                            #     target that is usually crossing rather than closing
+
+[warhead]
+blast_radius_ft = 48.0      # [D] 59 kg Frag-HE warhead (KUB-WIKI), scaled from the R-27R1's
+                            #     42 ft at 39 kg
+damage          = 110.0     # [E] gameplay: above the R-27R1's 92, by warhead mass. One hit should
+                            #     be decisive against anything this pack flies.
+
+[countermeasures]
+flare_susceptibility = 0.0  # radar seeker: flares mean nothing to it
+chaff_susceptibility = 0.50 # [E] at the AIM-7M's 0.50 rather than the R-27R1's 0.55 — a bigger,
+                            #     better-sited illuminator with a crew whose only job is this
+notch_susceptibility = 0.60 # [E] the WORST notch resistance in the pack, and deliberately so:
+                            #     the classic defence against this battery is to beam it, and a
+                            #     ground set has zero closure of its own to help resolve the
+                            #     doppler ambiguity the way a closing fighter does
+
+[load]
+rounds      = 3             # ⚑ THREE RAILS, ONE STATION. The 2P25 TEL "carries 3 missiles"
+                            #     (KUB-WIKI), and the engine fires the SELECTED station only —
+                            #     selection never auto-advances (FireControl.cpp:202). Three
+                            #     hardpoints would fire ONCE and then sit dry with two live
+                            #     missiles it could never select. One station with three rounds is
+                            #     both the real launcher and the only shape that works.
+weight_lb   = 1320.0        # [P] 599 kg mass (KUB-WIKI)
+drag_factor = 0.0           # nothing carries this: a launcher rail is not a pylon, and the
+                            #     entity has no flight model for a payload to load down
