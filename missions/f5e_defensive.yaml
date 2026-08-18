@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 6 of 6 — Defensive manoeuvring (fl-base-pack#15).
+#
+# ⚑ THE ONLY LESSON PASSED BY SURVIVING — the pass condition is "come home", not "win". What is
+# being trained is the expendables magazine (30 chaff / 15 flares on the F-5E since #62) and the
+# decision to defend rather than press.
+#
+# ⚠ The student's AIM-9Ps are on the rails, and this lesson would rather they were not: **the engine
+# ignores `loadout:` on a player slot** (`PlayerSlot` carries no stores), so a mission cannot hand
+# the pilot a specific fit. Filed as fighters-legacy#1209. It changes what a determined student CAN
+# do, not what the lesson asks: an F-5E that turns to fight a Fulcrum with two rear-aspect IR
+# missiles is a student who has misread the problem.
+#
+# The bandit's R-27R1 is SEMI-ACTIVE, so breaking its lock kills the missile in flight — beaming or
+# notching is not flavour here, it is the counter its own `notch_susceptibility` models
+# (weapons/r27r1.toml). Its R-73E, by contrast, is the pack's most capable off-boresight IR weapon
+# and the reason the merge is the worst place to solve this.
+#
+# Pass = survive the engagement and bring the aircraft home. Four minutes under fire, then land.
+name: "Training 6 — Defensive manoeuvring"
+map: world
+layer: world_clear
+time: { hour: 16, minute: 30 }
+wind: { heading: 250, speed: 7 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_defensive"
+
+  # Close enough that the student is engaged shortly after climbing out — this lesson does not
+  # begin with a transit, it begins with a problem.
+  - type: fl-base:mig29a
+    id: bandit1
+    side: red
+    pos: [18000, 0, -6000]
+    alt: 5000
+    heading: 250
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1800)
+    do: mission_failure

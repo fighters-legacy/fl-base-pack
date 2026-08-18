@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 2 of 6 — Navigation (fl-base-pack#15).
+#
+# Three legs to three ground landmarks and back to the field. The landmarks are REAL PARKED VEHICLES
+# rather than invisible coordinates, because this pack ships no navigation instrument content: the
+# lesson is flown by looking outside, which is how it was taught before it was taught any other way.
+# Each is 2.5 km-tolerant, so it rewards arriving in the right place rather than threading a needle.
+#
+# Lesson logic: ai/train_navigation.lua (the waypoint coordinates live there, and must agree with
+# the vehicle positions below — they are the same three points).
+name: "Training 2 — Navigation"
+map: world
+layer: world_clear
+time: { hour: 9, minute: 0 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: clear
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:t38a
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_navigation"
+
+  # ALPHA / BRAVO / CHARLIE — friendly vehicles, so nothing here is a target of opportunity.
+  - type: fl-base:ural375
+    id: alpha
+    side: blue
+    pos: [4000, 0, -22000]
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: bravo
+    side: blue
+    pos: [20000, 0, -14000]
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: charlie
+    side: blue
+    pos: [22000, 0, 6000]
+    heading: 0
+    start: ground
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1800)
+    do: mission_failure

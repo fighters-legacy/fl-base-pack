@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 5 of 6 — Radar missile employment (fl-base-pack#15).
+#
+# The lesson #15 could not have until the F-16A existed. The F-5E's APQ-159 is a ranging set for gun
+# and IR work — it cannot support a semi-active shot at all, and the airframe has no compatible
+# pylon — so "radar missile employment" waited for the Viper and the AIM-7M (#19/#23).
+#
+# ⚑ THE ADVERSARY SHOOTS BACK AT THIS RANGE, WHICH NOTHING ELSE IN THE SYLLABUS DOES. The MiG-29A
+# carries two R-27R1 and its own radar; the merge starts head-on at ~36 km, co-altitude. Both
+# aircraft are firing semi-active weapons, so BOTH must hold their locks through time of flight —
+# turning cold to defend throws away your own shot. That trade is the lesson, and it is the same
+# geometry mig29a_bvr.yaml stages from the other seat.
+name: "Training 5 — Radar missile employment"
+map: world
+layer: world_clear
+time: { hour: 13, minute: 0 }
+wind: { heading: 250, speed: 6 }
+weather:
+  preset: clear
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_radar_missile"
+
+  - type: fl-base:mig29a
+    id: bandit1
+    side: red
+    pos: [30000, 0, 0]
+    alt: 6000
+    heading: 270
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1200)
+    do: mission_failure

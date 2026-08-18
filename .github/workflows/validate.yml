@@ -172,6 +172,34 @@ jobs:
       - name: Check track coverage and format
         run: python tools/musicgen/gen_music.py --check-assets
 
+  # ── Training syllabus (#15) ────────────────────────────────────────────────────────────────────
+  # The FIRST leg in this pack that runs the ENGINE rather than a validator, and it exists because
+  # the validators cannot see the failure mode that matters here. A lesson is a Lua script; a script
+  # that dies at load leaves its entity with no controller, and the mission then loads cleanly,
+  # spawns everything, and does nothing for the rest of its life. `validate-mission` calls that
+  # green, because the file is perfectly well formed.
+  #
+  # Three real failures were caught this way while the syllabus was being written, including every
+  # lesson script failing at `require()` (engine #1210). None was visible to any other check.
+  #
+  # It is cheap: six headless missions plus three predicate fixtures, a couple of seconds of sim
+  # each, no GPU, no network beyond the engine release the other legs already fetch. fl-server sits
+  # at the release archive root (`install(TARGETS fl-server RUNTIME DESTINATION .)`), so the same
+  # action that fetches validators fetches it.
+  training-missions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Fetch fl-server
+        uses: ./.github/actions/engine-validators
+        with:
+          require: fl-server
+      - name: Probe the training syllabus
+        run: python3 tools/missiontest/probe_training.py
+
   flight-model-validate:
     runs-on: ubuntu-latest
     # HARD GATE (#7). validate-flight-model (post-#823) knows that `aero.drag_polar.k = 0.0` is

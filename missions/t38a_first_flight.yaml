@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 1 of 6 — First Flight (fl-base-pack#15).
+#
+# The only mission in this pack with no adversary and no weapon employment, and the one every other
+# lesson assumes: get airborne, climb, find the field again, put it back on the runway.
+#
+# ⚑ HOW A LESSON KNOWS YOU PASSED. The mission trigger vocabulary is destroy()/mission_start/timer()
+# — none of which can express "airborne", "at altitude" or "landed". So the syllabus is driven by a
+# Lua lesson script (ai/train_first_flight.lua over ai/instructor.lua) carried by the OPS VEHICLE
+# parked beside the runway: `ai:` is ignored on a player slot, so the script cannot ride the
+# student's own aircraft, and it must work whether or not a human has joined.
+#
+# The parking spot is the shipped one (f5e_intercept traced it): the builtin airfield sits at
+# worldXZ (4000, 0) with a 2500 m runway running z = +1250 .. -1250, so [4000, 0, 1200] heading 90
+# leaves 2450 m of asphalt ahead. Do not re-derive it from the compass — this world's origin is a
+# POLE and "east" rotates ~74 degrees over the 4 km between the origin and the field.
+name: "Training 1 — First Flight"
+map: world
+layer: world_clear
+time: { hour: 10, minute: 0 }
+wind: { heading: 250, speed: 3 }        # light and nearly down the runway: a student's wind
+weather:
+  preset: clear
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:t38a
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  # The instructor. Parked 120 m off the centerline — clear of the 45 m runway, and clear of the
+  # student's first landing, which is not guaranteed to arrive on the asphalt.
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_first_flight"
+
+triggers:
+  # The script owns success (it can see a landing; a trigger cannot). These two are the floor:
+  # losing the aircraft ends the lesson, and no lesson runs forever.
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1500)
+    do: mission_failure

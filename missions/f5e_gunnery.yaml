@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 3 of 6 — Gunnery (fl-base-pack#15).
+#
+# The student's first air-to-ground pass, flown against the softest thing in the pack: three parked
+# Ural-375s (60 hp each — a short burst of 20 mm ends one). A first strafing pass is deliberately NOT
+# flown into an air-defence site; the SA-6 and the Shilka exist and are not here.
+#
+# ⚠ THE RAILS STAY LIVE, AND NOT BY CHOICE. This lesson wants the gun and nothing else, and a
+# `loadout:` override is exactly the tool for it — except that **the engine ignores `loadout:` on a
+# player slot** (validate-mission says so, and `PlayerSlot` carries no stores at all). So the student
+# flies the F-5E's default fit: gun plus two AIM-9Ps. The discipline is asked for here rather than
+# enforced, and the engine ask is filed as fighters-legacy#1209. When it lands, add the override and
+# delete this paragraph.
+name: "Training 3 — Gunnery"
+map: world
+layer: world_clear
+time: { hour: 11, minute: 0 }
+wind: { heading: 250, speed: 4 }
+weather:
+  preset: clear
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_gunnery"
+
+  # The convoy, strung out along a track so the run-in has an axis rather than a single point.
+  # Positions must agree with CONVOY in ai/train_gunnery.lua.
+  - type: fl-base:ural375
+    id: target1
+    side: red
+    pos: [14000, 0, -9000]
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: target2
+    side: red
+    pos: [14260, 0, -9200]
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: target3
+    side: red
+    pos: [14520, 0, -9400]
+    heading: 0
+    start: ground
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1800)
+    do: mission_failure
