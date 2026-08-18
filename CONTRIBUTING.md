@@ -159,11 +159,19 @@ CC0 in `REUSE.toml`, and run `--check-assets` plus `--verify-speech` before open
 human-recorded replacement is welcome and needs none of that machinery — just a `.license` sidecar
 and the provenance note.
 
-### `audio/music/<name>.mid` + `<name>-render.sh`
+### `audio/music/<name>.ogg` + an entry in `data/playlist.toml`
 
-Public domain MIDI source files alongside a FluidSynth render script that produces the final
-`.ogg`. Windows contributors: use WSL or Git Bash to run the script, or submit the `.mid` alone
-and request a maintainer render in your PR description.
+Music tracks, OGG Vorbis, 48 kHz stereo. ⚠ **A track with no playlist entry never plays** — the
+engine falls back to its builtin procedural music — so the two always ship together, and
+`tools/musicgen/gen_music.py --check-assets` fails either half on its own.
+
+The shipped tracks are model-generated under the audio exception to the AI content policy (decision
+record 2026-08-17): keep a replacement regenerable by adding it to the table in
+`tools/musicgen/gen_music.py` with its seed, recording provenance in `audio/music/SOURCES.md`, and
+leaving it CC0 in `REUSE.toml`. A human-composed or public-domain track is welcome instead and needs
+none of that — a `.license` sidecar and a provenance note cover it.
+
+Run `validate-playlist --playlist data/playlist.toml --pack .` before opening the PR.
 
 ### `ai/<name>.lua`
 

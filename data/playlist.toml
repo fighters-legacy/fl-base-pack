@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# Music playlist (pack issue #5). Loaded by the engine via IContentPack::loadConfig("playlist.toml")
+# and validated by `validate-playlist --playlist data/playlist.toml --pack .`
+# (docs/modding/formats.md → "Music Playlist").
+#
+# ⚠ WITHOUT THIS FILE THE TRACKS DO NOTHING. The engine falls back to its compiled-in procedural
+# music when no pack playlist is mounted, so shipping OGGs alone changes nothing a player hears.
+#
+# Track names are ASSET names, not paths: no `audio/` prefix and no `.ogg` extension.
+# "music/patrol_01" resolves to audio/music/patrol_01.ogg.
+#
+# State ids must match the engine's GameState enum exactly: Menu, FlightPatrol, FlightCombat,
+# MissionSuccess, Debrief. Every one of the five is covered here -- a state with no entry falls back
+# to the builtin tracks, which would make the pack's music appear and vanish depending on what the
+# player is doing.
+
+[crossfade]
+duration_s = 3.0
+
+[[states]]
+id     = "Menu"
+tracks = ["music/menu_theme"]
+loop   = true
+
+[[states]]
+id      = "FlightPatrol"
+# Two tracks so `shuffle` is not a lie: with one track it silently does nothing.
+tracks  = ["music/patrol_01", "music/patrol_02"]
+loop    = true
+shuffle = true
+
+[[states]]
+id      = "FlightCombat"
+tracks  = ["music/combat_01"]
+loop    = true
+shuffle = false
+
+[[states]]
+id     = "MissionSuccess"
+# The one state that must NOT loop: it is a resolution, and the debrief follows it.
+tracks = ["music/victory"]
+loop   = false
+
+[[states]]
+id     = "Debrief"
+tracks = ["music/debrief"]
+loop   = true
