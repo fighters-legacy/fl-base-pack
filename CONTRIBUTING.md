@@ -146,6 +146,19 @@ YAML mission files, gated in CI by `validate-mission`. See
 CC0 OGG sound effects. Recommended sources: [freesound.org](https://freesound.org) (filter by
 CC0). Format: OGG Vorbis, 44.1 kHz or 48 kHz, mono or stereo.
 
+### `audio/radio/<key>.ogg`
+
+Radio voice lines, keyed by the engine's published voice keys — **the filename is the binding**, so
+the name is a contract, not a convention. Format: OGG Vorbis, mono, 22.05 kHz, recorded **dry** (the
+engine applies band-limiting, click and squelch itself).
+
+These are synthesised, under the audio exception to the AI content policy (decision record
+2026-08-17). If you add or replace one, it must stay regenerable: add it to the table in
+`tools/voicegen/gen_voice_lines.py`, record its provenance in `audio/radio/SOURCES.md`, keep it
+CC0 in `REUSE.toml`, and run `--check-assets` plus `--verify-speech` before opening the PR. A
+human-recorded replacement is welcome and needs none of that machinery — just a `.license` sidecar
+and the provenance note.
+
 ### `audio/music/<name>.mid` + `<name>-render.sh`
 
 Public domain MIDI source files alongside a FluidSynth render script that produces the final
