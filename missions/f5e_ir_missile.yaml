@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# TRAINING 4 of 6 — IR missile employment (fl-base-pack#15).
+#
+# Two AIM-9Ps and a MiG-21bis. The bandit is flown by the pack's own fighter.lua (no `ai:` — the
+# #634 auto-detect attaches the entity's default script), so it fights back the moment its own
+# sensors find the student: the RP-22 is short-legged and the airframe carries no flares
+# (entities/mig21bis.toml). An attacker who arrives from behind and above owns this engagement and
+# one who merges head-on does not, which is the whole lesson of a rear-aspect IR weapon.
+name: "Training 4 — IR missile employment"
+map: world
+layer: world_clear
+time: { hour: 14, minute: 0 }
+wind: { heading: 260, speed: 5 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [4000, 0, 1200]
+    heading: 90
+    player: true
+    start: ground
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [4120, 0, 900]
+    heading: 90
+    start: ground
+    ai: "lua train_ir_missile"
+
+  # Airborne, because fighter.lua has no takeoff logic and a parked bandit would sit there.
+  - type: fl-base:mig21bis
+    id: bandit1
+    side: red
+    pos: [20000, 0, -20000]
+    alt: 4000
+    heading: 200
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(1500)
+    do: mission_failure
