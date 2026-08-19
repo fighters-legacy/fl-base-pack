@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# THE CAMPAIGN SEED (fl-base-pack#14): a small persistent war over the NTTR, feeding the engine's
+# deterministic campaign runtime (engine #635) — the data the scripted/no-AI mode runs first and
+# the campaign director (engine #590) later recombines. Run it: `fl-server --campaign
+# missions/campaign_nttr.yaml` — each server run flies one sortie and persists the war to
+# `cache/campaign_*.flsave` in its working directory.
+#
+# THE FICTION, one paragraph: an aggressor force holds the range land north of the home field —
+# the frontline raster's red half — with a mechanized force and a SAM umbrella. The opening story
+# beat (s01) kills the battery screening the line and buys the first push north; the dynamic war
+# then generates intercept/CAP/strike/SEAD sorties off the live frontline until the second beat
+# (s02) arms. Blue is winning this seed on purpose: each authored raster moves the line north, so
+# a player who flies the campaign SEES the frontline advance — which is this file's acceptance
+# criterion (engine #1036 Stage 4: "frontline advances after objective completion; story mission
+# injects at trigger").
+#
+# ⚠ CI ROUTING: this file is a CAMPAIGN, not a mission — it is validated by `validate-campaign
+# --pack .` (its own CI leg) and EXCLUDED from the mission-validate glob. The story missions are
+# ordinary missions and stay in the mission glob; the templates/ are not missions until the
+# generator fills them.
+
+name: "Range War"
+version: "1.0"
+sides: [blue, red]              # index 0 = side A = blue in every frontline raster
+pilot:
+  side: blue
+  persistent_stats: true
+
+dynamic:
+  enabled: true
+  theaters:
+    - id: nttr                  # theaters/nttr.toml supplies the geographic bounds
+      initial_frontline: frontlines/nttr_start.png
+      frontline_grid: { cols: 36, rows: 39 }     # ~10 km/px; every raster here matches exactly
+      # The starting order of battle. Free-form counters: the generator scales opfor from them and
+      # decrements them as dynamic sorties resolve. The `sam: 2` rows are what keeps the SEAD
+      # template eligible (`requires: enemy_sam` matches a unit name containing "sam").
+      ground_units:
+        blue: { armor: 8, infantry: 12 }
+        red:  { sam: 2, armor: 6, infantry: 10 }
+      templates:
+        - { role: intercept, file: templates/nttr_intercept.yaml, weight: 3 }
+        - { role: cap,       file: templates/nttr_cap.yaml,       weight: 2 }
+        - { role: strike,    file: templates/nttr_strike.yaml,    weight: 2 }
+        - { role: sead,      file: templates/nttr_sead.yaml,      weight: 1, requires: enemy_sam }
+
+story:
+  # The opening beat gates the whole war: nttr is unlocked only by s01's on_complete, so the
+  # dynamic generator is silent until the screening battery is dead — and its completion is the
+  # first frontline advance.
+  - id: s01_first_light
+    file: missions/s01_first_light.yaml
+    label: "First Light"
+    trigger: campaign_start
+    locks_dynamic: true
+    theater: nttr
+    on_complete:
+      set_frontline: frontlines/nttr_after_s01.png
+      unlock: nttr
+      next: { after_sorties: 2, id: s02_line_holds }
+
+  # Armed by s01, injects after two dynamic sorties: the red counter-attack. Winning it buys the
+  # next ridge line; the default on_fail (retry) holds the war still until it is won.
+  - id: s02_line_holds
+    file: missions/s02_line_holds.yaml
+    label: "The Line Holds"
+    locks_dynamic: true
+    theater: nttr
+    on_complete:
+      set_frontline: frontlines/nttr_after_s02.png

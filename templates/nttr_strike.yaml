@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# DYNAMIC TEMPLATE — strike (fl-base-pack#14). Bombs on a depot in the enemy-held cell the
+# generator picked; the ground objects ride the world-triple fill (`start: ground` resolves their
+# height), the aircraft the geodetic one. Authoring rules: see templates/nttr_intercept.yaml.
+template:
+  role: strike
+  fills:
+    - target_area: { from: frontline, side: enemy, prefer: contested }
+    - ingress:     { from: frontline, side: friendly }
+    - opfor:       { from: ground_units, side: enemy }
+
+name: "Strike — ${target_area.name}"
+map: nttr
+layer: world_clear
+time: { hour: 8, minute: 30 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    lat: ${ingress.lat}
+    lon: ${ingress.lon}
+    alt: 4000
+    heading: 0
+    player: true
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:mk82, fl-base:mk82]
+
+  # The target and its transport, on the ground at the chosen cell (opfor count ${opfor.count}
+  # in-theater — the seed places a representative pair rather than a generated horde).
+  - type: fl-base:fuel_depot
+    id: depot
+    side: red
+    pos: ${target_area.pos}
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: truck1
+    side: red
+    pos: [0, 0, 0]
+    lat: ${target_area.lat}
+    lon: ${target_area.lon}
+    heading: 90
+    start: ground
+
+triggers:
+  - on: destroy(depot)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(900)
+    do: mission_failure

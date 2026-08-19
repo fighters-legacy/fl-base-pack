@@ -365,8 +365,13 @@ jobs:
         run: |
           set -euo pipefail
           # `[ -f ]`: a mission this PR DELETED is listed by git diff but is not in the checkout.
+          # `campaign_*` is EXCLUDED on purpose: a campaign file lives in missions/ by the engine's
+          # contract but is a campaign graph, not a mission — validate-mission would reject it for
+          # missing objects/triggers. It has its own campaign-validate leg. Story missions and
+          # everything else in missions/ stay in this glob; templates/ never enter it.
           FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- missions \
             | { grep -E '\.ya?ml$' || true; } \
+            | { grep -vE '^missions/campaign_' || true; } \
             | while IFS= read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done \
             | tr '\n' ' ')
           echo "files=$FILES" >> "$GITHUB_OUTPUT"
@@ -381,6 +386,38 @@ jobs:
         # --pack cross-checks each mission object's crew: block against the referenced
         # entity's declared [[crew]] seats -- load-bearing once Stage-4 missions carry crew.
         run: validate-mission --pack . ${{ steps.changed.outputs.files }}
+
+  # Campaign graph + theaters + frontline rasters + template resolution (#14). HARD GATE, no
+  # `optional:` hatch: validate-campaign ships in every release since v0.3.10. `--pack .` makes it
+  # resolve every theater id to a manifest with valid bounds, every story/template file, and every
+  # frontline PNG (8-bit grayscale, dims == frontline_grid).
+  campaign-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect campaign content changes
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            -- 'missions/campaign_*' theaters frontlines templates | tr '\n' ' ')
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Campaign content changes: ${CHANGED:-(none)}"
+      - name: Fetch validator
+        if: steps.changed.outputs.changed != ''
+        uses: ./.github/actions/engine-validators
+        with:
+          require: validate-campaign
+      - name: Run campaign validator
+        if: steps.changed.outputs.changed != ''
+        run: |
+          set -euo pipefail
+          for c in missions/campaign_*.yaml; do
+            validate-campaign --pack . "$c"
+          done
 
   # ── Weapons / sensors / entity legs (engine #583). ─────────────────────────────────────────────
   # HARD GATES. These legs were born `optional: true` because the engine release of the day

@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# CAMPAIGN STORY 1 of 2 — "First Light" (fl-base-pack#14, flown by missions/campaign_nttr.yaml).
+#
+# The opening beat of the Range War: an SA-6 battery pushed south of the line screens the red
+# advance, and until it dies the campaign's dynamic war stays locked (`locks_dynamic`). Kill it
+# and the frontline takes its first step north (`set_frontline`), the theater unlocks, and the
+# generator starts producing sorties.
+#
+# The siting follows the measured rule (see coop_strike.yaml / the #3 lane): the battery FACES the
+# inbound axis from the home field — heading 215, the reciprocal of the 035 bearing out — so the
+# straight climb-out at altitude flies into its face and the envelope is live. The brief is the
+# same as ever: offset, get low, or spend the rockets first.
+name: "First Light"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 5, minute: 50 }
+wind: { heading: 250, speed: 4 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [-1200, 0, 0]
+    heading: 90
+    player: true
+    start: ground
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:lau3, fl-base:lau3]
+
+  # The screening battery, 27 km out on the 035 radial, facing the run-in.
+  - type: fl-base:sa6_battery
+    id: battery
+    side: red
+    pos: [15000, 0, 22000]
+    heading: 215
+    start: ground
+    ai: "sam 15000"
+
+  - type: fl-base:zsu23_4
+    id: flak1
+    side: red
+    pos: [15400, 0, 21800]
+    heading: 215
+    start: ground
+    ai: "aaa"
+
+triggers:
+  - on: destroy(battery)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(900)
+    do: mission_failure

@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# The pack's first theater (fl-base-pack#14): the Nevada Test and Training Range and the basin
+# around the sandbox home. The bounds double as the #2 terrain theater's build box, on purpose —
+# the campaign's war and the high-detail tiles cover the same ground.
+#
+# Bounds are GEOGRAPHIC degrees (the world is a sphere and the origin is the north pole — a
+# world-XZ rectangle out here would be a distorted band, which is why the schema refuses one).
+[theater]
+id     = "nttr"
+name   = "Nevada Test and Training Range"
+bounds = { min_lat = 35.0, min_lon = -117.5, max_lat = 38.5, max_lon = -113.5 }
+layer  = "world_clear"
+terrain = "world"
