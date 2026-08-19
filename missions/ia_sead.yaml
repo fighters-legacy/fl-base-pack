@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# INSTANT ACTION — SEAD (fl-base-pack#3): airborne, armed, and a live SA-6 17 km off the nose.
+#
+# THE PROBLEM IS ON YOUR RWR ALREADY. The battery FACES you (heading 65, the reciprocal of your
+# 245 inbound), and the measured envelope at this anchor (v0.3.18) says what that means: head-on
+# at ~3,000 m inside 15 km is a full 3-round engagement and a kill in 73-99 s. Flying straight at
+# it at this altitude is the one plan that reliably loses. Offset, get low, use the terrain — or
+# trade honestly and accept that one 3M9M hit costs about half the airframe.
+#
+# The Shilka at the launcher's flank is the second act: it punishes exactly the low run-in that
+# beats the SA-6, which is the whole doctrine of pairing them. Success is the BATTERY down — SEAD,
+# not housekeeping; the Shilka is yours to kill or avoid.
+#
+# Rockets, not bombs: two LAU-3 pods (19 rounds each, ripple-fired) reward the shallow offset pass
+# the SAM forces on you, where a Mk 82 lay-down wants the overflight the Shilka owns.
+
+name: "Instant Action — SEAD"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 15, minute: 30 }
+wind: { heading: 250, speed: 6 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [32000, 2500, 14000]
+    heading: 245
+    speed: 220
+    player: true
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:lau3, fl-base:lau3]
+
+  - type: fl-base:sa6_battery
+    id: battery
+    side: red
+    pos: [15000, 0, 6000]
+    heading: 65
+    start: ground
+    ai: "sam 15000"
+
+  - type: fl-base:zsu23_4
+    id: flak1
+    side: red
+    pos: [15400, 0, 5800]
+    heading: 65
+    start: ground
+    ai: "aaa"
+
+triggers:
+  - on: destroy(battery)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(540)
+    do: mission_failure

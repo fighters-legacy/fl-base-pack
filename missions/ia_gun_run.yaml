@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# INSTANT ACTION — GUN RUN (fl-base-pack#3): a convoy on the range, an escort that shoots back.
+#
+# The gunnery lesson (f5e_gunnery) with the training wheels off: the same soft convoy, but this
+# time a Shilka sits 600 m back down the run-in axis, FACING it — the exact pass that killed the
+# trucks in training now flies into radar-directed 23 mm. The A/G rails carry two Mk 82s; the
+# air-to-air rails are empty because there is nothing up here to shoot at, and the wingtip AIM-9Ps
+# would be dead weight the F-5E's wing feels.
+#
+# Success is the CONVOY (scored by ai/convoy_director.lua on the ops truck — three trucks cannot
+# be expressed by destroy() triggers, which end a mission on ONE entity). The escort is worth no
+# points and blocks nothing: killing it first is the smart opening, not the assignment.
+
+name: "Instant Action — Gun Run"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 9, minute: 0 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [4000, 2500, 2000]
+    heading: 45
+    speed: 200
+    player: true
+    loadout: [fl-base:m39a2, "~", "~", fl-base:mk82, fl-base:mk82, "~", "~"]
+
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [-900, 0, -120]
+    heading: 90
+    start: ground
+    ai: "lua convoy_director"
+
+  # The convoy, strung along the 045 track. Positions must agree with the group in
+  # ai/convoy_director.lua.
+  - type: fl-base:ural375
+    id: truck1
+    side: red
+    pos: [12000, 0, 10000]
+    heading: 45
+    start: ground
+  - type: fl-base:ural375
+    id: truck2
+    side: red
+    pos: [12200, 0, 10260]
+    heading: 45
+    start: ground
+  - type: fl-base:ural375
+    id: truck3
+    side: red
+    pos: [12400, 0, 10520]
+    heading: 45
+    start: ground
+
+  # The escort, 600 m back down the run-in, facing it — outside the convoy objective radius.
+  - type: fl-base:zsu23_4
+    id: flak1
+    side: red
+    pos: [11800, 0, 9800]
+    heading: 225
+    start: ground
+    ai: "aaa"
+
+triggers:
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(900)
+    do: mission_failure
