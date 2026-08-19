@@ -1,0 +1,20 @@
+LicenseRef-Copernicus-DEM
+
+The height tiles under terrain/world/ are derived from the Copernicus DEM instance
+COP-DEM-GLO-30 (Global 30 m), distributed by the European Space Agency under the Copernicus
+programme of the European Union.
+
+Copyright: © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under
+COPERNICUS by the European Union and ESA; all rights reserved.
+
+The data is free for use, reproduction and distribution, including in derived works, subject to
+the conditions of the "Licence for Copernicus DEM instance COP-DEM-GLO-30-F Global 30m Full,
+Free & Open" — in particular the obligation to carry the copyright notice above wherever the
+data or a derived work is distributed, and not to state or imply endorsement by the European
+Union, ESA, DLR or Airbus.
+
+The authoritative licence text is published by ESA at:
+https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model
+(document: "Licence for Copernicus DEM instance COP-DEM-GLO-30-F Global 30m").
+
+This file is a REUSE LicenseRef pointer to that licence, not a restatement of it.
