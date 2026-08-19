@@ -6,7 +6,9 @@
 -- rails with a `loadout:` override, so this lesson is the gun or nothing.
 local ins = require('instructor')
 
-local CONVOY = { { 14000, 0, -9000 }, { 14260, 0, -9200 }, { 14520, 0, -9400 } }
+-- Anchor-frame [east, -, north], matching the target trucks in missions/f5e_gunnery.yaml:
+-- 13.5 km out on the range land north-east of the field.
+local CONVOY = { { 9000, 0, 10000 }, { 9200, 0, 10260 }, { 9400, 0, 10520 } }
 
 local lesson = ins.lesson({
     name = "Gunnery",

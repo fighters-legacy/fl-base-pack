@@ -79,6 +79,23 @@ local wp_i = 1
 local function len2(x, z) return math.sqrt(x * x + z * z) end
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
+-- Local "up": the radial from the planet centre {0, -R, 0} (engine flight/Geodetic.h). It is +Y
+-- only near the world origin — at the sandbox home it points 36 degrees off the world Y axis, so
+-- NOTHING in this script may read pos.y as altitude or vel.y as climb rate (engine #1215).
+local function up_of(p)
+    local ux, uy, uz = p.x, p.y + 6371000.0, p.z
+    local un = math.sqrt(ux * ux + uy * uy + uz * uz)
+    return ux / un, uy / un, uz / un
+end
+
+-- True climb rate: velocity projected onto local up. vel.y alone captures barely half of it at the
+-- sandbox home's latitude, plus a large slice of the HORIZONTAL speed — and with this airframe's
+-- 18 s lead term, that horizontal bleed-through would dominate the whole pitch loop.
+local function climb_of(state)
+    local ux, uy, uz = up_of(state.pos)
+    return state.vel.x * ux + state.vel.y * uy + state.vel.z * uz
+end
+
 -- A closed four-leg racetrack from the spawn point, aligned with the initial heading. Closed so the
 -- aircraft never runs off the end of its own route and starts orbiting a corner.
 local function build_route(state)
@@ -103,11 +120,13 @@ local function steer(state, tx, tz, talt, throttle)
     local herr = guidance.heading_error(state.quat, state.pos, { x = tx, y = state.pos.y, z = tz })
     -- PD on altitude, not P: feed the helper the error at the PREDICTED altitude, so the sink is
     -- arrested BEFORE the target rather than porpoising through it. See the control-law note.
-    local aerr = (talt - state.pos.y) - ALT_LEAD_S * state.vel.y
+    -- Altitude is guidance.altitude, never pos.y; climb is vel on local up, never vel.y (#1215).
+    local alt  = guidance.altitude(state.pos)
+    local aerr = (talt - alt) - ALT_LEAD_S * climb_of(state)
     local perr = guidance.pitch_error_from_alt(state.quat, state.pos, aerr)
     -- Elevator alone cannot hold a cruise altitude a bomber is too heavy to sustain at part power,
     -- so the deficit buys throttle as well as pitch.
-    local thr = clamp(throttle + ALT_THR_GAIN * math.max(0, talt - state.pos.y), 0, 1)
+    local thr = clamp(throttle + ALT_THR_GAIN * math.max(0, talt - alt), 0, 1)
     return {
         -- MAX_BANK is passed explicitly: the primitive defaults to 45 deg, which is more than this
         -- airframe should be asked for at weight.
@@ -135,8 +154,9 @@ function compute_control(state, tick, dt)
     if not wp then wp = build_route(state) end
 
     -- Hard deck first. Terrain does not negotiate, and a damaged bomber (thrust_factor down to 0.40
-    -- at critical) sinks into it while a script argues about geometry.
-    if state.pos.y < FLOOR then
+    -- at critical) sinks into it while a script argues about geometry. MSL altitude, not pos.y:
+    -- read as pos.y this test is permanently true at the sandbox home and never exits (#1215).
+    if guidance.altitude(state.pos) < FLOOR then
         local out = steer(state, state.pos.x, state.pos.z, CRUISE_ALT, 1.0)
         out.afterburner = true
         return out
@@ -155,7 +175,7 @@ function compute_control(state, tick, dt)
         local station_x = lead.pos.x - bx * FORM_ASTERN - bz * FORM_SIDE
         local station_z = lead.pos.z - bz * FORM_ASTERN + bx * FORM_SIDE
         local thr = d > (FORM_ASTERN * 2) and CLOSE_THR or CRUISE_THR
-        return steer(state, station_x, station_z, lead.pos.y, thr)
+        return steer(state, station_x, station_z, guidance.altitude(lead.pos), thr)
     end
 
     -- WAYPOINT FOLLOWING. Advance on capture radius, wrapping at the end of the closed route.

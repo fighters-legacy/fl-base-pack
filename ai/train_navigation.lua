@@ -6,9 +6,12 @@
 -- was taught before it was taught any other way.
 local ins = require('instructor')
 
-local ALPHA = { 4000, 0, -22000 }
-local BRAVO = { 20000, 0, -14000 }
-local CHARLIE = { 22000, 0, 6000 }
+-- Anchor-frame [east, -, north] of the home field, matching the parked landmark trucks in
+-- missions/t38a_navigation.yaml — a triangle over the range land north and east of the field,
+-- because that is where a training sortie from this field would actually be sent.
+local ALPHA = { 22000, 0, 4000 }
+local BRAVO = { 14000, 0, 18000 }
+local CHARLIE = { -6000, 0, 16000 }
 
 local lesson = ins.lesson({
     name = "Navigation",

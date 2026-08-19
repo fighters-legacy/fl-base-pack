@@ -16,6 +16,7 @@
 name: "Training 3 — Gunnery"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 11, minute: 0 }
 wind: { heading: 250, speed: 4 }
 weather:
@@ -27,7 +28,7 @@ objects:
   - type: fl-base:f5e
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -35,7 +36,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_gunnery"
@@ -45,19 +46,19 @@ objects:
   - type: fl-base:ural375
     id: target1
     side: red
-    pos: [14000, 0, -9000]
+    pos: [9000, 0, 10000]
     heading: 0
     start: ground
   - type: fl-base:ural375
     id: target2
     side: red
-    pos: [14260, 0, -9200]
+    pos: [9200, 0, 10260]
     heading: 0
     start: ground
   - type: fl-base:ural375
     id: target3
     side: red
-    pos: [14520, 0, -9400]
+    pos: [9400, 0, 10520]
     heading: 0
     start: ground
 

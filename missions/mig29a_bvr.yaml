@@ -39,10 +39,10 @@
 # which is the same contract that let the MiG-21bis fly it. Verified in a 36,000-tick probe: gun,
 # R-73E and R-27R1 stations all exercised, including five releases on station 5.
 #
-# ⚠ HEADING AND WORLD AXES: local compass directions are longitude-dependent in this world
-# (f5e_intercept sits where east is world -Z and says so). Here the two aircraft are placed on a
-# common world-X line and pointed at each other by heading 90 / 270, which is geometry rather than
-# compass reasoning and holds regardless of where east happens to point.
+# `anchor: home` (engine #1211/#1215): coordinates are [metres east, MSL altitude, metres north]
+# of the sandbox home, and a heading is a real compass heading. The two aircraft sit on a common
+# east-west line through the field and point at each other by heading 90 / 270 — the same
+# geometry as before, now expressible in compass terms without a caveat.
 #
 # MEASURED — and read what this probe DID and DID NOT show before trusting it.
 #
@@ -69,6 +69,7 @@
 name: "Fulcrum's Peer"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 10, minute: 0 }
 wind: { heading: 250, speed: 4 }
 weather:
@@ -90,8 +91,7 @@ objects:
   - type: fl-base:f16a
     id: viper1
     side: blue
-    pos: [0, 0, 0]
-    alt: 8000
+    pos: [0, 8000, 0]
     heading: 90
     player: true
 
@@ -105,8 +105,7 @@ objects:
   - type: fl-base:mig29a
     id: fulcrum1
     side: red
-    pos: [46000, 0, 0]
-    alt: 8000
+    pos: [46000, 8000, 0]
     heading: 270
 
 triggers:

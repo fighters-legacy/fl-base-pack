@@ -81,14 +81,28 @@ local function len2(x, z) return math.sqrt(x * x + z * z) end
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
--- Bank angle about the nose relative to the local horizon; positive = right wing down.
--- quat is {x,y,z,w}; engine body axes are +X fwd, +Y up, +Z right; "up" is the radial from the
--- planet centre {0, -R, 0} (engine flight/Geodetic.h), which is +Y only near the world origin.
-local function bank_of(state)
-    local q, p = state.quat, state.pos
+-- Local "up": the radial from the planet centre {0, -R, 0} (engine flight/Geodetic.h). It is +Y
+-- only near the world origin — at the sandbox home it points 36 degrees off the world Y axis, so
+-- NOTHING in this script may read pos.y as altitude or vel.y as climb rate (engine #1215).
+local function up_of(p)
     local ux, uy, uz = p.x, p.y + 6371000.0, p.z
     local un = math.sqrt(ux * ux + uy * uy + uz * uz)
-    ux, uy, uz = ux / un, uy / un, uz / un
+    return ux / un, uy / un, uz / un
+end
+
+-- True climb rate: velocity projected onto local up. vel.y alone captures barely half of it at the
+-- sandbox home's latitude, plus a large slice of the HORIZONTAL speed — fed to the altitude-hold
+-- lead term it porpoises the loop.
+local function climb_of(state)
+    local ux, uy, uz = up_of(state.pos)
+    return state.vel.x * ux + state.vel.y * uy + state.vel.z * uz
+end
+
+-- Bank angle about the nose relative to the local horizon; positive = right wing down.
+-- quat is {x,y,z,w}; engine body axes are +X fwd, +Y up, +Z right.
+local function bank_of(state)
+    local q, p = state.quat, state.pos
+    local ux, uy, uz = up_of(p)
     local byx = 2 * (q.x * q.y - q.w * q.z)          -- body-up in world
     local byy = 1 - 2 * (q.x * q.x + q.z * q.z)
     local byz = 2 * (q.y * q.z + q.w * q.x)
@@ -142,10 +156,11 @@ local function steer(state, tx, tz, talt, throttle, ab, agg)
     local ail   = clamp(ROLL_GAIN * (tbank - bank_of(state)), -1, 1)
     -- NB: pitch_error_from_alt takes (quat, own_pos, alt_error) — own_pos is needed because "up"
     -- is geodetic on a spherical Earth.
-    -- PD, not P: feed the helper the error at the PREDICTED altitude (pos.y + lead * climb rate).
-    -- The vertical-speed term is the derivative half of the loop — a jet sinking at 100 m/s sees
-    -- zero error 500 m above the target and starts its pull there, instead of porpoising through.
-    local aerr = (talt - state.pos.y) - ALT_LEAD_S * state.vel.y
+    -- PD, not P: feed the helper the error at the PREDICTED altitude (alt + lead * climb rate).
+    -- The climb term is the derivative half of the loop — a jet sinking at 100 m/s sees zero error
+    -- 500 m above the target and starts its pull there, instead of porpoising through. Altitude is
+    -- guidance.altitude, never pos.y, and climb is vel projected on local up, never vel.y (#1215).
+    local aerr = (talt - guidance.altitude(state.pos)) - ALT_LEAD_S * climb_of(state)
     local perr = guidance.pitch_error_from_alt(state.quat, state.pos, aerr)
     return {
         aileron     = ail,
@@ -160,8 +175,10 @@ function compute_control(state, tick, dt)
     if not patrol_cx then patrol_cx, patrol_cz = state.pos.x, state.pos.z end
 
     -- Hard deck first. Terrain does not negotiate, and damaged aircraft (thrust_factor < 1)
-    -- sink into it while scripts argue about geometry.
-    if state.pos.y < FLOOR then
+    -- sink into it while scripts argue about geometry. MSL altitude, not pos.y: read as pos.y this
+    -- test is permanently true at the sandbox home (~-2,604,000) and the recovery branch never
+    -- exits — measured before the #1215 migration: a full-burner zoom climb to 8,600 m and stall.
+    if guidance.altitude(state.pos) < FLOOR then
         local out  = steer(state, patrol_cx, patrol_cz, PATROL_ALT, 1.0, true)
         -- Recover in order: wings, THEN pull. A firm pull while rolled past vertical is a split-S
         -- into the terrain, so level the lift vector first and gate the pull on it pointing up.
@@ -190,7 +207,8 @@ function compute_control(state, tick, dt)
                 sarh_support_until, sarh_target_idx = nil, nil   -- lock gone; the shot is on its own
             else
                 local out = steer(state, sup.pos.x, sup.pos.z,
-                                  math.max(sup.pos.y, FLOOR + 200), 1.0, false, SARH_STEER_AGG)
+                                  math.max(guidance.altitude(sup.pos), FLOOR + 200),
+                                  1.0, false, SARH_STEER_AGG)
                 -- The hold points us at the target anyway -- take the shot if one appears.
                 local cosang, rng = boresight(state, sup.pos)
                 if cosang >= GUN_CONE_COS and rng <= GUN_RANGE_M then
@@ -232,7 +250,8 @@ function compute_control(state, tick, dt)
                and rng >= SARH_MIN_M and rng <= rmax
                and tick - sarh_last_fire >= SARH_REFIRE_TICKS then
                 local out = steer(state, tgt.pos.x, tgt.pos.z,
-                                  math.max(tgt.pos.y, FLOOR + 200), 1.0, vc < 120, SARH_STEER_AGG)
+                                  math.max(guidance.altitude(tgt.pos), FLOOR + 200),
+                                  1.0, vc < 120, SARH_STEER_AGG)
                 if cosang >= SARH_CONE_COS then
                     out.weapon_station = SARH_STATION
                     out.release        = true
@@ -248,7 +267,7 @@ function compute_control(state, tick, dt)
             local lead = math.min(dist / math.max(vc, 100), 12) * (tgt.age_s < 1 and 1 or 0.4)
             local ax, az = tgt.pos.x + tgt.vel.x * lead, tgt.pos.z + tgt.vel.z * lead
             -- Burner only while we actually need closure; the J85s drink 3x MIL fuel in AB.
-            return steer(state, ax, az, math.max(tgt.pos.y, FLOOR + 200), 1.0, vc < 120)
+            return steer(state, ax, az, math.max(guidance.altitude(tgt.pos), FLOOR + 200), 1.0, vc < 120)
         end
 
         -- ENGAGE: fight for the rear quarter. Blend pure pursuit with lag pursuit as we close,
@@ -256,7 +275,7 @@ function compute_control(state, tick, dt)
         local lag = math.min((ENGAGE_M - dist) / ENGAGE_M, 0.6)
         local ax  = tgt.pos.x - tgt.vel.x * lag * 2.0
         local az  = tgt.pos.z - tgt.vel.z * lag * 2.0
-        local out = steer(state, ax, az, math.max(tgt.pos.y, FLOOR + 200), 1.0, vc < 60)
+        local out = steer(state, ax, az, math.max(guidance.altitude(tgt.pos), FLOOR + 200), 1.0, vc < 60)
 
         -- ── EMPLOY. Geometry decides which weapon; the server's fire control has the final say. ──
         -- Aim at the last-known point (honest sensing: no ground truth even to shoot at).

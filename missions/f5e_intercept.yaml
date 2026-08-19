@@ -19,9 +19,13 @@
 # RUNWAY START: the player begins PARKED on the builtin airfield's runway (engine #699/#486, in
 # v0.3.8) — idle throttle, zero airspeed, held stable until rotation (engine #885). The runway
 # needs NO pack terrain: `builtin:airfield` is compiled into the engine (2500 x 45 m asphalt,
-# heading 090, field elevation FIXED at 550 m) and the terrain is flattened under it on both the
+# heading 090, field elevation FIXED at 569.6 m) and the terrain is flattened under it on both the
 # physics floor and the visible mesh. Pack terrain (#2/#9) adds a real theater later; a pack
 # airfield is #18.
+#
+# `anchor: home` (engine #1211/#1215): every coordinate below is [metres east, MSL altitude,
+# metres north] of the sandbox home — 36.25 N in the Nevada basin-and-range, which is where the
+# aggressor fiction of this pack always pointed. The field stands AT the anchor.
 #
 # MAP: `world` is the canonical terrain id — a theater pack overrides individual tiles at higher
 # mod priority, it never replaces the world (a `terrain/earth` tree would resolve to NOTHING).
@@ -31,6 +35,7 @@
 name: "Tiger by the Tail"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 9, minute: 30 }
 wind: { heading: 250, speed: 6 }
 weather:
@@ -51,15 +56,14 @@ objects:
   # `start: ground` (engine #885) parks the jet on the surface, and no `alt:` on purpose: a ground
   # start takes its height from the terrain, so an altitude stated here would be a lie.
   #
-  # The spawn is the builtin airfield's runway threshold: the field sits at worldXZ (4000, 0)
-  # (BuiltinAirport.h), where local east — runway heading 090 — points along world -Z, so the
-  # 2500 m runway runs z = +1250 .. -1250 at x = 4000. Parking at z = 1200 leaves 2450 m of
-  # asphalt ahead, and heading 90 faces down the centerline (the engine's demo-atc-scramble
-  # mission traces the same geometry).
+  # The spawn is the runway threshold. Runway 090 runs along +east from the field centre
+  # (east -1250 .. +1250 at north 0 — BuiltinAirport.h), so parking at east -1200 leaves 2450 m
+  # of asphalt ahead, and heading 90 faces down the centerline — a heading that now genuinely
+  # means east, which no coordinate at the old pole origin could say.
   - type: fl-base:f5e
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -74,11 +78,11 @@ objects:
   # a pilot to rotate. It spawns at cruise airspeed along its heading (the #883 default — no `speed:`
   # needed; the delta's stall speed makes a `speed:` mandatory only for HEAVY types, per the B-1B
   # rule), so the engagement develops while the player climbs out.
+  # 28 km out to the north-east at 4,500 m, quartering back toward the field.
   - type: fl-base:mig21bis
     id: bandit1
     side: red
-    pos: [22000, 0, 18000]
-    alt: 4500
+    pos: [22000, 4500, 18000]
     heading: 225
 
 triggers:

@@ -35,14 +35,28 @@ local function len2(x, z) return math.sqrt(x * x + z * z) end
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
--- Bank angle about the nose relative to the local horizon; positive = right wing down.
--- quat is {x,y,z,w}; engine body axes are +X fwd, +Y up, +Z right; "up" is the radial from the
--- planet centre {0, -R, 0} (engine flight/Geodetic.h), which is +Y only near the world origin.
-local function bank_of(state)
-    local q, p = state.quat, state.pos
+-- Local "up": the radial from the planet centre {0, -R, 0} (engine flight/Geodetic.h). It is +Y
+-- only near the world origin — at the sandbox home it points 36 degrees off the world Y axis, so
+-- NOTHING in this script may read pos.y as altitude or vel.y as climb rate (engine #1215).
+local function up_of(p)
     local ux, uy, uz = p.x, p.y + 6371000.0, p.z
     local un = math.sqrt(ux * ux + uy * uy + uz * uz)
-    ux, uy, uz = ux / un, uy / un, uz / un
+    return ux / un, uy / un, uz / un
+end
+
+-- True climb rate: velocity projected onto local up. vel.y alone captures barely half of it at the
+-- sandbox home's latitude, plus a large slice of the HORIZONTAL speed — fed to the altitude-hold
+-- lead term it porpoises the loop.
+local function climb_of(state)
+    local ux, uy, uz = up_of(state.pos)
+    return state.vel.x * ux + state.vel.y * uy + state.vel.z * uz
+end
+
+-- Bank angle about the nose relative to the local horizon; positive = right wing down.
+-- quat is {x,y,z,w}; engine body axes are +X fwd, +Y up, +Z right.
+local function bank_of(state)
+    local q, p = state.quat, state.pos
+    local ux, uy, uz = up_of(p)
     local byx = 2 * (q.x * q.y - q.w * q.z)          -- body-up in world
     local byy = 1 - 2 * (q.x * q.x + q.z * q.z)
     local byz = 2 * (q.y * q.z + q.w * q.x)
@@ -62,10 +76,11 @@ local function steer(state, tx, tz, talt, throttle, ab)
     -- and fly the aileron to that bank.
     local tbank = guidance.bank_to_turn_aileron(herr) * MAX_BANK
     local ail   = clamp(ROLL_GAIN * (tbank - bank_of(state)), -1, 1)
-    -- PD, not P: feed the altitude helper the error at the PREDICTED altitude (pos.y + lead * climb
-    -- rate). The vertical-speed term is the derivative half of the loop — a jet sinking at 100 m/s
-    -- sees zero error 500 m above the target and starts its pull there, instead of porpoising.
-    local aerr = (talt - state.pos.y) - ALT_LEAD_S * state.vel.y
+    -- PD, not P: feed the altitude helper the error at the PREDICTED altitude (alt + lead * climb
+    -- rate). The climb term is the derivative half of the loop — a jet sinking at 100 m/s sees zero
+    -- error 500 m above the target and starts its pull there, instead of porpoising. Altitude is
+    -- guidance.altitude, never pos.y, and climb is vel projected on local up, never vel.y (#1215).
+    local aerr = (talt - guidance.altitude(state.pos)) - ALT_LEAD_S * climb_of(state)
     local perr = guidance.pitch_error_from_alt(state.quat, state.pos, aerr)
     return {
         aileron     = ail,
@@ -80,8 +95,9 @@ function compute_control(state, tick, dt)
     if not patrol_cx then patrol_cx, patrol_cz = state.pos.x, state.pos.z end
 
     -- Hard deck first. Terrain does not negotiate, and damaged aircraft (thrust_factor < 1)
-    -- sink into it while scripts argue about geometry.
-    if state.pos.y < FLOOR then
+    -- sink into it while scripts argue about geometry. MSL altitude, not pos.y: read as pos.y this
+    -- test is permanently true at the sandbox home and the recovery branch never exits (#1215).
+    if guidance.altitude(state.pos) < FLOOR then
         local out  = steer(state, patrol_cx, patrol_cz, PATROL_ALT, 1.0, true)
         -- Recover in order: wings, THEN pull. A firm pull while rolled past vertical is a split-S
         -- into the terrain, so level the lift vector first and gate the pull on it pointing up.

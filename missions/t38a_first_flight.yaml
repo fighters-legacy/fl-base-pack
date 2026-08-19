@@ -12,13 +12,15 @@
 # parked beside the runway: `ai:` is ignored on a player slot, so the script cannot ride the
 # student's own aircraft, and it must work whether or not a human has joined.
 #
-# The parking spot is the shipped one (f5e_intercept traced it): the builtin airfield sits at
-# worldXZ (4000, 0) with a 2500 m runway running z = +1250 .. -1250, so [4000, 0, 1200] heading 90
-# leaves 2450 m of asphalt ahead. Do not re-derive it from the compass — this world's origin is a
-# POLE and "east" rotates ~74 degrees over the 4 km between the origin and the field.
+# `anchor: home` (engine #1211/#1215): coordinates are [metres east, MSL altitude, metres north]
+# of the sandbox home, where the builtin airfield stands. Runway 090 runs along +east from the
+# field centre (east -1250 .. +1250 at north 0, elevation fixed at 569.6 m), so parking at
+# [-1200, 0, 0] heading 90 leaves 2450 m of asphalt ahead — and heading 90 now genuinely means
+# east, everywhere in the mission area.
 name: "Training 1 — First Flight"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 10, minute: 0 }
 wind: { heading: 250, speed: 3 }        # light and nearly down the runway: a student's wind
 weather:
@@ -30,7 +32,7 @@ objects:
   - type: fl-base:t38a
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -40,7 +42,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_first_flight"

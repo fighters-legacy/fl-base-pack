@@ -13,8 +13,9 @@ local lesson = ins.lesson({
     steps = {
         { name = "airborne", done = function(s) return ins.airborne(s) end },
         { name = "bandit destroyed", done = function(s, self)
-            -- No survivors on the far side of the field boundary: the bandit is the only red air.
-            return ins.live_near(self, { { 20000, 0, -20000 } }, 60000.0) == 0
+            -- No survivors near the bandit's spawn (anchor frame, matching the mission YAML) —
+            -- the radius is wide because the bandit is the only red air and it moves.
+            return ins.live_near(self, { { 14000, 0, 20000 } }, 60000.0) == 0
         end },
     },
 })
