@@ -12,6 +12,7 @@ jobs:
   add-to-project:
     name: Add issue or PR to org project
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/add-to-project@v1.0.2
         with:
