@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# DYNAMIC TEMPLATE — SEAD (fl-base-pack#14). Eligible only while the red order of battle still
+# fields a SAM (`requires: enemy_sam` in the campaign file); dynamic attrition eventually retires
+# it, which is the campaign working as intended. The battery faces SOUTH — the line is north of
+# blue, so south is where the ingress comes from; the measured facing rule (see ia_sead.yaml)
+# makes that the difference between a live envelope and scenery. Authoring rules:
+# see templates/nttr_intercept.yaml.
+template:
+  role: sead
+  fills:
+    - target_area: { from: frontline, side: enemy }
+    - ingress:     { from: frontline, side: friendly }
+
+name: "SEAD — ${target_area.name}"
+map: nttr
+layer: world_clear
+time: { hour: 16, minute: 0 }
+wind: { heading: 250, speed: 6 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    lat: ${ingress.lat}
+    lon: ${ingress.lon}
+    alt: 3000
+    heading: 0
+    player: true
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:lau3, fl-base:lau3]
+
+  - type: fl-base:sa6_battery
+    id: battery
+    side: red
+    pos: ${target_area.pos}
+    heading: 180
+    start: ground
+    ai: "sam 15000"
+
+triggers:
+  - on: destroy(battery)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(900)
+    do: mission_failure

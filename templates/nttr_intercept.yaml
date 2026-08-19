@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# DYNAMIC TEMPLATE — intercept (fl-base-pack#14). A mission YAML with holes: the campaign
+# generator resolves each placeholder against the live frontline when the sortie is drawn
+# (engine docs/modding/formats.md, "what a template is").
+#
+# ⚑ TEMPLATE AUTHORING RULES (they differ from a normal mission — engine #1222):
+#   * NO `anchor:` — the fills are already world/geodetic values.
+#   * An AIRBORNE object is placed with `lat:`/`lon:` from the geodetic fills plus `alt:` MSL;
+#     `pos` stays a required placeholder that lat/lon/alt fully override. The dollar-pos world
+#     triples are SEA-LEVEL points and raw Y is not altitude out here — an aircraft authored with
+#     them spawns under the terrain.
+#   * A GROUND object may use the world-triple fill — `start: ground` resolves its height.
+template:
+  role: intercept
+  fills:
+    - target_area: { from: frontline, side: enemy }
+    - ingress:     { from: frontline, side: friendly }
+
+name: "Intercept — ${target_area.name}"
+map: nttr
+layer: world_clear
+time: { hour: 11, minute: 0 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    lat: ${ingress.lat}
+    lon: ${ingress.lon}
+    alt: 6000
+    heading: 0
+    player: true
+
+  # The intruder, over the enemy-held cell, southbound toward the line.
+  - type: fl-base:mig21bis
+    id: bandit1
+    side: red
+    pos: [0, 0, 0]
+    lat: ${target_area.lat}
+    lon: ${target_area.lon}
+    alt: 5000
+    heading: 180
+
+triggers:
+  - on: destroy(bandit1)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(540)
+    do: mission_failure

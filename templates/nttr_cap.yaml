@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# DYNAMIC TEMPLATE — CAP (fl-base-pack#14). Hold the station over friendly ground and come home.
+# The only template whose success is the CLOCK: a patrol that ends with you alive is a patrol
+# that worked, and the bandit that may find you is a hazard, not the objective. Authoring rules:
+# see templates/nttr_intercept.yaml.
+template:
+  role: cap
+  fills:
+    - target_area: { from: frontline, side: enemy }
+    - ingress:     { from: frontline, side: friendly }
+
+name: "CAP — ${target_area.name}"
+map: nttr
+layer: world_clear
+time: { hour: 14, minute: 0 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [0, 0, 0]
+    lat: ${ingress.lat}
+    lon: ${ingress.lon}
+    alt: 5500
+    heading: 0
+    player: true
+
+  # A prowler working the far side of the line. It may never find the CAP; that is patrol life.
+  - type: fl-base:mig21bis
+    id: bandit1
+    side: red
+    pos: [0, 0, 0]
+    lat: ${target_area.lat}
+    lon: ${target_area.lon}
+    alt: 5500
+    heading: 200
+
+triggers:
+  - on: timer(480)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure

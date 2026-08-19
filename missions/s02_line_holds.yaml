@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# CAMPAIGN STORY 2 of 2 — "The Line Holds" (fl-base-pack#14, flown by missions/campaign_nttr.yaml).
+#
+# The red counter-attack, injected two sorties after First Light: a MiG-29A leads a MiG-21bis
+# south toward the field. Success is killing the LEADER — the Fulcrum is the aircraft that can
+# actually contest the line (see mig29a_bvr.yaml for the asymmetry, measured), and the bis without
+# its lead is a fight the dynamic war can absorb. Winning buys the next ridge line
+# (`set_frontline`); losing retries the beat with the war held still, per the campaign's default
+# on_fail.
+name: "The Line Holds"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 17, minute: 40 }
+wind: { heading: 250, speed: 7 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [0, 7000, 12000]
+    heading: 0
+    speed: 230
+    player: true
+
+  # The leader, head-on and co-altitude at 34 km — the mig29a_bvr geometry pointed south.
+  - type: fl-base:mig29a
+    id: bandit1
+    side: red
+    pos: [0, 7000, 46000]
+    heading: 180
+
+  # The wingman, trailing high on the leader's left.
+  - type: fl-base:mig21bis
+    id: bandit2
+    side: red
+    pos: [4000, 7500, 50000]
+    heading: 180
+
+triggers:
+  - on: destroy(bandit1)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(540)
+    do: mission_failure
