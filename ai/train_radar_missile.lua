@@ -14,6 +14,7 @@ local lesson = ins.lesson({
     steps = {
         { name = "airborne", done = function(s) return ins.airborne(s) end },
         { name = "bandit destroyed", done = function(s, self)
+            -- Anchor frame, matching the mission YAML; wide because the bandit is the only red air.
             return ins.live_near(self, { { 30000, 0, 0 } }, 80000.0) == 0
         end },
     },

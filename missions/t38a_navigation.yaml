@@ -13,6 +13,7 @@
 name: "Training 2 — Navigation"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 9, minute: 0 }
 wind: { heading: 250, speed: 5 }
 weather:
@@ -24,7 +25,7 @@ objects:
   - type: fl-base:t38a
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -32,7 +33,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_navigation"
@@ -41,19 +42,19 @@ objects:
   - type: fl-base:ural375
     id: alpha
     side: blue
-    pos: [4000, 0, -22000]
+    pos: [22000, 0, 4000]
     heading: 0
     start: ground
   - type: fl-base:ural375
     id: bravo
     side: blue
-    pos: [20000, 0, -14000]
+    pos: [14000, 0, 18000]
     heading: 0
     start: ground
   - type: fl-base:ural375
     id: charlie
     side: blue
-    pos: [22000, 0, 6000]
+    pos: [-6000, 0, 16000]
     heading: 0
     start: ground
 

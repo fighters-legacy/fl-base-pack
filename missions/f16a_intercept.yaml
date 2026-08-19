@@ -13,6 +13,7 @@
 name: "Falcon and the Aggressor"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 8, minute: 15 }
 wind: { heading: 270, speed: 5 }
 weather:
@@ -20,18 +21,23 @@ weather:
 time_scale: 1.0
 sides: [blue, red]
 objects:
+  # `anchor: home` (engine #1211/#1215): [metres east, MSL altitude, metres north] of the sandbox
+  # home — which puts this mission where its own fiction always was, the Nevada aggressor ranges.
+  # The player parks at the 090 runway's west threshold (runway east -1250 .. +1250 at north 0),
+  # 2450 m of asphalt ahead; it used to sit at the raw world origin 4 km off-field, a spawn that
+  # predates the runway-threshold placement f5e_intercept proved.
   - type: fl-base:f16a
     id: player1
     side: blue
-    pos: [0, 0, 0]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground              # parked, idle, ready for the takeoff roll (#885)
+  # 30 km out to the north-east at 4,000 m, crossing WSW.
   - type: fl-base:f5e
     id: bandit1
     side: red
-    pos: [26000, 0, 14000]
-    alt: 4000
+    pos: [26000, 4000, 14000]
     heading: 250               # no `ai:` — the entity's default fighter.lua attaches (#634)
 triggers:
   - on: destroy(bandit1)

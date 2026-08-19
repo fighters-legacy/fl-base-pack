@@ -8,10 +8,11 @@ local lesson = ins.lesson({
     fail_after_s = 1200,     -- 20 minutes. A first solo is slow; it is not unbounded.
     steps = {
         { name = "airborne",     done = function(s) return ins.airborne(s) end },
-        { name = "climb to 3000 m", done = function(s) return s.pos.y > 3000.0 end },
-        -- Back overhead the field: the turn for home is the part a student skips.
+        { name = "climb to 3000 m", done = function(s) return ins.alt(s) > 3000.0 end },
+        -- Back overhead the field: the turn for home is the part a student skips. The field is the
+        -- mission anchor, so "overhead" is ENU (0, 0).
         { name = "return overhead", done = function(s)
-            return ins.within(s, { ins.FIELD_X, 0, ins.FIELD_Z }, 4000.0)
+            return ins.within(s, { 0, 0, 0 }, 4000.0)
         end },
         { name = "landed",       done = function(s) return ins.landed(s) end },
     },

@@ -15,6 +15,7 @@
 name: "Training 5 — Radar missile employment"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 13, minute: 0 }
 wind: { heading: 250, speed: 6 }
 weather:
@@ -26,7 +27,7 @@ objects:
   - type: fl-base:f16a
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -34,7 +35,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_radar_missile"
@@ -42,8 +43,7 @@ objects:
   - type: fl-base:mig29a
     id: bandit1
     side: red
-    pos: [30000, 0, 0]
-    alt: 6000
+    pos: [30000, 6000, 0]
     heading: 270
 
 triggers:

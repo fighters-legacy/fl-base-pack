@@ -24,11 +24,13 @@
 # mission report still says the timer fired, and the only tell is `live_entities`. That is exactly
 # how it was found during #66 stage 4, so the number is stated here rather than left to a default.
 #
-# ⚠ HEADING 090 IS WORLD +X at this location, verified by probe rather than assumed — local compass
-# directions are longitude-dependent in this world (f5e_intercept sits where east is world −Z, and
-# says so). The trail therefore extends along −X, behind the lead.
+# `anchor: home` (engine #1211/#1215): coordinates are [metres east, MSL altitude, metres north]
+# of the sandbox home, and a heading is a real compass heading everywhere in the mission area. The
+# stream runs eastbound (heading 090) on a track 30 km north of the field; the trail extends west,
+# behind the lead, and the interceptors come the other way down the same track.
 #
-# MEASURED, 36,000-tick headless probe against the engine v0.3.17 RELEASE binaries — read this
+# MEASURED, 36,000-tick headless probe against the engine v0.3.17 RELEASE binaries (at the old
+# pole origin; re-verified against v0.3.18 at the anchor in the migration PR) — read this
 # before "fixing" the altitude:
 #
 #   outcome success at 480 s, 4 objects spawned, 4 live at the end, 1 trigger fired,
@@ -62,6 +64,7 @@
 name: "Lancer Stream"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 5, minute: 40 }        # first light: the penetration window
 wind: { heading: 280, speed: 12 }
 weather:
@@ -84,8 +87,7 @@ objects:
   - type: fl-base:b1b
     id: lancer1
     side: blue
-    pos: [0, 0, 30000]
-    alt: 8000
+    pos: [0, 8000, 30000]
     heading: 90
     speed: 260
     player: true
@@ -102,8 +104,7 @@ objects:
   - type: fl-base:b1b
     id: lancer2
     side: blue
-    pos: [-10000, 0, 30000]
-    alt: 8000
+    pos: [-10000, 8000, 30000]
     heading: 90
     speed: 260
     crew:
@@ -115,8 +116,7 @@ objects:
   - type: fl-base:b1b
     id: lancer3
     side: blue
-    pos: [-20000, 0, 30000]
-    alt: 8000
+    pos: [-20000, 8000, 30000]
     heading: 90
     speed: 260
     crew:
@@ -134,15 +134,13 @@ objects:
   - type: fl-base:mig21bis
     id: bandit1
     side: red
-    pos: [45000, 0, 30000]
-    alt: 7000
+    pos: [45000, 7000, 30000]
     heading: 270
 
   - type: fl-base:mig21bis
     id: bandit2
     side: red
-    pos: [47000, 0, 34000]
-    alt: 7500
+    pos: [47000, 7500, 34000]
     heading: 250
 
 triggers:

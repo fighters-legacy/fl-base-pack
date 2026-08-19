@@ -22,6 +22,7 @@
 name: "Training 6 — Defensive manoeuvring"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 16, minute: 30 }
 wind: { heading: 250, speed: 7 }
 weather:
@@ -33,7 +34,7 @@ objects:
   - type: fl-base:f5e
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -41,7 +42,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_defensive"
@@ -51,9 +52,8 @@ objects:
   - type: fl-base:mig29a
     id: bandit1
     side: red
-    pos: [18000, 0, -6000]
-    alt: 5000
-    heading: 250
+    pos: [14000, 5000, 12000]
+    heading: 210
 
 triggers:
   - on: destroy(player1)

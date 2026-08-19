@@ -11,6 +11,7 @@
 name: "Training 4 — IR missile employment"
 map: world
 layer: world_clear
+anchor: home
 time: { hour: 14, minute: 0 }
 wind: { heading: 260, speed: 5 }
 weather:
@@ -22,7 +23,7 @@ objects:
   - type: fl-base:f5e
     id: player1
     side: blue
-    pos: [4000, 0, 1200]
+    pos: [-1200, 0, 0]
     heading: 90
     player: true
     start: ground
@@ -30,7 +31,7 @@ objects:
   - type: fl-base:ural375
     id: ops
     side: blue
-    pos: [4120, 0, 900]
+    pos: [-900, 0, -120]
     heading: 90
     start: ground
     ai: "lua train_ir_missile"
@@ -39,8 +40,7 @@ objects:
   - type: fl-base:mig21bis
     id: bandit1
     side: red
-    pos: [20000, 0, -20000]
-    alt: 4000
+    pos: [14000, 4000, 20000]
     heading: 200
 
 triggers:

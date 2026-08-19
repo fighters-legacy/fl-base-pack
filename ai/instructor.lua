@@ -20,17 +20,34 @@
 
 local M = {}
 
--- The builtin airfield (engine BuiltinAirport.h): 2500 x 45 m asphalt at worldX 4000, elevation
--- FIXED at 550 m. The runway runs along world Z (z = +1250 .. -1250) — see the note on headings.
-M.FIELD_X, M.FIELD_Z, M.FIELD_ELEV = 4000.0, 0.0, 550.0
+-- ⚑ THE FRAME: every training mission carries `anchor: home` (engine #1211/#1215), so mission
+-- coordinates are [metres east, MSL altitude, metres north] of the sandbox home — and the builtin
+-- airfield stands AT the anchor (engine SandboxHome.h / BuiltinAirport.h), so the field centre is
+-- ENU (0, 0) at a FIXED elevation of 569.6 m, with the 2500 x 45 m runway 090 running along +east
+-- (east -1250 .. +1250 at north ~ 0). The Lua API still hands scripts raw world XYZ, where pos.y is
+-- NOT altitude (it is about -2,604,000 here) — hence M.alt and M.enu below, which every predicate
+-- goes through. Never compare pos.y to an elevation; that was correct only at the old pole origin.
+M.HOME_LAT, M.HOME_LON = 36.24917, -114.99611   -- engine SandboxHome.h, degrees
+M.FIELD_ELEV = 569.6                            -- m MSL, fixed (not terrain-resolved, engine #486)
 M.RUNWAY_HALF_LEN, M.RUNWAY_HALF_WIDTH = 1250.0, 60.0
 
--- ⚠ COMPASS HEADINGS ARE POSITION-DEPENDENT IN THIS WORLD AND THE ORIGIN IS A POLE. Measured:
--- at the origin, heading 90 faces +X; at the field 4 km away, heading 90 faces (0.29, 0, -0.96) —
--- "east" has rotated ~74 degrees over 4 km, because origin ENU east = +X *at the pole*
--- (BuiltinAirport.h:22). So never convert a heading to a world axis by reasoning; place things by
--- world coordinates, and take the field's proven parking spot (pos [4000, 0, 1200], heading 90)
--- from the shipped missions rather than deriving it again.
+local EARTH_R = 6371000.0                       -- engine flight/Geodetic.h kEarthRadiusM
+local DEG = math.pi / 180.0
+local COS_HOME_LAT = math.cos(M.HOME_LAT * DEG)
+
+--- MSL altitude of an entity, metres. The one honest altitude a script can get (engine #1215).
+function M.alt(e)
+    return guidance.altitude(e.pos)
+end
+
+--- ENU offset of a world position from the home anchor: metres east, metres north. Tangent-plane
+--- approximation (small-angle in the latitude difference), good to well under 1% across the
+--- ~30 km training area — fine for every tolerance in this syllabus, none tighter than 60 m.
+function M.enu(pos)
+    local g = guidance.geodetic(pos)
+    return (g.lon - M.HOME_LON) * DEG * COS_HOME_LAT * EARTH_R,
+           (g.lat - M.HOME_LAT) * DEG * EARTH_R
+end
 
 local function dist3(a, b)
     local dx, dy, dz = a.x - b.x, a.y - b.y, a.z - b.z
@@ -93,30 +110,48 @@ function M.student(self_state, tick)
 end
 
 function M.airborne(e)
-    return e.pos.y > M.FIELD_ELEV + 120.0 and M.speed(e) > 60.0
+    return M.alt(e) > M.FIELD_ELEV + 120.0 and M.speed(e) > 60.0
 end
 
 --- On the deck, slow, and over the runway. All three matter: "low and slow" alone is also what a
 --- crash looks like a second before it stops being one, and "on the runway" alone is a taxiing jet.
+--- The runway runs ALONG +EAST from the field centre (heading 090), so the length tolerance is the
+--- east axis and the width tolerance is north — swapped from the old pole-origin field, where the
+--- strip happened to lie along world Z.
 function M.landed(e)
-    return e.pos.y < M.FIELD_ELEV + 12.0
-        and M.speed(e) < 25.0
-        and math.abs(e.pos.x - M.FIELD_X) < M.RUNWAY_HALF_WIDTH
-        and math.abs(e.pos.z - M.FIELD_Z) < M.RUNWAY_HALF_LEN
+    if M.alt(e) >= M.FIELD_ELEV + 12.0 or M.speed(e) >= 25.0 then return false end
+    local east, north = M.enu(e.pos)
+    return math.abs(east) < M.RUNWAY_HALF_LEN
+        and math.abs(north) < M.RUNWAY_HALF_WIDTH
 end
 
+--- Inside `radius_m` of an anchor-frame point `{east, alt, north}` (the same numbers the mission
+--- YAML uses), horizontally — altitude does not count, a waypoint is a place, not a height.
 function M.within(e, point, radius_m)
-    return dist3(e.pos, { x = point[1], y = e.pos.y, z = point[3] }) < radius_m
+    local east, north = M.enu(e.pos)
+    local dx, dz = east - point[1], north - point[3]
+    return math.sqrt(dx * dx + dz * dz) < radius_m
 end
 
---- Count live entities from a list of spawn positions — how a gunnery lesson knows the range is
---- cold without a `destroy()` trigger per target (triggers can only end a mission, not score one).
+--- Count live hostiles standing near a list of anchor-frame points — how a gunnery lesson knows the
+--- range is cold without a `destroy()` trigger per target (triggers can only end a mission, not
+--- score one). One ground-truth query around the instructor, then the precise check in ENU: the
+--- world-XZ shadow of a ground distance shrinks with direction at this latitude, so the query
+--- radius is generous and the real test is the per-point ENU distance.
 function M.live_near(self_state, points, radius_m)
+    local hostiles = {}
+    for _, near in ipairs(nearby_entities(self_state.pos.x, self_state.pos.z, 300000)) do
+        local e = get_entity(near.idx)
+        if e and not e.dead and e.faction ~= self_state.faction then
+            local east, north = M.enu(e.pos)
+            hostiles[#hostiles + 1] = { east = east, north = north }
+        end
+    end
     local live = 0
     for _, p in ipairs(points) do
-        for _, near in ipairs(nearby_entities(p[1], p[3], radius_m)) do
-            local e = get_entity(near.idx)
-            if e and not e.dead and e.faction ~= self_state.faction then
+        for _, h in ipairs(hostiles) do
+            local dx, dz = h.east - p[1], h.north - p[3]
+            if math.sqrt(dx * dx + dz * dz) < radius_m then
                 live = live + 1
                 break
             end
