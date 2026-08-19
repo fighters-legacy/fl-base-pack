@@ -200,6 +200,20 @@ jobs:
       - name: Probe the training syllabus
         run: python3 tools/missiontest/probe_training.py
 
+  strike-missions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Fetch fl-server
+        uses: ./.github/actions/engine-validators
+        with:
+          require: fl-server
+      - name: Probe the strike and instant-action set
+        run: python3 tools/missiontest/probe_strike.py
+
   flight-model-validate:
     runs-on: ubuntu-latest
     # HARD GATE (#7). validate-flight-model (post-#823) knows that `aero.drag_polar.k = 0.0` is

@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# INSTANT ACTION — DOGFIGHT (fl-base-pack#3): the head-on merge, 6 km and closing.
+#
+# f5e_intercept stages the same pairing from a cold start — runway, climb-out, search. This is the
+# other end of the same fight: airborne, co-speed, nose-on, merge in about fifteen seconds. The
+# F-5E flies its default fit (gun + two AIM-9P) against the MiG-21bis's delta, R-60Ms and GSh-23L,
+# both on the same unforked ai/fighter.lua when AI-flown — the asymmetry is the airframes, which
+# is the point (see f5e_intercept's header for the aggressor history).
+#
+# 500 m of altitude split at the merge, bandit high: a fight that starts perfectly neutral starts
+# stalled. The draw timer is 540 s, under the headless report loop's 600 s cap on purpose (a
+# timer(600) sits on the last tick and cannot be seen to fire — found probing mig29a_bvr).
+
+name: "Instant Action — Dogfight"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 10, minute: 30 }
+wind: { heading: 250, speed: 4 }
+weather:
+  preset: clear
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  - type: fl-base:f5e
+    id: player1
+    side: blue
+    pos: [0, 4000, 8000]
+    heading: 0
+    speed: 200
+    player: true
+
+  - type: fl-base:mig21bis
+    id: bandit1
+    side: red
+    pos: [0, 4500, 14000]
+    heading: 180
+
+triggers:
+  - on: destroy(bandit1)
+    do: mission_success
+  - on: destroy(player1)
+    do: mission_failure
+  - on: timer(540)
+    do: mission_failure

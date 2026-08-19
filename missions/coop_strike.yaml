@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: Contributors to fl-base-pack
+# SPDX-License-Identifier: CC-BY-4.0
+#
+# coop_strike — THE TWO-CLIENT COOP STRIKE (fl-base-pack#3), the mission the v0.4.0 Stage-4
+# acceptance names by shape: two joinable slots, a defended ground target, scored objectives.
+#
+# THE PACKAGE: two F-16As off the home runway. Lead carries the strike — two Mk 82s, the weapon the
+# fuel depot's 400 hp is sized against (two hits = the target). The wingman carries suppression —
+# two LAU-3 pods for the air defences — because a package where both jets carry the same thing is
+# a formation, not a division of labour. `loadout:` on a player slot works since engine #1214 and
+# is a FIXED fit (no loadout screen exists yet).
+#
+# THE DEFENCE, sited from measurement, not fiction:
+#
+#   * The SA-6 battery sits 4 km SOUTH-WEST of the depot — astride the direct run-in from the home
+#     field — and FACES the ingress (heading 40 -> reciprocal of the 220 bearing home). ⚑ FACING IS
+#     LETHALITY: the acquisition cone is body-forward, and the measured envelope (v0.3.18, at this
+#     anchor) is `sam 15000`, head-on into its face, ~3,000 m: a full 3-round engagement and a kill
+#     in 73-99 s. A battery faced away gets one hopeless rear-aspect shot. So the direct approach
+#     at altitude is DEATH, and the mission is won by the brief: offset north, or come in low, or
+#     spend the wingman's rockets on the battery first. Attrition is honest — one 3M9M hit costs
+#     about half an airframe.
+#   * The Shilka parks at the depot fence and punishes the run-in the SA-6 denies from range.
+#   * A MiG-21bis flies CAP beyond the target. No `ai:` — its default fighter.lua patrols where it
+#     spawns and comes for whatever its own sensors find. It is NOT an objective: a strike package
+#     that turns to dogfight has already failed at its job.
+#
+# OBJECTIVES: ai/strike_director.lua (on the ops truck — `ai:` is ignored on player slots) scores
+# one objective per group down via world.score_objective and ends the mission when the depot area
+# is dead. Run the server with mode `builtin:strike` and the objectives are worth 10 points each;
+# under the default free-flight the scoring calls are inert and the mission still completes.
+#
+# ⚑ HEADLESS NOTE: stripping `player:` from both slots hands the jets to fighter.lua, which flies
+# air-to-air only — no probe can fly the strike itself. tools/missiontest/probe_strike.py proves
+# spawn, the SAM's engagement, the director's scoring path and both end states instead; flying it
+# two-client to completion is the #1065 gameplay audit's job.
+
+name: "Depot Strike"
+map: world
+layer: world_clear
+anchor: home
+time: { hour: 7, minute: 30 }
+wind: { heading: 250, speed: 5 }
+weather:
+  preset: partly_cloudy
+time_scale: 1.0
+
+sides: [blue, red]
+
+objects:
+  # ── The package: two slots, parked in takeoff order on runway 090 ────────────────────────────
+  - type: fl-base:f16a
+    id: player1
+    side: blue
+    pos: [-1150, 0, -10]
+    heading: 90
+    player: true
+    start: ground
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:mk82, fl-base:mk82]
+
+  - type: fl-base:f16a
+    id: player2
+    side: blue
+    pos: [-1230, 0, 10]
+    heading: 90
+    player: true
+    start: ground
+    loadout: [fl-base:m61a1, fl-base:aim9p, fl-base:aim9p, "~", "~", "~", "~",
+              fl-base:lau3, fl-base:lau3]
+
+  # The director rides the ops truck; coordinates in ai/strike_director.lua must agree with the
+  # red positions below.
+  - type: fl-base:ural375
+    id: ops
+    side: blue
+    pos: [-900, 0, -120]
+    heading: 90
+    start: ground
+    ai: "lua strike_director"
+
+  # ── The target complex, 38 km out on the 040 radial ──────────────────────────────────────────
+  - type: fl-base:fuel_depot
+    id: depot
+    side: red
+    pos: [30000, 0, 24000]
+    heading: 0
+    start: ground
+
+  # Astride the direct run-in, facing it. See the siting note above before "fixing" the heading.
+  - type: fl-base:sa6_battery
+    id: sam1
+    side: red
+    pos: [27000, 0, 21500]
+    heading: 40
+    start: ground
+    ai: "sam 15000"
+
+  - type: fl-base:zsu23_4
+    id: flak1
+    side: red
+    pos: [29600, 0, 23700]
+    heading: 220
+    start: ground
+    ai: "aaa"
+
+  # Targets of opportunity, parked OUTSIDE the depot objective radius on purpose — see the
+  # director's group note.
+  - type: fl-base:ural375
+    id: truck1
+    side: red
+    pos: [30500, 0, 23600]
+    heading: 0
+    start: ground
+  - type: fl-base:ural375
+    id: truck2
+    side: red
+    pos: [29500, 0, 24500]
+    heading: 0
+    start: ground
+
+  # CAP beyond the target. Not an objective; see the header.
+  - type: fl-base:mig21bis
+    id: cap1
+    side: red
+    pos: [34000, 4500, 28000]
+    heading: 225
+
+triggers:
+  # Losing the LEAD ends it — the bombs are on that jet. The wingman is not expendable, but a
+  # package that loses its suppression and presses is a judgment call, not a scripted failure.
+  # An UNOCCUPIED slot is not "destroyed" (engine #884), so neither fires before a pilot joins.
+  - on: destroy(player1)
+    do: mission_failure
+
+  # The backstop clock; the director calls the mission failed at 1740 s so this should never be
+  # the one that fires.
+  - on: timer(1800)
+    do: mission_failure
