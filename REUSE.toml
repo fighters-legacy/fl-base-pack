@@ -21,6 +21,21 @@ path = ["audio/radio/**.ogg", "audio/music/**.ogg"]
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
 
+# Terrain tiles (#2) — derived works of third-party geodata, NOT pack-copyright content: the `**`
+# default above would put a false claim on them. Two annotations because the two layers derive
+# from different sources under different licences; the land-cover rule comes second so it wins for
+# `*_lc.png` under REUSE.toml's last-match precedence. Attribution + provenance:
+# terrain/ATTRIBUTION.md (both sources REQUIRE the notice to travel with the data).
+[[annotations]]
+path = "terrain/world/**"
+SPDX-FileCopyrightText = "© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+SPDX-License-Identifier = "LicenseRef-Copernicus-DEM"
+
+[[annotations]]
+path = "terrain/world/**_lc.png"
+SPDX-FileCopyrightText = "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by the ESA WorldCover consortium"
+SPDX-License-Identifier = "CC-BY-4.0"
+
 # Vendored three.js (tools/gltf-inspect) — a third party's MIT-licensed work, not pack content.
 # It is committed rather than fetched so the stopgap viewer works offline with no build step.
 # Pinned to r160; to update, re-download the same file set at a new tag and keep this annotation.
